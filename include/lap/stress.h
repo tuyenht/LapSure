@@ -1,6 +1,7 @@
 #pragma once
 #include "model.h"
 #include "environment.h"
+#include "hardware.h"
 #include <atomic>
 #include <string>
 

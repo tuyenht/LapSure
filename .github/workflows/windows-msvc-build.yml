@@ -6,13 +6,24 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
+
+      - name: Core source sanity
+        shell: cmd
+        run: |
+          python tests\source_sanity.py
+          python tests\repo_integration_sanity.py
+          python tests\beta01_build_validation_sanity.py
+
+      - name: Configure MSVC x64 strict
         shell: cmd
         run: cmake --preset msvc-x64-ci
-      - name: Build
+
+      - name: Build Release
         shell: cmd
         run: cmake --build --preset build-msvc-x64-ci
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
         with:
           name: LapSure-windows-x64
           path: out/build/msvc-x64-ci/Release/LapSure.exe

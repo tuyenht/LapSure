@@ -20,7 +20,8 @@ if(MSVC)
 else()
   target_compile_options(LapSure PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-target_link_libraries(LapSure PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm mfplat mfreadwrite mfuuid wlanapi bthprops)
+# mf.lib provides MFEnumDeviceSources; uuid.lib provides Windows DEVPROPKEY/GUID definitions.
+target_link_libraries(LapSure PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm mf mfplat mfreadwrite mfuuid wlanapi bthprops uuid)
 install(TARGETS LapSure RUNTIME DESTINATION .)
 
 option(LAPSURE_STRICT_WARNINGS "Treat MSVC warnings as errors in CI" OFF)

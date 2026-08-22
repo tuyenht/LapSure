@@ -1,0 +1,3 @@
+# cpu_contains	low_score	high_score	source
+# BuiltIn-FP-Mix-v1 only.
+# Intentionally no numeric baselines are shipped until validated on a controlled reference fleet.

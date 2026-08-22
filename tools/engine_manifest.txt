@@ -1,0 +1,5 @@
+# Trusted engine allowlist
+# Format: logical_name=lowercase_sha256
+# Fill only after reviewing a specific memtest_vulkan release binary.
+memtest_vulkan=
+lhm_bridge=

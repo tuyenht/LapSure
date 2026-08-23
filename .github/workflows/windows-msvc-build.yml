@@ -31,8 +31,8 @@ jobs:
         shell: powershell
         run: |
           $out = ".\out\inventory-preflight"
-          & ".\out\build\msvc-x64-ci\Release\LapSure.exe" --inventory-only --output $out
-          if ($LASTEXITCODE -ne 0) { throw "Inventory-only preflight exited $LASTEXITCODE" }
+          $process = Start-Process -FilePath ".\out\build\msvc-x64-ci\Release\LapSure.exe" -ArgumentList @("--inventory-only", "--output", $out) -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Inventory-only preflight exited $($process.ExitCode)" }
           $json = Get-ChildItem -LiteralPath $out -Filter "*.json" | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
           if (!$json) { throw "Inventory-only JSON report was not created" }
           $report = Get-Content -LiteralPath $json.FullName -Raw -Encoding UTF8 | ConvertFrom-Json

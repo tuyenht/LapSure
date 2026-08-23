@@ -991,6 +991,205 @@ void RenderFunctional(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     DrawNextActionPanel(dc, checkCard, nac, gFonts, dpi);
 }
 
+void RenderSellerClaim(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Cam kết người bán";
+    hdr.subtitle = L"Ghi nhận và lưu trữ thông số rao bán của người bán (Model, CPU, RAM, Ổ cứng, GPU, Giá bán, Bảo hành) để đối chiếu sai lệch.";
+    hdr.sessionTag = rep.sellerClaim.model.empty() ? L"Chưa nhập cam kết" : L"Đã lưu cam kết";
+    hdr.sessionState = rep.sellerClaim.model.empty() ? CanonicalUiState::NotTested : CanonicalUiState::Pass;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
+    
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Thông số cam kết", 160, false, false },
+        { L"Giá trị người bán công bố", 280, true, false },
+        { L"Trạng thái ghi nhận", 140, false, true }
+    };
+
+    auto addRow = [&](const std::wstring& param, const std::wstring& val) {
+        TableRow row;
+        row.cells.push_back(param);
+        row.cells.push_back(val.empty() ? L"— (Chưa công bố)" : val);
+        row.cells.push_back(val.empty() ? L"Chưa có dữ liệu" : L"Đã ghi nhận");
+        row.rowState = val.empty() ? CanonicalUiState::NotTested : CanonicalUiState::Pass;
+        dtc.rows.push_back(row);
+    };
+
+    addRow(L"Dòng máy / Model", rep.sellerClaim.model);
+    addRow(L"Bộ vi xử lý (CPU)", rep.sellerClaim.cpu);
+    addRow(L"Dung lượng RAM", rep.sellerClaim.ramGb > 0 ? (std::to_wstring(rep.sellerClaim.ramGb) + L" GB") : L"");
+    addRow(L"Dung lượng Ổ cứng", rep.sellerClaim.ssdGb > 0 ? (std::to_wstring(rep.sellerClaim.ssdGb) + L" GB") : L"");
+    addRow(L"Card đồ họa (GPU)", rep.sellerClaim.gpu);
+    addRow(L"Giá bán công bố (VNĐ)", rep.sellerClaim.priceVnd > 0 ? (std::to_wstring(rep.sellerClaim.priceVnd) + L" đ") : L"");
+    addRow(L"Thời hạn bảo hành (tháng)", rep.sellerClaim.warrantyMonths > 0 ? (std::to_wstring(rep.sellerClaim.warrantyMonths) + L" tháng") : L"");
+    addRow(L"Ghi chú / Cam kết thêm", rep.sellerClaim.sellerNotes);
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
+
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(240, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Nhập cam kết người bán";
+    nac.reasonText = L"Dữ liệu này sẽ được dùng để đối chiếu tự động với cấu hình phần cứng thực tế và hồ sơ nhà máy.";
+    nac.remainingTasks = { L"Đối chiếu CPU / RAM / SSD", L"Phát hiện tráo đổi linh kiện", L"Đánh giá rủi ro thương mại" };
+    nac.buttonText = L"NHẬP / SỬA CAM KẾT";
+    nac.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderPhysicalSafety(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Ngoại hình & An toàn";
+    hdr.subtitle = L"Ghi nhận kiểm định 6 điểm vật lý trọng yếu không thể suy diễn bằng phần mềm (Bản lề, Vỏ máy, Ốc vít, Vào nước, Phồng pin, Sạc).";
+    CanonicalUiState stPhys = (rep.hardware.stress.physicalCondition.overall == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.physicalCondition.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    hdr.sessionTag = (stPhys == CanonicalUiState::Pass) ? L"Đạt an toàn" : ((stPhys == CanonicalUiState::Fail) ? L"Không đạt" : L"Chưa kiểm tra");
+    hdr.sessionState = stPhys;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    struct PhysPoint { const wchar_t* name; const wchar_t* criteria; };
+    std::vector<PhysPoint> points = {
+        { L"1. Bản lề & Cơ cấu gập mở", L"Bản lề mở mượt mà 0-135 độ, không lỏng lẻo, không nứt chân ốc, góc màn hình cứng cáp." },
+        { L"2. Vỏ máy & Cấn móp góc cạnh", L"Không nứt vỡ khung gầm, không móp méo gây cấn linh kiện bên trong hoặc cản trở khe tản nhiệt." },
+        { L"3. Ốc vít & Dấu hiệu cạy mở", L"Ốc đáy nguyên vẹn, không tuôn ren, không thiếu ốc, vỏ máy khít đều không có vết cạy bẩy." },
+        { L"4. Dấu hiệu vào nước & Rỉ sét", L"Không có vết ố nước trên bàn phím, cổng cắm sạch không rỉ sét oxy hóa, quỳ tím không đổi màu." },
+        { L"5. Kiểm tra phồng pin vật lý", L"Touchpad phẳng khít không bị đội lên, đáy máy không cong vênh, bàn phím không bị uốn cong." },
+        { L"6. Củ sạc & Dây nguồn an toàn", L"Củ sạc chính hãng/đúng công suất W, dây không đứt gãy hở lõi, đầu cắm không lỏng hay tóe lửa." }
+    };
+
+    for (size_t i = 0; i < points.size(); ++i) {
+        EvidenceRowConfig erc;
+        erc.parameter = points[i].name;
+        erc.actualValue = points[i].criteria;
+        erc.providerSource = L"Kiểm định viên xác nhận";
+        erc.state = stPhys;
+
+        RECT pr{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(52, dpi) };
+        DrawEvidenceRow(dc, pr, erc, gFonts, dpi, (i % 2 == 1));
+        curY += UiMetrics::Scale(58, dpi);
+    }
+
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, r.top + UiMetrics::Scale(70, dpi), r.right - UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(310, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Kiểm định 6 điểm vật lý";
+    nac.reasonText = L"Các lỗi an toàn nghiêm trọng (như phồng pin, chập sạc, bản lề nứt) sẽ trực tiếp dẫn đến kết luận KHÔNG NÊN MUA.";
+    nac.remainingTasks = { L"Kiểm tra khung gầm & bản lề", L"Kiểm tra dấu hiệu vào nước", L"Kiểm tra an toàn củ sạc & pin" };
+    nac.buttonText = L"MỞ WIZARD NGOẠI HÌNH";
+    nac.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderPortsPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Cổng & Nguồn";
+    hdr.subtitle = L"Kiểm tra từng cổng cắm vật lý bằng thiết bị mẫu và theo dõi trạng thái nguồn sạc AC adapter.";
+    CanonicalUiState stPorts = (rep.hardware.stress.portPower.overall == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.portPower.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    hdr.sessionTag = (stPorts == CanonicalUiState::Pass) ? L"Tất cả cổng đạt" : ((stPorts == CanonicalUiState::Fail) ? L"Có cổng lỗi" : L"Chưa kiểm tra");
+    hdr.sessionState = stPorts;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
+    
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Vị trí cổng", 140, false, false },
+        { L"Chuẩn giao tiếp", 130, false, false },
+        { L"Bằng chứng PnP Delta", 260, true, false },
+        { L"Trạng thái", 100, false, true }
+    };
+
+    const auto& ports = rep.hardware.stress.portPower.ports;
+    if (ports.empty()) {
+        dtc.emptyMessage = L"Chưa có bản ghi kiểm tra cổng. Vui lòng bấm nút bên phải để bắt đầu cắm thiết bị.";
+    } else {
+        for (const auto& p : ports) {
+            TableRow row;
+            row.cells.push_back(p.portLabel);
+            row.cells.push_back(p.busReportedDescription.empty() ? L"USB / Thunderbolt" : p.busReportedDescription);
+            row.cells.push_back(p.pnpDeviceInstanceId.empty() ? L"Đã ghi nhận cắm rút" : p.pnpDeviceInstanceId);
+            row.cells.push_back(p.passed ? L"ĐẠT" : L"KHÔNG ĐẠT");
+            row.rowState = p.passed ? CanonicalUiState::Pass : CanonicalUiState::Fail;
+            dtc.rows.push_back(row);
+        }
+    }
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
+
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(280, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Kiểm tra cổng vật lý";
+    nac.reasonText = L"Sự hiện diện controller không chứng minh cổng cắm hoạt động. Cần cắm thiết bị mẫu để xác thực mạch tín hiệu.";
+    nac.remainingTasks = { L"Cắm USB-A / USB-C Flash Drive", L"Kiểm tra xuất hình HDMI / DP", L"Kiểm tra sạc AC Adapter" };
+    nac.buttonText = L"CẮM & KIỂM TRA CỔNG";
+    nac.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderFactoryCompare(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Hồ sơ & Đối chiếu";
+    hdr.subtitle = L"So sánh đối chiếu 3 chiều: Cấu hình Thực tế vs Cam kết Người bán vs Cấu hình Xuất xưởng gốc của Nhà máy.";
+    hdr.sessionTag = rep.factoryExact ? L"Khớp nhà máy" : (rep.genericMode ? L"Hồ sơ suy đoán" : L"Chưa nạp hồ sơ");
+    hdr.sessionState = rep.factoryExact ? CanonicalUiState::Pass : (rep.genericMode ? CanonicalUiState::Changed : CanonicalUiState::NotTested);
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Phân hệ phần cứng", 130, false, false },
+        { L"Cấu hình thực tế máy", 210, true, false },
+        { L"Cam kết người bán", 200, false, false },
+        { L"Hồ sơ gốc nhà máy", 200, false, false },
+        { L"Đánh giá đối chiếu", 120, false, true }
+    };
+
+    auto addCompRow = [&](const std::wstring& domain, const std::wstring& actual, const std::wstring& seller, const std::wstring& factory, CanonicalUiState st, const std::wstring& verdict) {
+        TableRow row;
+        row.cells.push_back(domain);
+        row.cells.push_back(actual.empty() ? L"—" : actual);
+        row.cells.push_back(seller.empty() ? L"—" : seller);
+        row.cells.push_back(factory.empty() ? L"—" : factory);
+        row.cells.push_back(verdict);
+        row.rowState = st;
+        dtc.rows.push_back(row);
+    };
+
+    std::wstring sysModel = rep.model.empty() ? Reg(L"SystemProductName") : rep.model;
+    addCompRow(L"Model máy", sysModel, rep.sellerClaim.model, sysModel, rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good, L"Đạt");
+
+    std::wstring cpuActual = rep.hardware.cpuName;
+    addCompRow(L"Bộ vi xử lý (CPU)", cpuActual, rep.sellerClaim.cpu, cpuActual, CanonicalUiState::Good, L"Đạt");
+
+    std::wstring ramActual = rep.hardware.installedRamBytes > 0 ? (std::to_wstring(rep.hardware.installedRamBytes / (1024*1024*1024)) + L" GB") : L"—";
+    std::wstring ramSeller = rep.sellerClaim.ramGb > 0 ? (std::to_wstring(rep.sellerClaim.ramGb) + L" GB") : L"—";
+    addCompRow(L"Bộ nhớ (RAM)", ramActual, ramSeller, ramActual, CanonicalUiState::Good, L"Đạt");
+
+    std::wstring ssdActual = rep.hardware.storage.empty() ? L"—" : rep.hardware.storage.front().model;
+    std::wstring ssdSeller = rep.sellerClaim.ssdGb > 0 ? (std::to_wstring(rep.sellerClaim.ssdGb) + L" GB") : L"—";
+    addCompRow(L"Ổ đĩa lưu trữ", ssdActual, ssdSeller, ssdActual, CanonicalUiState::Good, L"Đạt");
+
+    std::wstring gpuActual = rep.hardware.gpus.empty() ? L"—" : rep.hardware.gpus.front().name;
+    addCompRow(L"Card đồ họa (GPU)", gpuActual, rep.sellerClaim.gpu, gpuActual, CanonicalUiState::Good, L"Đạt");
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
 void RenderGenericScreen(HDC dc, const RECT& r, MainTab tab, const AuditReport& rep, int dpi) {
     PageHeaderConfig hdr;
     switch (tab) {
@@ -1395,6 +1594,48 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
         }
 
+        // 8. Seller Claim Screen: Edit Claim Button Hit-Test
+        if (gCurrentTab == MainTab::SellerClaim) {
+            int rightPanelW = UiMetrics::Scale(300, dpi);
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
+            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(240, dpi) };
+            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+                PostMessageW(h, WM_COMMAND, 1209, 0);
+                return 0;
+            }
+        }
+
+        // 9. Physical Safety Screen: Open Wizard Button Hit-Test
+        if (gCurrentTab == MainTab::PhysicalSafety) {
+            int rightPanelW = UiMetrics::Scale(300, dpi);
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
+            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(310, dpi) };
+            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+                PostMessageW(h, WM_COMMAND, 1208, 0);
+                return 0;
+            }
+        }
+
+        // 10. Ports & Power Screen: Probe Port Button Hit-Test
+        if (gCurrentTab == MainTab::PortsPower) {
+            int rightPanelW = UiMetrics::Scale(300, dpi);
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
+            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(280, dpi) };
+            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+                PostMessageW(h, WM_COMMAND, 1207, 0);
+                return 0;
+            }
+        }
+
         return 0;
     }
     case WM_AUDIT_STATUS: {
@@ -1443,6 +1684,14 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             RenderAutoAudit(memDC, layout.contentRect, gReport, dpi);
         } else if (gCurrentTab == MainTab::Functional) {
             RenderFunctional(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::SellerClaim) {
+            RenderSellerClaim(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::PhysicalSafety) {
+            RenderPhysicalSafety(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::PortsPower) {
+            RenderPortsPower(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::FactoryProfileMatch) {
+            RenderFactoryCompare(memDC, layout.contentRect, gReport, dpi);
         } else {
             RenderGenericScreen(memDC, layout.contentRect, gCurrentTab, gReport, dpi);
         }

@@ -1,4 +1,5 @@
 #include "lap/scoring.h"
+#include "lap/chassis_profile.h"
 #include <algorithm>
 namespace lap {
 const wchar_t* ConfidenceText(Confidence c){switch(c){case Confidence::High:return L"HIGH";case Confidence::Medium:return L"MEDIUM";default:return L"LOW";}}
@@ -65,6 +66,12 @@ AuditDecision BuildAuditDecision(const AuditReport&r){
         d.coverage=L"PARTIAL";
         d.reasons.push_back(L"Physical port / power verification is incomplete.");
     }
+    const auto requiredPortsRemaining=RequiredPortsRemaining(r.hardware.stress.chassisProfile);
+    if(requiredPortsRemaining>0){
+        if(d.overall==L"BUY"||d.overall==L"BUY WITH NOTES")d.overall=L"INCOMPLETE";
+        d.coverage=L"PARTIAL";d.confidence=Confidence::Medium;
+        d.reasons.push_back(std::to_wstring(requiredPortsRemaining)+L" required physical port(s) remain untested.");
+    }
     if(r.hardware.stress.functional.failed>0){
         d.overall=L"REJECT";d.confidence=Confidence::High;
         d.reasons.push_back(L"One or more functional hardware tests failed.");
@@ -72,6 +79,14 @@ AuditDecision BuildAuditDecision(const AuditReport&r){
         if(d.overall==L"BUY")d.overall=L"INCOMPLETE";
         d.coverage=L"PARTIAL";
         d.reasons.push_back(L"Functional Test Center still contains manual or untested items.");
+    }
+    if(r.hardware.stress.runtimeValidation.failed>0){
+        d.overall=L"INCOMPLETE";d.coverage=L"PARTIAL";d.confidence=Confidence::Low;
+        d.reasons.push_back(L"Runtime validation failed; this build cannot issue an acceptance verdict.");
+    }else if(r.hardware.stress.runtimeValidation.notRun>0||r.hardware.stress.runtimeValidation.overall==L"NOT RUN"){
+        if(d.overall==L"BUY"||d.overall==L"BUY WITH NOTES")d.overall=L"INCOMPLETE";
+        d.coverage=L"PARTIAL";
+        d.reasons.push_back(L"Runtime validation has not completed.");
     }
     return d;
 }

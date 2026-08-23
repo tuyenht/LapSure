@@ -66,6 +66,7 @@ void AuditWorker(HWND h){
   if(!gCancel){PostStatus(h,L"Đang đọc màn hình, BIOS, TPM và Event Log...");CollectPlatformForensics(report,profile,caps,gDir,&gCancel);CollectFunctionalPresence(report,caps,&gCancel);CollectPortPowerBaseline(report);report.hardware.stress.chassisProfile=LoadChassisProfile(gDir,report.model);}
   if(!gCancel){PostStatus(h,L"Đang chạy "+gSelectedMode+L" Stress: CPU + RAM + GPU/VRAM stability...");RunStressSession(report,caps,gDir,MakeStressPlan(gSelectedMode),&gCancel);}
   if(!gCancel){PostStatus(h,L"Đang chạy Runtime Validation Gate...");RunRuntimeValidation(report,caps,gDir);}
+  if(!gCancel){report.hardware.stress.decision=BuildAuditDecision(report);BuildOrchestrator(report,false,true);}
   std::wstring reportPath;
   if(!gCancel){auto out=ResolveReportDirectory(gDir,caps.winPE);reportPath=SaveHtmlReport(report,out);SaveJsonReport(report,out);}
   {

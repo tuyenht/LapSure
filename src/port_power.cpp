@@ -46,6 +46,7 @@ std::wstring SpeedHint(const Dev&x){
 }
 }
 void RecalculatePortPowerSummary(PortPowerSummary&s){
+ if(s.ports.empty()){s.overall=L"INCOMPLETE";return;}
  bool fail=false,incomplete=false;for(auto&p:s.ports){if(p.verdict==L"FAIL")fail=true;if(p.verdict==L"NOT TESTED"||p.verdict==L"PARTIAL")incomplete=true;}
  s.overall=fail?L"FAIL":incomplete?L"INCOMPLETE":L"PASS";
 }

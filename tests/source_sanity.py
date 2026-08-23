@@ -12,6 +12,7 @@ rep=(ROOT/'src/report.cpp').read_text(encoding='utf-8')
 cm=(ROOT/'CMakeLists.txt').read_text(encoding='utf-8')
 main=(ROOT/'src/main.cpp').read_text(encoding='utf-8')
 fore=(ROOT/'src/forensics.cpp').read_text(encoding='utf-8')
+fn=(ROOT/'src/functional.cpp').read_text(encoding='utf-8')
 profile=json.loads((ROOT/'profiles/Dell_Precision_5560_3ZJC6M3.json').read_text(encoding='utf-8'))
 
 check('No broken PowerShell %%{ alias', '%%{' not in inv)
@@ -46,6 +47,9 @@ check('Physical wizard is Vietnamese and in-app', 'Kiểm tra ngoại hình và 
 check('Seller claim form captures core advertised configuration', all(x in acq for x in ['Model người bán ghi','RAM (GB)','Ổ lưu trữ (GB)','Giá bán (VNĐ']) and 'Cấu hình bán' in main)
 check('Seller claim mismatch is critical purchase evidence', 'ApplySellerClaimComparison' in acq and 'Severity::Critical' in acq)
 check('Seller claim is coverage-gated', 'seller_claim' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8') and 'claimComplete' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8'))
+check('Keyboard visual matrix implemented', 'LAP_KEY_VISUAL_TEST' in fn and 'kAnsiLayout' in fn)
+check('Display defect classifier implemented', 'LAP_DISPLAY_DEFECT_FORM' in fn and 'Backlight bleed' in fn)
+check('Touchpad click and scroll coverage', 'leftClicked' in fn and 'scrollEvents' in fn)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

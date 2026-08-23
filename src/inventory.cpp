@@ -18,6 +18,20 @@ static std::wstring GetRegString(HKEY root,const wchar_t* sub,const wchar_t* nam
 static bool ContainsI(std::wstring a,std::wstring b){std::transform(a.begin(),a.end(),a.begin(),towlower);std::transform(b.begin(),b.end(),b.begin(),towlower);return a.find(b)!=std::wstring::npos;}
 static double Gib(uint64_t b){return (double)b/(1024.0*1024.0*1024.0);}
 static std::wstring F1(double x){wchar_t b[64];swprintf_s(b,L"%.1f",x);return b;}
+static std::wstring DellServiceTagToExpressCode(const std::wstring& tag) {
+    if (tag.empty() || tag.size() > 10) return L"";
+    uint64_t val = 0;
+    for (wchar_t c : tag) {
+        int digit = -1;
+        if (c >= L'0' && c <= L'9') digit = c - L'0';
+        else if (c >= L'A' && c <= L'Z') digit = c - L'A' + 10;
+        else if (c >= L'a' && c <= L'z') digit = c - L'a' + 10;
+        if (digit < 0 || digit >= 36) return L"";
+        val = val * 36 + digit;
+    }
+    return std::to_wstring(val);
+}
+
 static State BatteryState(double health){if(health<0)return State::NotTested;if(health>=85)return State::Pass;if(health>=80)return State::Good;if(health>=70)return State::Warning;return State::Fail;}
 
 AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,const std::wstring&,const std::atomic_bool* cancel){
@@ -30,6 +44,11 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
  else Add(r,L"Machine",L"Model",r.model,L"Generic audit",State::Info,Severity::Info,Dimension::Identity);
  if(!p.serviceTag.empty())Add(r,L"Machine",L"Service Tag",r.serviceTag,p.serviceTag,r.serviceTag==p.serviceTag?State::Pass:State::Fail,Severity::Critical,Dimension::Factory);
  else Add(r,L"Machine",L"Service Tag",r.serviceTag,L"No exact factory profile",State::Info,Severity::Info,Dimension::Identity);
+ if(!r.serviceTag.empty() && (ContainsI(r.model,L"Dell")||ContainsI(r.model,L"Latitude")||ContainsI(r.model,L"Precision")||ContainsI(r.model,L"XPS")||ContainsI(r.model,L"Inspiron")||ContainsI(r.model,L"Vostro")||ContainsI(r.model,L"Alienware")||ContainsI(r.model,L"G15")||ContainsI(r.model,L"G16"))){
+   auto expressCode = DellServiceTagToExpressCode(r.serviceTag);
+   if(!expressCode.empty()) Add(r,L"Dell OEM Identity",L"Express Service Code",expressCode,L"Khớp Base36 Service Tag",State::Good,Severity::Info,Dimension::Identity,L"Dell Base36 Math Algorithm");
+   Add(r,L"Dell OEM Identity",L"Tra cứu bảo hành & Driver Dell",L"https://www.dell.com/support/home/product-support/servicetag/"+r.serviceTag+L"/overview",L"Dell Official Portal",State::Good,Severity::Info,Dimension::Identity,L"Dell Support URL");
+ }
 
  r.hardware.cpuName=CpuBrand();
  SYSTEM_INFO si{};GetNativeSystemInfo(&si);r.hardware.cpuThreads=si.dwNumberOfProcessors;

@@ -1,0 +1,12 @@
+profileId=dell_latitude_5410
+modelContains=Latitude 5410
+displayName=Dell Latitude 5410
+validationStatus=draft
+reference=Official Dell Latitude 5410 Setup and Specifications
+port=left_usbc|Left USB-C / Thunderbolt 3|Left|USB-C|USB-C 3.2 Gen 2 / Thunderbolt 3 / Power Delivery|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_hdmi|Right HDMI 1.4b|Right|HDMI|HDMI 1.4b|true
+port=right_usb_a1|Right USB 3.2 Gen 1 (PowerShare)|Right|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD card reader|true

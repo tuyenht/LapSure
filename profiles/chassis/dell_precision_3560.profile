@@ -1,0 +1,12 @@
+profileId=dell_precision_3560
+modelContains=Precision 3560
+displayName=Dell Precision 3560 Workstation
+validationStatus=draft
+reference=Official Dell Precision 3560 Setup and Specifications
+port=left_tb4_top|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / Power Delivery|true
+port=left_tb4_bottom|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / Power Delivery|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true
+port=right_usb_a1|Right USB 3.2 Gen 1 (PowerShare)|Right|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD card reader|true

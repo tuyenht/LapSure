@@ -1,0 +1,10 @@
+profileId=dell_xps_17_9710
+modelContains=XPS 17 9710
+displayName=Dell XPS 17 9710
+validationStatus=draft
+reference=Official Dell XPS 17 9710 Setup and Specifications
+port=left_tb4_top|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=left_tb4_bottom|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_tb4_top|Right Thunderbolt 4 #3|Right|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_tb4_bottom|Right Thunderbolt 4 #4|Right|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_sd|Right Full-size SD Card Slot|Right|SD|SD card reader v6.0|true

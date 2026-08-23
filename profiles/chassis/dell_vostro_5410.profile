@@ -1,0 +1,11 @@
+profileId=dell_vostro_5410
+modelContains=Vostro 5410
+displayName=Dell Vostro 5410
+validationStatus=draft
+reference=Official Dell Vostro 5410 Setup and Specifications
+port=left_tb4|Left Thunderbolt 4 / USB-C|Left|USB-C|Thunderbolt 4 / USB-C with Power Delivery and DisplayPort|true
+port=left_hdmi|Left HDMI 1.4b|Left|HDMI|HDMI 1.4b|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD card reader|true

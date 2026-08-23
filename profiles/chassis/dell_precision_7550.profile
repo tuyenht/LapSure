@@ -1,0 +1,13 @@
+profileId=dell_precision_7550
+modelContains=Precision 7550
+displayName=Dell Precision 7550 Heavy Workstation
+validationStatus=draft
+reference=Official Dell Precision 7550 Setup and Specifications
+port=left_tb3_top|Left Thunderbolt 3 #1|Left|USB-C|Thunderbolt 3 / DP / Power Delivery|true
+port=left_tb3_bottom|Left Thunderbolt 3 #2|Left|USB-C|Thunderbolt 3 / DP / Power Delivery|true
+port=right_sd|Right Full-size SD Card Slot|Right|SD|SD card reader|true
+port=right_usb_a1|Right USB 3.2 Gen 1 (PowerShare)|Right|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true
+port=back_hdmi|Rear HDMI 2.0|Back|HDMI|HDMI 2.0 Video Output|true
+port=back_minidp|Rear Mini DisplayPort 1.4|Back|Mini-DP|Mini DisplayPort 1.4|true
+port=back_rj45|Rear RJ-45 Ethernet|Back|RJ45|Gigabit Ethernet LAN|true

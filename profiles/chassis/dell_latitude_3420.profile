@@ -1,0 +1,12 @@
+profileId=dell_latitude_3420
+modelContains=Latitude 3420
+displayName=Dell Latitude 3420
+validationStatus=draft
+reference=Official Dell Latitude 3420 Setup and Specifications
+port=left_usbc|Left USB-C 3.2 Gen 2x2|Left|USB-C|USB-C 3.2 Gen 2x2 with DisplayPort alt mode and Power Delivery|true
+port=left_usb_a|Left USB 3.2 Gen 1 (PowerShare)|Left|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=left_hdmi|Left HDMI 1.4a|Left|HDMI|HDMI 1.4a|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a1|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a2|Right USB 2.0|Right|USB-A|USB 2.0|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD 3.0 card slot|true

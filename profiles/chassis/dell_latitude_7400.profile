@@ -1,0 +1,10 @@
+profileId=dell_latitude_7400
+modelContains=Latitude 7400
+displayName=Dell Latitude 7400
+validationStatus=draft
+reference=Official Dell Latitude 7400 Setup and Specifications
+port=left_tb3|Left Thunderbolt 3|Left|USB-C|Thunderbolt 3 with Power Delivery and DisplayPort|true
+port=left_hdmi|Left HDMI 1.4|Left|HDMI|HDMI 1.4a Video Output|true
+port=left_usb_a|Left USB 3.1 Gen 1 (PowerShare)|Left|USB-A|USB 3.1 Gen 1 with PowerShare|true
+port=right_usb_a|Right USB 3.1 Gen 1|Right|USB-A|USB 3.1 Gen 1|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD card reader 4.0|true

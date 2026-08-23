@@ -132,6 +132,8 @@ int main() {
     Expect(lap::BuildAuditDecision(pnpReject).overall == L"REJECT", "critical PnP driver error (Code 43) rejects purchase");
     auto benchCheck = lap::RunCpuMicroBenchmark(L"11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz", appDir, nullptr);
     Expect(benchCheck.expectedLow == 120.0 && benchCheck.expectedHigh == 175.0, "calibrated Silicon baseline matched for i7-11850H");
+    auto dellChassis = lap::LoadChassisProfile(appDir, L"Dell Inspiron 15 3520");
+    Expect(!dellChassis.profileId.empty() && dellChassis.ports.size() >= 4, "Dell universal heuristic chassis synthesized for unlisted Dell model");
     providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
     const auto coverage=lap::BuildCoverageContract(providerReport);
     Expect(coverage.size()>=10&&std::any_of(coverage.begin(),coverage.end(),[](const auto&x){return x.id==L"storage";})&&providerReport.hardware.stress.decision.coverage==L"PARTIAL","coverage contract exposes required domains and gates incomplete evidence");

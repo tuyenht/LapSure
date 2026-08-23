@@ -1,0 +1,13 @@
+profileId=dell_precision_7560
+modelContains=Precision 7560
+displayName=Dell Precision 7560 Heavy Workstation
+validationStatus=draft
+reference=Official Dell Precision 7560 Setup and Specifications
+port=left_tb4_top|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / DP / Power Delivery|true
+port=left_tb4_bottom|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / DP / Power Delivery|true
+port=right_sd|Right Full-size SD Card Slot|Right|SD|SD card reader|true
+port=right_usb_a1|Right USB 3.2 Gen 1 (PowerShare)|Right|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true
+port=back_hdmi|Rear HDMI 2.1|Back|HDMI|HDMI 2.1 Video Output|true
+port=back_minidp|Rear Mini DisplayPort 1.4|Back|Mini-DP|Mini DisplayPort 1.4|true
+port=back_rj45|Rear RJ-45 Ethernet|Back|RJ45|Gigabit Ethernet LAN|true

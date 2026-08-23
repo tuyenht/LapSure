@@ -1,0 +1,9 @@
+profileId=dell_precision_5550
+modelContains=Precision 5550
+displayName=Dell Precision 5550 Workstation
+validationStatus=draft
+reference=Official Dell Precision 5550 Setup and Specifications
+port=left_tb3_top|Left Thunderbolt 3 #1|Left|USB-C|Thunderbolt 3 / USB-C / Power Delivery|true
+port=left_tb3_bottom|Left Thunderbolt 3 #2|Left|USB-C|Thunderbolt 3 / USB-C / Power Delivery|true
+port=right_usb_c|Right USB-C 3.2 Gen 2|Right|USB-C|USB 3.2 Gen 2 / DP / Power Delivery|true
+port=right_sd|Right Full-size SD Card Slot|Right|SD|SD card reader v6.0|true

@@ -1,0 +1,12 @@
+profileId=dell_latitude_7490
+modelContains=Latitude 7490
+displayName=Dell Latitude 7490
+validationStatus=draft
+reference=Official Dell Latitude 7490 Owner's Manual
+port=left_usbc|Left USB-C / DisplayPort|Left|USB-C|USB-C 3.1 Gen 1 with DisplayPort / Power Delivery|true
+port=left_hdmi|Left HDMI 1.4|Left|HDMI|HDMI 1.4b Video Output|true
+port=left_usb_a1|Left USB 3.1 Gen 1 (PowerShare)|Left|USB-A|USB 3.1 Gen 1 with PowerShare|true
+port=left_usb_a2|Left USB 3.1 Gen 1 #2|Left|USB-A|USB 3.1 Gen 1|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a|Right USB 3.1 Gen 1 #3|Right|USB-A|USB 3.1 Gen 1|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD card reader 4.0|true

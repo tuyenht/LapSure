@@ -1,0 +1,11 @@
+profileId=dell_g15_5511
+modelContains=G15 5511
+displayName=Dell G15 5511 Gaming
+validationStatus=draft
+reference=Official Dell G15 5511 Setup and Specifications
+port=back_usbc|Rear Thunderbolt 4 / USB-C with DisplayPort|Back|USB-C|Thunderbolt 4 / DisplayPort alt mode|true
+port=back_hdmi|Rear HDMI 2.1|Back|HDMI|HDMI 2.1 Video Output|true
+port=back_usb_a|Rear USB 3.2 Gen 1|Back|USB-A|USB 3.2 Gen 1|true
+port=left_rj45|Left RJ-45 Ethernet 2.5G|Left|RJ45|Killer Ethernet 2.5 Gbps|true
+port=right_usb_a1|Right USB 2.0 #1|Right|USB-A|USB 2.0 (or USB 3.2)|true
+port=right_usb_a2|Right USB 2.0 #2|Right|USB-A|USB 2.0 (or USB 3.2)|true

@@ -15,6 +15,7 @@
 #include "lap/stress.h"
 #include "lap/functional.h"
 #include "lap/functional_io.h"
+#include "lap/acquisition.h"
 #include "lap/port_power.h"
 #include "lap/orchestrator.h"
 #include "lap/chassis_profile.h"
@@ -31,7 +32,7 @@ using namespace lap;
 namespace {
 constexpr UINT WM_AUDIT_DONE=WM_APP+1;
 constexpr UINT WM_AUDIT_STATUS=WM_APP+2;
-AuditReport gReport; std::wstring gDir,gReportPath; HWND gList,gStatus,gBtn,gOpen,gMode,gFuncDisplay,gFuncKeyboard,gFuncTouch,gFuncSpeaker,gFuncUsb,gFuncIo,gPortTest,gNext,gProgress;
+AuditReport gReport; std::wstring gDir,gReportPath; HWND gList,gStatus,gBtn,gOpen,gMode,gFuncDisplay,gFuncKeyboard,gFuncTouch,gFuncSpeaker,gFuncUsb,gFuncIo,gPhysical,gPortTest,gNext,gProgress;
 std::thread gWorker; std::atomic_bool gCancel{false},gRunning{false}; std::wstring gSelectedMode=L"Quick"; std::atomic_bool gAuditReady{false}; std::atomic_bool gCloseRequested{false}; std::mutex gReportMutex;
 COLORREF bg=RGB(245,247,250),text=RGB(24,31,42),accent=RGB(44,104,255);
 std::wstring AppDir(){wchar_t p[MAX_PATH]{};GetModuleFileNameW(nullptr,p,MAX_PATH);return std::filesystem::path(p).parent_path().wstring();}
@@ -64,6 +65,7 @@ void SetFunctionalButtonsEnabled(BOOL enabled){
     if(gFuncSpeaker)EnableWindow(gFuncSpeaker,enabled);
     if(gFuncUsb)EnableWindow(gFuncUsb,enabled);
     if(gFuncIo)EnableWindow(gFuncIo,enabled);
+    if(gPhysical)EnableWindow(gPhysical,enabled);
     if(gPortTest)EnableWindow(gPortTest,enabled);
 }
 void RebuildDecisionAndReports(){
@@ -133,6 +135,7 @@ case WM_CREATE:{
  gFuncTouch=CreateWindowW(L"BUTTON",L"Cảm ứng",WS_CHILD|WS_VISIBLE,760,82,70,30,h,(HMENU)1203,nullptr,nullptr);EnableWindow(gFuncTouch,FALSE);
  gFuncSpeaker=CreateWindowW(L"BUTTON",L"Loa",WS_CHILD|WS_VISIBLE,836,82,76,30,h,(HMENU)1204,nullptr,nullptr);EnableWindow(gFuncSpeaker,FALSE);
  gFuncUsb=CreateWindowW(L"BUTTON",L"Cổng USB",WS_CHILD|WS_VISIBLE,918,82,84,30,h,(HMENU)1205,nullptr,nullptr);EnableWindow(gFuncUsb,FALSE);
+ gPhysical=CreateWindowW(L"BUTTON",L"Ngoại hình",WS_CHILD|WS_VISIBLE,1008,82,120,30,h,(HMENU)1208,nullptr,nullptr);EnableWindow(gPhysical,FALSE);
  gFuncIo=CreateWindowW(L"BUTTON",L"Thiết bị tự động",WS_CHILD|WS_VISIBLE,580,116,120,28,h,(HMENU)1206,nullptr,nullptr);EnableWindow(gFuncIo,FALSE);
  gPortTest=CreateWindowW(L"BUTTON",L"Kiểm tra cổng",WS_CHILD|WS_VISIBLE,706,116,120,28,h,(HMENU)1207,nullptr,nullptr);EnableWindow(gPortTest,FALSE);
  gNext=CreateWindowW(L"BUTTON",L"TIẾP TỤC BƯỚC KẾ",WS_CHILD|WS_VISIBLE,836,116,166,28,h,(HMENU)1300,nullptr,nullptr);EnableWindow(gNext,FALSE);
@@ -152,6 +155,7 @@ case WM_COMMAND:{
  else if(id==1205){if(CanRunManualTest(h)){auto caps=DetectCapabilities(gDir);CommitManualResult(RunUsbPortWizard(h,caps,&gCancel));}return 0;}
  else if(id==1206){if(CanRunManualTest(h))CommitManualResults(RunFunctionalIoWizard(h));return 0;}
  else if(id==1207){if(CanRunManualTest(h)){wchar_t label[64]=L"USB-C / USB-A port";CommitPortResult(RunPhysicalPortProbe(h,label,&gCancel));}return 0;}
+ else if(id==1208){if(CanRunManualTest(h))CommitManualResults(RunPhysicalConditionWizard(h));return 0;}
  else if(id==1300){if(!CanRunManualTest(h))return 0;BuildOrchestrator(gReport,false,true);auto&f=gReport.hardware.stress.functional;
   if(f.manualRequired||f.notTested)CommitManualResults(RunFunctionalIoWizard(h));
   else if(gReport.hardware.stress.portPower.overall!=L"PASS"){std::wstring label=L"USB-C / USB-A port",cap;auto prof=gReport.hardware.stress.chassisProfile;if(!prof.ports.empty()&&!SelectNextChassisPort(h,prof,label,cap))return 0;CommitPortResultGuided(RunPhysicalPortProbe(h,label,&gCancel));}

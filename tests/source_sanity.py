@@ -39,6 +39,10 @@ check('Vietnamese default application title', 'Kiểm tra laptop toàn diện' i
 check('Plain-language Vietnamese result', 'CHƯA ĐỦ DỮ LIỆU ĐỂ KẾT LUẬN' in rep and "lang='vi'" in rep)
 check('Accessible report is not color-only', '✓ Đã đủ' in rep and '! Chưa đủ' in rep and "viewport" in rep)
 check('Technical evidence uses progressive disclosure', '<details><summary>Thông tin kỹ thuật chi tiết' in rep)
+acq=(ROOT/'src/acquisition.cpp').read_text(encoding='utf-8')
+check('Guided used-laptop physical inspection', all(x in acq for x in ['physical_chassis','physical_hinge','physical_tamper','physical_liquid','physical_battery','physical_charger']))
+check('Physical inspection is purchase-gated', 'physicalCompleted>=6' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8'))
+check('Physical wizard is Vietnamese and in-app', 'Kiểm tra ngoại hình và an toàn' in acq and 'Ngoại hình' in main)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

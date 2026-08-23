@@ -40,8 +40,9 @@ std::vector<CoverageDomain> BuildCoverageContract(const AuditReport&r){
     add(L"stability",L"Độ ổn định CPU, RAM và GPU",stability,L"Các bài tải LapSure + sự kiện phát sinh",L"Còn bài kiểm tra tải bắt buộc chưa hoàn tất");
     bool thermal=false;for(const auto&s:r.hardware.stress.stages)thermal=thermal||s.telemetrySummary.maxCpuPackageTempC>=0||s.telemetrySummary.maxGpuTempC>=0;
     add(L"thermals",L"Nhiệt độ và giảm hiệu năng do nóng",thermal,L"Cảm biến tin cậy trong khi chạy tải",L"Chưa có mẫu nhiệt độ/giảm xung đủ tin cậy");
-    const bool functional=!r.hardware.stress.functional.items.empty()&&r.hardware.stress.functional.notTested==0&&r.hardware.stress.functional.manualRequired==0;
-    add(L"functional",L"Các thiết bị và chức năng",functional,L"Kiểm tra tự động + hướng dẫn người dùng",L"Còn chức năng cần người dùng xác nhận hoặc chưa kiểm tra");
+    unsigned physicalCompleted=0;for(const auto&x:r.hardware.stress.functional.items)if(x.id.rfind(L"physical_",0)==0&&x.status!=FunctionalStatus::NotTested&&x.status!=FunctionalStatus::ManualRequired)physicalCompleted++;
+    const bool functional=!r.hardware.stress.functional.items.empty()&&r.hardware.stress.functional.notTested==0&&r.hardware.stress.functional.manualRequired==0&&physicalCompleted>=6;
+    add(L"functional",L"Các thiết bị, ngoại hình và chức năng",functional,L"Kiểm tra tự động + hướng dẫn người dùng",physicalCompleted<6?L"Chưa hoàn tất kiểm tra ngoại hình/an toàn vật lý":L"Còn chức năng cần người dùng xác nhận hoặc chưa kiểm tra");
     add(L"ports_power",L"Cổng kết nối và nguồn sạc",r.hardware.stress.portPower.overall==L"PASS",L"So sánh thiết bị trước/sau + cắm thử thực tế",L"Còn cổng hoặc nguồn sạc bắt buộc chưa kiểm tra");
     add(L"runtime",L"Tính toàn vẹn chương trình và báo cáo",r.hardware.stress.runtimeValidation.overall==L"PASS",L"Cổng xác thực nội bộ LapSure",L"Xác thực khi chạy chưa đạt");
     return out;

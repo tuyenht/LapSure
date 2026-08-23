@@ -6,7 +6,7 @@ if(MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 add_executable(LapSure WIN32
-    src/main.cpp src/process.cpp src/environment.cpp src/profile.cpp src/hardware.cpp src/edid.cpp src/inventory.cpp src/engines.cpp src/forensics.cpp src/sensors.cpp src/telemetry.cpp src/trust.cpp src/journal.cpp src/baseline.cpp src/functional.cpp src/functional_io.cpp src/port_power.cpp src/devpkey_defs.cpp src/chassis_profile.cpp src/port_selector.cpp src/orchestrator.cpp src/runtime_validation.cpp src/scoring.cpp src/stress.cpp src/report.cpp
+    src/main.cpp src/process.cpp src/environment.cpp src/profile.cpp src/hardware.cpp src/edid.cpp src/inventory.cpp src/engines.cpp src/forensics.cpp src/sensors.cpp src/telemetry.cpp src/trust.cpp src/journal.cpp src/baseline.cpp src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/port_power.cpp src/devpkey_defs.cpp src/chassis_profile.cpp src/port_selector.cpp src/orchestrator.cpp src/runtime_validation.cpp src/scoring.cpp src/stress.cpp src/report.cpp
     app.manifest
 )
 target_include_directories(LapSure PRIVATE include)
@@ -32,7 +32,7 @@ if(BUILD_TESTING)
   target_sources(LapSureBehaviorTests PRIVATE src/engines.cpp)
   target_sources(LapSureBehaviorTests PRIVATE
       src/environment.cpp src/profile.cpp src/edid.cpp src/inventory.cpp src/forensics.cpp
-      src/functional.cpp src/functional_io.cpp src/orchestrator.cpp src/runtime_validation.cpp src/report.cpp)
+      src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/orchestrator.cpp src/runtime_validation.cpp src/report.cpp)
   target_include_directories(LapSureBehaviorTests PRIVATE include)
   target_compile_definitions(LapSureBehaviorTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
   target_link_libraries(LapSureBehaviorTests PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm mf mfplat mfreadwrite mfuuid wlanapi bthprops uuid)

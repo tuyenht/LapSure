@@ -44,6 +44,7 @@ lap::AuditReport CompletedAutomaticReport() {
     report.hardware.stress.stages = {cpu, ram};
     report.hardware.stress.functional.overall = L"PASS";
     report.hardware.stress.functional.items.push_back({L"camera",L"Camera",lap::FunctionalStatus::Pass,L"Captured",L"Native sample",lap::Confidence::High,true});
+    for(const auto*id:{L"physical_chassis",L"physical_hinge",L"physical_tamper",L"physical_liquid",L"physical_battery",L"physical_charger"})report.hardware.stress.functional.items.push_back({id,L"Physical inspection",lap::FunctionalStatus::Pass,L"No risk observed",L"Guided operator confirmation",lap::Confidence::Medium,false});
     report.hardware.stress.portPower.overall = L"PASS";
     return report;
 }
@@ -69,6 +70,7 @@ int main() {
     report.hardware.stress.runtimeValidation.failed=0;report.hardware.stress.runtimeValidation.overall=L"PASS";report.hardware.stress.chassisProfile.validationStatus=L"draft";
     decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"INCOMPLETE","draft chassis profile cannot issue BUY");
     report.hardware.stress.chassisProfile.validationStatus=L"physical-verified";decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"BUY","verified complete evidence can issue BUY");
+    auto missingPhysical=report;missingPhysical.hardware.stress.functional.items.erase(missingPhysical.hardware.stress.functional.items.begin()+1,missingPhysical.hardware.stress.functional.items.end());decision=lap::BuildAuditDecision(missingPhysical);Expect(decision.overall==L"INCOMPLETE","missing physical-condition evidence blocks BUY");
 
     const auto quick = lap::MakeStressPlan(L"Quick");
     const auto deep = lap::MakeStressPlan(L"Deep");

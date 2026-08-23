@@ -7,12 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Core source sanity
+      - name: Full regression suite
         shell: cmd
-        run: |
-          python tests\source_sanity.py
-          python tests\repo_integration_sanity.py
-          python tests\beta01_build_validation_sanity.py
+        run: run_source_tests.cmd
 
       - name: Configure MSVC x64 strict
         shell: cmd
@@ -22,8 +19,15 @@ jobs:
         shell: cmd
         run: cmake --build --preset build-msvc-x64-ci
 
-      - name: Upload EXE
+      - name: Package portable distribution
+        shell: powershell
+        run: .\package_portable.ps1 -BuildDir ".\out\build\msvc-x64-ci\Release" -OutputDir ".\out\portable"
+
+      - name: Upload portable package
         uses: actions/upload-artifact@v4
         with:
-          name: LapSure-windows-x64
-          path: out/build/msvc-x64-ci/Release/LapSure.exe
+          name: LapSure-windows-x64-portable
+          path: |
+            out/LapSure-windows-x64-portable.zip
+            out/LapSure-windows-x64-portable.zip.sha256
+          if-no-files-found: error

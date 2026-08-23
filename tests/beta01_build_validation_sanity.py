@@ -7,6 +7,7 @@ rep=(R/"src/report.cpp").read_text(encoding="utf-8")
 cm=(R/"CMakeLists.txt").read_text(encoding="utf-8")
 pre=(R/"CMakePresets.json").read_text(encoding="utf-8")
 wf=(R/".github/workflows/windows-msvc-build.yml").read_text(encoding="utf-8")
+pack=(R/"package_portable.ps1").read_text(encoding="utf-8")
 checks=[
 ("Runtime validation model","struct RuntimeValidationSummary" in m),
 ("Runtime validation implementation","RunRuntimeValidation" in rv),
@@ -17,10 +18,13 @@ checks=[
 ("MSVC /W4","/W4" in cm),
 ("MSVC permissive off","/permissive-" in cm),
 ("Strict /WX option","/WX" in cm),
+("No global warning suppression","/wd" not in cm),
 ("Release preset","msvc-x64-release" in pre),
 ("CI preset","msvc-x64-ci" in pre),
 ("Windows CI","runs-on: windows-2022" in wf),
-("Portable packager",(R/"package_portable.ps1").exists()),
+("Full regression suite in CI","run_source_tests.cmd" in wf),
+("Portable archive with checksum","Compress-Archive" in pack and ".zip.sha256" in pack),
+("Portable docs and validation kit",'@("docs","validation")' in pack),
 ("Validation matrix",(R/"validation/REAL_MACHINE_MATRIX.tsv").exists()),
 ("Validation checklist",(R/"validation/VALIDATION_CHECKLIST.md").exists()),
 ("Runtime source compiled","src/runtime_validation.cpp" in cm),

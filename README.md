@@ -35,7 +35,7 @@ LapSure distinguishes **detected**, **tested**, **verified**, and **not tested**
 Primary target: Windows 10/11 x64, Visual Studio 2022/MSVC, native C++20/Win32. The core is dependency-light so the same diagnostic engine can also run in a custom x64 WinPE environment, with unavailable capabilities reported honestly.
 
 ## Build
-From **x64 Native Tools Command Prompt for VS 2022** run `build_msvc_x64.cmd`; use `build_msvc_ci.cmd` for strict CI. The portable packager is `package_portable.ps1` and writes the executable SHA-256 to `BUILD_HASH.txt`.
+From **x64 Native Tools Command Prompt for VS 2022** run `build_msvc_x64.cmd`; use `build_msvc_ci.cmd` for strict CI. Run `run_source_tests.cmd` for the complete source regression suite. The portable packager is `package_portable.ps1`; it creates `LapSure-windows-x64-portable.zip`, writes the executable SHA-256 inside `BUILD_HASH.txt`, and emits a separate ZIP checksum file.
 
 ## Initial model-aware profiles
 Initial chassis-profile architecture covers Dell Precision 5560, 5570 and 7670. These profiles require official-reference and physical-machine validation before production certification.

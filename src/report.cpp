@@ -57,13 +57,13 @@ std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
  f<<L"<div class='card'><b>Port & Power Verification</b><div class='metric'>"<<Html(r.hardware.stress.portPower.overall)<<L"</div>";
  f<<L"<div>USB4 host router: "<<(r.hardware.stress.portPower.usb4HostRouterPresent?L"YES":L"NO/UNKNOWN")<<L" | USB4 device routers: "<<r.hardware.stress.portPower.usb4DeviceRouters<<L" | Thunderbolt matches: "<<r.hardware.stress.portPower.thunderboltDevices<<L"</div>";
  f<<L"<div>Power: "<<Html(r.hardware.stress.portPower.power.verdict)<<L" | Adapter watts: "<<(r.hardware.stress.portPower.power.adapterWatts<0?L"UNKNOWN":F(r.hardware.stress.portPower.power.adapterWatts))<<L"</div>";
- for(auto&p:r.hardware.stress.portPower.ports)f<<L"<div>"<<Html(p.portLabel)<<L" — "<<Html(p.verdict)<<L" — "<<Html(p.deviceDescription)<<L" — "<<Html(p.negotiatedSpeed)<<L"</div>";
+ for(auto&port:r.hardware.stress.portPower.ports)f<<L"<div>"<<Html(port.portLabel)<<L" — "<<Html(port.verdict)<<L" — "<<Html(port.deviceDescription)<<L" — "<<Html(port.negotiatedSpeed)<<L"</div>";
  f<<L"</div>";
  f<<L"<div class='card'><b>Guided Test Progress</b><div class='metric'>"<<r.hardware.stress.orchestrator.percent<<L"%</div><div>Next: "<<Html(r.hardware.stress.orchestrator.nextAction)<<L"</div>";
  for(auto&s:r.hardware.stress.orchestrator.stages)f<<L"<div>"<<Html(s.title)<<L" — "<<StageStateText(s.state)<<L" — "<<s.completed<<L"/"<<s.total<<L" — "<<Html(s.subtitle)<<L"</div>";
  f<<L"</div>";
  f<<L"<div class='card'><b>Model-aware Chassis / Port Map</b><div class='metric'>"<<Html(r.hardware.stress.chassisProfile.displayName.empty()?L"Generic":r.hardware.stress.chassisProfile.displayName)<<L"</div>";
- for(auto&p:r.hardware.stress.chassisProfile.ports)f<<L"<div>"<<Html(p.label)<<L" | "<<Html(p.side)<<L" | "<<Html(p.connector)<<L" | "<<Html(p.capability)<<L" | "<<(p.tested?Html(p.verdict):L"NOT TESTED")<<L"</div>";
+ for(auto&port:r.hardware.stress.chassisProfile.ports)f<<L"<div>"<<Html(port.label)<<L" | "<<Html(port.side)<<L" | "<<Html(port.connector)<<L" | "<<Html(port.capability)<<L" | "<<(port.tested?Html(port.verdict):L"NOT TESTED")<<L"</div>";
  f<<L"</div>";
  f<<L"<div class='card'><b>Runtime Validation Gate</b><div class='metric'>"<<Html(r.hardware.stress.runtimeValidation.overall)<<L"</div><div>Build: "<<Html(r.hardware.stress.runtimeValidation.buildLabel)<<L" | Compiler: "<<Html(r.hardware.stress.runtimeValidation.compilerLabel)<<L" | Arch: "<<Html(r.hardware.stress.runtimeValidation.architecture)<<L"</div>";
  for(auto&x:r.hardware.stress.runtimeValidation.checks)f<<L"<div>"<<Html(x.name)<<L" — "<<ValidationStatusText(x.status)<<L" — "<<Html(x.detail)<<L"</div>";

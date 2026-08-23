@@ -32,7 +32,7 @@ FunctionalItemResult CameraFrameProbe(){
  if(FAILED(hr)||count==0){Rel(a);MFShutdown();if(uninit)CoUninitialize();return R(L"camera_function",L"Camera functional capture",FunctionalStatus::Unsupported,L"No Media Foundation camera source",L"MFEnumDeviceSources returned no video source",Confidence::Medium);}
  IMFMediaSource* source=nullptr;IMFSourceReader* reader=nullptr;hr=devs[0]->ActivateObject(IID_PPV_ARGS(&source));if(SUCCEEDED(hr))hr=MFCreateSourceReaderFromMediaSource(source,nullptr,&reader);
  DWORD stream=0,flags=0;LONGLONG ts=0;IMFSample* sample=nullptr;bool got=false;
- if(SUCCEEDED(hr)){for(int i=0;i<30&&!got;i++){hr=reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM,0,&stream,&flags,&ts,&sample);if(SUCCEEDED(hr)&&sample){DWORD n=0;if(SUCCEEDED(sample->GetBufferCount(&n))&&n>0)got=true;Rel(sample);}if(flags&MF_SOURCE_READERF_ENDOFSTREAM)break;}}
+ if(SUCCEEDED(hr)){for(int i=0;i<30&&!got;i++){hr=reader->ReadSample(static_cast<DWORD>(MF_SOURCE_READER_FIRST_VIDEO_STREAM),0,&stream,&flags,&ts,&sample);if(SUCCEEDED(hr)&&sample){DWORD n=0;if(SUCCEEDED(sample->GetBufferCount(&n))&&n>0)got=true;Rel(sample);}if(flags&MF_SOURCE_READERF_ENDOFSTREAM)break;}}
  Rel(reader);if(source)source->Shutdown();Rel(source);for(UINT32 i=0;i<count;i++)Rel(devs[i]);CoTaskMemFree(devs);Rel(a);MFShutdown();if(uninit)CoUninitialize();
  return R(L"camera_function",L"Camera functional capture",got?FunctionalStatus::Pass:FunctionalStatus::Fail,got?L"Camera produced a Media Foundation video sample":L"Camera enumerated but no video sample was captured",L"Native Media Foundation source activation + ReadSample",got?Confidence::High:Confidence::Medium);
 }

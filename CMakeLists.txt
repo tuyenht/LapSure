@@ -13,8 +13,6 @@ target_include_directories(LapSure PRIVATE include)
 target_compile_definitions(LapSure PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 if(MSVC)
   target_compile_options(LapSure PRIVATE /W4 /permissive- /EHsc /Zc:__cplusplus /utf-8)
-  # Known Win32/Media Foundation call-site warnings are tracked separately; CI still treats all other warnings as errors.
-  target_compile_options(LapSure PRIVATE /wd4189 /wd4245 /wd4456)
   # app.manifest owns the requestedExecutionLevel; prevent the linker from injecting a conflicting UAC snippet.
   target_link_options(LapSure PRIVATE /SUBSYSTEM:WINDOWS /MANIFESTUAC:NO)
 else()

@@ -1345,8 +1345,8 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
         dtc.rows.push_back(row);
     };
 
-    std::wstring chem = rep.hardware.battery.chemistry.empty() ? L"Li-ion (Lithium-ion)" : rep.hardware.battery.chemistry;
-    addBatRow(L"Công nghệ pin (Chemistry)", chem, L"CIM / WMI", CanonicalUiState::Good, L"Tốt");
+    std::wstring statusStr = rep.hardware.battery.status.empty() ? L"Bình thường (OK)" : rep.hardware.battery.status;
+    addBatRow(L"Trạng thái Pin (Status)", statusStr, L"CIM / WMI", CanonicalUiState::Good, L"Tốt");
 
     std::wstring mfr = rep.hardware.battery.manufacturer.empty() ? L"—" : rep.hardware.battery.manufacturer;
     addBatRow(L"Nhà sản xuất cell pin", mfr, L"CIM / BatteryReport", rep.hardware.battery.manufacturer.empty() ? CanonicalUiState::NotTested : CanonicalUiState::Good, rep.hardware.battery.manufacturer.empty() ? L"Chưa rõ" : L"Tốt");
@@ -1357,8 +1357,8 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
     std::wstring acStatus = rep.hardware.stress.portPower.acConnected ? L"Đang cắm sạc AC (AC Line Connected)" : L"Đang dùng pin (Discharging On Battery)";
     addBatRow(L"Trạng thái nguồn AC", acStatus, L"Win32 Power API", CanonicalUiState::Good, L"Đạt");
 
-    std::wstring disRate = rep.hardware.battery.liveDischargeMw > 0 ? (std::to_wstring(rep.hardware.battery.liveDischargeMw) + L" mW") : L"— (Cần rút sạc để đo)";
-    addBatRow(L"Công suất xả pin tức thời", disRate, L"Battery Discharge Telemetry", rep.hardware.battery.liveDischargeMw > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested, rep.hardware.battery.liveDischargeMw > 0 ? L"Đã ghi nhận" : L"Chưa kiểm tra");
+    std::wstring cycleStr = rep.hardware.battery.cycleCount >= 0 ? (std::to_wstring(rep.hardware.battery.cycleCount) + L" chu kỳ") : L"— (Không cung cấp)";
+    addBatRow(L"Chu kỳ sạc xả (Cycle Count)", cycleStr, L"Battery Firmware", rep.hardware.battery.cycleCount >= 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested, rep.hardware.battery.cycleCount >= 0 ? L"Đã đọc" : L"Chưa rõ");
 
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }

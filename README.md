@@ -5,6 +5,7 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20WinPE-blue?style=for-the-badge&logo=windows)
 ![Build](https://img.shields.io/badge/MSVC-C%2B%2B20%20Strict%20%2FW4%20%2FWX-brightgreen?style=for-the-badge&logo=visualstudio)
 ![CI](https://img.shields.io/github/actions/workflow/status/tuyenht/LapSure/windows-msvc-build.yml?branch=main&style=for-the-badge&label=GitHub%20CI)
+![Tests](https://img.shields.io/badge/tests-193%2F193%20PASSED-success?style=for-the-badge&logo=checkmarx)
 ![Release](https://img.shields.io/github/v/release/tuyenht/LapSure?style=for-the-badge&color=orange)
 ![License](https://img.shields.io/badge/license-Proprietary%20%2F%20All%20Rights%20Reserved-lightgrey?style=for-the-badge)
 
@@ -12,7 +13,7 @@
 
 > *"Kiểm đúng máy. Biết đúng tình trạng. Mua đúng giá."*
 
-[Tải về Bản phát hành](#-tải-về-bản-phát-hành--downloads) • [Tính năng Nổi bật](#-tính-năng-nổi-bật) • [Hệ sinh thái Hỗ trợ](#-hỗ-trợ-chuyên-sâu-các-dòng-máy) • [Hướng dẫn Sử dụng](#-hướng-dẫn-sử-dụng) • [Quy trình Build](#-hướng-dẫn-build-từ-mã-nguồn)
+[Tải về Bản phát hành](#-tải-về-bản-phát-hành--downloads) • [Kiến trúc Dashboard](#-giao-diện-professional-dashboard-23-màn-hình) • [Tính năng Nổi bật](#-tính-năng-nổi-bật) • [Hệ sinh thái Hỗ trợ](#-hỗ-trợ-chuyên-sâu-các-dòng-máy) • [Hướng dẫn Sử dụng](#-hướng-dẫn-sử-dụng) • [Quy trình Build](#-hướng-dẫn-build-từ-mã-nguồn)
 
 </div>
 
@@ -24,10 +25,33 @@ Tất cả các bản dựng đều được biên dịch tự động qua GitHu
 
 | Phiên bản | Trạng thái | Gói tải về Portable (.zip) | Ghi chú phát hành |
 | :--- | :--- | :--- | :--- |
-| **v0.1.0-Beta (Mới nhất)** | 🟢 Stable Beta | [👉 **LapSure-windows-x64-portable.zip**](https://github.com/tuyenht/LapSure/releases/download/v0.1.0-beta/LapSure-windows-x64-portable.zip) | Bao phủ 100% Dell fleet, Base36 Express Code, ThinkPad, CPU Silicon DB, PnP Code 43 audit, Battery telemetry & Volume Dirty-bit |
+| **v0.1.1-Beta (Mới nhất)** | 🟢 Stable Release | [👉 **LapSure-windows-x64-portable.zip**](https://github.com/tuyenht/LapSure/releases/download/v0.1.1-beta/LapSure-windows-x64-portable.zip) | Ra mắt **Professional Dashboard** (23 màn hình Win32 native, C01–C12 Design System, Per-Monitor V2 DPI Scaling, 100% 0-Defect Audit) |
+| **v0.1.0-Beta** | ⚪ Archive | [👉 **LapSure-windows-x64-portable.zip**](https://github.com/tuyenht/LapSure/releases/download/v0.1.0-beta/LapSure-windows-x64-portable.zip) | Bản thử nghiệm Core Engine ban đầu (Dell fleet, Base36, PnP Code 43 audit, Battery telemetry) |
 
 🔗 **Trang tổng hợp tất cả các phiên bản (Releases Page)**:  
 👉 **[https://github.com/tuyenht/LapSure/releases](https://github.com/tuyenht/LapSure/releases)**
+
+---
+
+## 🖥️ Giao diện Professional Dashboard (23 Màn hình)
+
+LapSure sở hữu giao diện đồ họa **Native Win32 C++20 Professional Dashboard** tối ưu hoàn hảo cho kỹ thuật viên và người mua máy:
+
+* **Không phụ thuộc Framework cồng kềnh**: 100% Pure Win32 GDI double-buffered, khởi chạy tức thì trong 0.2 giây cả trên Windows 11 lẫn môi trường cứu hộ USB WinPE.
+* **Chuẩn Design System 4px Scale & Per-Monitor V2 DPI Awareness**: Tự động hiển thị sắc nét từ màn hình laptop HD 1366x768 đến màn hình 4K 200% scaling mà không bị mờ hay vỡ layout.
+* **12 Thành phần Tái sử dụng (C01–C12 Reusable Component Library)**:
+  * **C01 App Shell**: Layout 3 vùng tiêu chuẩn (Sidebar 240px, Content canvas, Status footer).
+  * **C02 Sidebar & Grouped Navigation**: 4 nhóm điều hướng chuẩn mực (*Quy trình, Chi tiết thiết bị, Đánh giá & Hồ sơ, Hệ thống*).
+  * **C03 Page Header**: Tiêu đề trang kèm thẻ trạng thái và mã định danh phiên kiểm tra.
+  * **C04 Status Badge**: Thẻ trạng thái 3 cấp độ kết hợp màu sắc, biểu tượng và chữ tiếng Việt chuẩn hóa.
+  * **C05 Metric Card & KPI**: Thẻ số liệu lớn hiển thị sức khỏe pin, độ mòn SSD, nhiệt độ và xung nhịp.
+  * **C06 Progress & Coverage**: Thanh tiến trình kép phân biệt rõ ràng giữa *Tiến độ thời gian* và *Mức độ bao phủ bằng chứng*.
+  * **C07 Guided Stepper**: Hướng dẫn từng bước kiểm tra tuần tự có kiểm soát rủi ro.
+  * **C08 Evidence Row**: Hàng đối chiếu bằng chứng kỹ thuật với dấu thời gian và nguồn dữ liệu.
+  * **C09 Data Table**: Bảng dữ liệu đa cột hỗ trợ phông chữ Monospace cho địa chỉ thanh ghi và mã Serial.
+  * **C10 Next Action Panel**: Khung hướng dẫn hành động tiếp theo thông minh.
+  * **C11 Dialog Confirmation**: Hộp thoại xác nhận thao tác quan trọng có cảnh báo rủi ro.
+  * **C12 Empty / Error State**: Giao diện hiển thị rõ ràng khi thiếu dữ liệu hoặc không có quyền truy cập.
 
 ---
 

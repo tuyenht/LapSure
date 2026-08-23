@@ -93,7 +93,7 @@ std::vector<SidebarGroup> GetDefaultSidebarGroups(bool deviceGroupExpanded) {
 
     // Group 3: ĐÁNH GIÁ & HỒ SƠ
     SidebarGroup g3;
-    g3.group = NavGroup::ReportVerification;
+    g3.group = NavGroup::AuditAndRecords;
     g3.name = L"ĐÁNH GIÁ & HỒ SƠ";
     g3.isCollapsible = false;
     g3.isExpanded = true;
@@ -108,7 +108,7 @@ std::vector<SidebarGroup> GetDefaultSidebarGroups(bool deviceGroupExpanded) {
 
     // Group 4: HỆ THỐNG
     SidebarGroup g4;
-    g4.group = NavGroup::System;
+    g4.group = NavGroup::SystemSettings;
     g4.name = L"HỆ THỐNG";
     g4.isCollapsible = false;
     g4.isExpanded = true;

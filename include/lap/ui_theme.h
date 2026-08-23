@@ -44,6 +44,7 @@ struct UiColors {
     static constexpr COLORREF SidebarBg = RGB(11, 25, 46);
     static constexpr COLORREF SidebarHover = RGB(20, 38, 66);
     static constexpr COLORREF SidebarActive = RGB(29, 100, 242);
+    static constexpr COLORREF SidebarBorder = RGB(20, 38, 66);
     static constexpr COLORREF SidebarText = RGB(160, 175, 200);
     static constexpr COLORREF SidebarTextActive = RGB(255, 255, 255);
     static constexpr COLORREF SidebarGroupHeader = RGB(100, 116, 139);
@@ -56,6 +57,7 @@ struct UiColors {
     static constexpr COLORREF TextMain = RGB(15, 23, 42);
     static constexpr COLORREF TextMuted = RGB(100, 116, 139);
     static constexpr COLORREF TextLight = RGB(148, 163, 184);
+    static constexpr COLORREF TextWhite = RGB(255, 255, 255);
     
     // Brand
     static constexpr COLORREF PrimaryBlue = RGB(29, 100, 242);

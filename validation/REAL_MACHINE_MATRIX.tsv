@@ -1,0 +1,4 @@
+machine_id	model	service_tag	os	bios	cpu	ram	gpu	display	ssd	battery_health	profile_match	full_audit	functional_io	ports_tested	runtime_gate	critical_issues	notes
+LAP-001	Precision 5560		Windows 11		i9-11950H	32GB	RTX A2000	UHD+ Touch				NOT RUN	NOT RUN	0	NOT RUN		
+LAP-002	Precision 5570		Windows 11		i7-12800H	32GB	RTX A2000/RTX 2000 Ada	FHD+/UHD+				NOT RUN	NOT RUN	0	NOT RUN		
+LAP-003	Precision 7670		Windows 11		i7-12850HX/i9-12950HX	32GB	A1000/A3000/A4500	FHD+/UHD+				NOT RUN	NOT RUN	0	NOT RUN		

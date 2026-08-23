@@ -1765,6 +1765,138 @@ void RenderSystemInfo(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }
 
+void RenderLogsEvents(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Nhật ký & Sự kiện";
+    hdr.subtitle = L"Toàn bộ nhật ký hệ thống, sự kiện WHEA mã lỗi phần cứng và lịch sử vận hành chi tiết.";
+    hdr.sessionTag = std::to_wstring(gLiveLogs.size()) + L" bản ghi nhật ký";
+    hdr.sessionState = CanonicalUiState::Good;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Thời gian", 120, false, false },
+        { L"Nguồn sự kiện", 150, false, false },
+        { L"Nội dung bản ghi chi tiết", 400, true, false },
+        { L"Mức độ", 100, false, true }
+    };
+
+    std::lock_guard<std::mutex> lk(gLogsMutex);
+    if (gLiveLogs.empty()) {
+        dtc.emptyMessage = L"Chưa có bản ghi nhật ký nào. Hãy bắt đầu một phiên kiểm tra để theo dõi.";
+    } else {
+        for (int i = (int)gLiveLogs.size() - 1; i >= 0; --i) {
+            TableRow row;
+            row.cells.push_back(gLiveLogs[i].time);
+            row.cells.push_back(L"Chẩn đoán LapSure");
+            row.cells.push_back(gLiveLogs[i].message);
+            row.cells.push_back(L"THÔNG TIN");
+            row.rowState = CanonicalUiState::Good;
+            dtc.rows.push_back(row);
+        }
+    }
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
+void RenderSettings(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Cài đặt";
+    hdr.subtitle = L"Cấu hình tùy chọn phần mềm, thư mục lưu trữ báo cáo, chính sách mã băm tin cậy và giao diện.";
+    hdr.sessionTag = L"Phiên bản 0.1.1 (Beta)";
+    hdr.sessionState = CanonicalUiState::Pass;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
+    
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Tùy chọn cấu hình", 180, false, false },
+        { L"Giá trị thiết lập hiện tại", 260, true, false },
+        { L"Trạng thái", 120, false, true }
+    };
+
+    TableRow r1;
+    r1.cells = { L"Ngôn ngữ giao diện", L"Tiếng Việt (Mặc định)", L"HOẠT ĐỘNG" };
+    r1.rowState = CanonicalUiState::Good;
+    dtc.rows.push_back(r1);
+
+    TableRow r2;
+    r2.cells = { L"Chế độ kiểm tra mặc định", L"Tiêu chuẩn (Standard) — 3 phút", L"HOẠT ĐỘNG" };
+    r2.rowState = CanonicalUiState::Good;
+    dtc.rows.push_back(r2);
+
+    TableRow r3;
+    r3.cells = { L"Thư mục xuất báo cáo", L"reports/ (Thư mục cục bộ ứng dụng)", L"ĐÃ ĐỊNH TUYẾN" };
+    r3.rowState = CanonicalUiState::Good;
+    dtc.rows.push_back(r3);
+
+    TableRow r4;
+    r4.cells = { L"Chính sách bảo mật SHA-256", L"Kiểm tra chữ ký số engine chẩn đoán", L"BẢO VỆ BẬT" };
+    r4.rowState = CanonicalUiState::Good;
+    dtc.rows.push_back(r4);
+
+    TableRow r5;
+    r5.cells = { L"Hỗ trợ màn hình độ phân giải cao", L"Per-Monitor V2 DPI Scaling", L"TỰ ĐỘNG" };
+    r5.rowState = CanonicalUiState::Good;
+    dtc.rows.push_back(r5);
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
+
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(240, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Cấu hình hệ thống";
+    nac.reasonText = L"LapSure vận hành độc lập không phụ thuộc Internet, lưu trữ toàn bộ dữ liệu an toàn tại máy.";
+    nac.remainingTasks = { L"Thiết lập chế độ kiểm định", L"Tùy chỉnh biểu mẫu cam kết", L"Kiểm tra trạng thái bản quyền" };
+    nac.buttonText = L"LƯU THIẾT LẬP";
+    nac.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderSessionHistory(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Lịch sử phiên kiểm định";
+    hdr.subtitle = L"Danh sách các phiên kiểm định máy đã thực hiện trên thiết bị này và báo cáo lưu trữ.";
+    hdr.sessionTag = gAuditReady ? L"1 phiên hoàn tất" : L"Chưa có phiên lưu";
+    hdr.sessionState = gAuditReady ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Thời gian kiểm định", 150, false, false },
+        { L"Thiết bị / Model máy", 220, true, false },
+        { L"Chế độ kiểm tra", 130, false, false },
+        { L"Kết luận khuyến nghị", 160, false, false },
+        { L"Tệp Báo cáo", 130, false, true }
+    };
+
+    if (gAuditReady) {
+        TableRow row;
+        row.cells.push_back(L"Hôm nay (Phiên hiện tại)");
+        std::wstring m = rep.model.empty() ? Reg(L"SystemProductName") : rep.model;
+        row.cells.push_back(m);
+        row.cells.push_back(gSelectedMode);
+        row.cells.push_back(FormatDecisionVi(rep.hardware.stress.decision.overall));
+        row.cells.push_back(gReportPath.empty() ? L"Chưa xuất" : L"ĐÃ XUẤT HTML");
+        row.rowState = CanonicalUiState::Pass;
+        dtc.rows.push_back(row);
+    } else {
+        dtc.emptyMessage = L"Chưa có lịch sử phiên kiểm định nào được ghi nhận.";
+    }
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
 void RenderGenericScreen(HDC dc, const RECT& r, MainTab tab, const AuditReport& rep, int dpi) {
     PageHeaderConfig hdr;
     switch (tab) {
@@ -2358,6 +2490,12 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             RenderReports(memDC, layout.contentRect, gReport, dpi);
         } else if (gCurrentTab == MainTab::ExportShare) {
             RenderExportShare(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::LogsEvents) {
+            RenderLogsEvents(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::Settings) {
+            RenderSettings(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::SessionHistory) {
+            RenderSessionHistory(memDC, layout.contentRect, gReport, dpi);
         } else {
             RenderGenericScreen(memDC, layout.contentRect, gCurrentTab, gReport, dpi);
         }

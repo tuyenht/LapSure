@@ -401,6 +401,7 @@ std::wstring gInspectorName = L"Kiểm định viên LapSure";
 // ----------------------------------------------------
 
 void RenderNewSession(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    (void)rep;
     // 1. C03 Page Header
     PageHeaderConfig hdr;
     hdr.title = L"Phiên kiểm định mới";
@@ -536,8 +537,8 @@ void RenderNewSession(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     // 1. C03 Page Header
     PageHeaderConfig hdr;
-    hdr.title = L"Tổng quan thiết bị";
-    hdr.subtitle = L"Tổng hợp trạng thái phần cứng và mức độ sẵn sàng kiểm định dựa trên bằng chứng kỹ thuật";
+    hdr.title = L"Tổng quan & Bảng điều khiển";
+    hdr.subtitle = L"Trạng thái hoạt động, mức độ bao phủ bằng chứng và chỉ số phần cứng tổng thể của máy.";
     if (gAuditReady) {
         hdr.sessionTag = FormatDecisionVi(rep.hardware.stress.decision.overall);
         if (rep.hardware.stress.decision.overall == L"BUY") hdr.sessionState = CanonicalUiState::Good;
@@ -545,13 +546,12 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
         else if (rep.hardware.stress.decision.overall == L"REJECT") hdr.sessionState = CanonicalUiState::Fail;
         else hdr.sessionState = CanonicalUiState::Incomplete;
     } else {
-        hdr.sessionTag = (gSessionLifecycleState == CanonicalUiState::Cancelled) ? L"Đã hủy" :
-                         ((gSessionLifecycleState == CanonicalUiState::Interrupted) ? L"Bị gián đoạn" : L"Chưa bắt đầu");
-        hdr.sessionState = gSessionLifecycleState;
+        hdr.sessionTag = L"Chưa kiểm định";
+        hdr.sessionState = CanonicalUiState::Idle;
     }
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
 
-    // 2. Mode selection pills & Start Audit Button
+    // 2. Mode Selector Bar
     int modeX = r.left + UiMetrics::Scale(24, dpi);
     int modeY = r.top + UiMetrics::Scale(70, dpi);
     SelectObject(dc, gFonts.hSmall);
@@ -560,6 +560,7 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     modeX += UiMetrics::Scale(110, dpi);
 
     auto drawPill = [&](const wchar_t* label, bool active, int pillIdx) {
+        (void)pillIdx;
         int pw = UiMetrics::Scale(80, dpi);
         int ph = UiMetrics::Scale(28, dpi);
         RECT pr{ modeX, modeY, modeX + pw, modeY + ph };
@@ -1732,6 +1733,7 @@ void RenderReports(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 }
 
 void RenderExportShare(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    (void)rep;
     PageHeaderConfig hdr;
     hdr.title = L"Xuất báo cáo & Chia sẻ";
     hdr.subtitle = L"Xuất báo cáo định dạng HTML và gói dữ liệu JSON có chữ ký số bằng chứng phục vụ lưu trữ hoặc gửi người bán.";
@@ -1789,6 +1791,7 @@ void RenderExportShare(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 }
 
 void RenderLogsEvents(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    (void)rep;
     PageHeaderConfig hdr;
     hdr.title = L"Nhật ký & Sự kiện";
     hdr.subtitle = L"Toàn bộ nhật ký hệ thống, sự kiện WHEA mã lỗi phần cứng và lịch sử vận hành chi tiết.";
@@ -1825,6 +1828,7 @@ void RenderLogsEvents(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 }
 
 void RenderSettings(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    (void)rep;
     PageHeaderConfig hdr;
     hdr.title = L"Cài đặt";
     hdr.subtitle = L"Cấu hình tùy chọn phần mềm, thư mục lưu trữ báo cáo, chính sách mã băm tin cậy và giao diện.";
@@ -1921,6 +1925,7 @@ void RenderSessionHistory(HDC dc, const RECT& r, const AuditReport& rep, int dpi
 }
 
 void RenderGenericScreen(HDC dc, const RECT& r, MainTab tab, const AuditReport& rep, int dpi) {
+    (void)rep;
     PageHeaderConfig hdr;
     switch (tab) {
     case MainTab::NewSession:

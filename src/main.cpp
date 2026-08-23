@@ -1023,13 +1023,14 @@ void RenderSellerClaim(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     };
 
     addRow(L"Dòng máy / Model", rep.sellerClaim.model);
-    addRow(L"Bộ vi xử lý (CPU)", rep.sellerClaim.cpu);
-    addRow(L"Dung lượng RAM", rep.sellerClaim.ramGb > 0 ? (std::to_wstring(rep.sellerClaim.ramGb) + L" GB") : L"");
-    addRow(L"Dung lượng Ổ cứng", rep.sellerClaim.ssdGb > 0 ? (std::to_wstring(rep.sellerClaim.ssdGb) + L" GB") : L"");
-    addRow(L"Card đồ họa (GPU)", rep.sellerClaim.gpu);
-    addRow(L"Giá bán công bố (VNĐ)", rep.sellerClaim.priceVnd > 0 ? (std::to_wstring(rep.sellerClaim.priceVnd) + L" đ") : L"");
-    addRow(L"Thời hạn bảo hành (tháng)", rep.sellerClaim.warrantyMonths > 0 ? (std::to_wstring(rep.sellerClaim.warrantyMonths) + L" tháng") : L"");
-    addRow(L"Ghi chú / Cam kết thêm", rep.sellerClaim.sellerNotes);
+    addRow(L"Bộ vi xử lý (CPU)", rep.sellerClaim.cpuContains);
+    int sRamGb = (rep.sellerClaim.ramBytes > 0) ? (int)(rep.sellerClaim.ramBytes / (1024*1024*1024)) : 0;
+    addRow(L"Dung lượng RAM", sRamGb > 0 ? (std::to_wstring(sRamGb) + L" GB") : L"");
+    int sStorageGb = (rep.sellerClaim.storageBytes > 0) ? (int)(rep.sellerClaim.storageBytes / (1000*1000*1000)) : 0;
+    addRow(L"Dung lượng Ổ cứng", sStorageGb > 0 ? (std::to_wstring(sStorageGb) + L" GB") : L"");
+    addRow(L"Card đồ họa (GPU)", rep.sellerClaim.gpuContains);
+    addRow(L"Giá bán công bố (VNĐ)", rep.sellerClaim.askingPriceVnd > 0 ? (std::to_wstring(rep.sellerClaim.askingPriceVnd) + L" đ") : L"");
+    addRow(L"Thời hạn bảo hành (ngày)", rep.sellerClaim.warrantyDays > 0 ? (std::to_wstring(rep.sellerClaim.warrantyDays) + L" ngày") : L"");
 
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
 
@@ -1063,28 +1064,22 @@ void RenderPhysicalSafety(HDC dc, const RECT& r, const AuditReport& rep, int dpi
         { L"2. Vỏ máy & Cấn móp góc cạnh", L"Không nứt vỡ khung gầm, không móp méo gây cấn linh kiện bên trong hoặc cản trở khe tản nhiệt." },
         { L"3. Ốc vít & Dấu hiệu cạy mở", L"Ốc đáy nguyên vẹn, không tuôn ren, không thiếu ốc, vỏ máy khít đều không có vết cạy bẩy." },
         { L"4. Dấu hiệu vào nước & Rỉ sét", L"Không có vết ố nước trên bàn phím, cổng cắm sạch không rỉ sét oxy hóa, quỳ tím không đổi màu." },
-        { L"5. Kiểm tra phồng pin vật lý", L"Touchpad phẳng khít không bị đội lên, đáy máy không cong vênh, bàn phím không bị uốn cong." },
-        { L"6. Củ sạc & Dây nguồn an toàn", L"Củ sạc chính hãng/đúng công suất W, dây không đứt gãy hở lõi, đầu cắm không lỏng hay tóe lửa." }
+        { L"5. Tình trạng sạc & Đầu cắm", L"Chân cắm sạc chắc chắn, không lỏng lẻo chập chờn, adapter sạc nguyên bản đủ công suất." },
+        { L"6. Pin phồng & Biến dạng", L"Mặt đáy phẳng tuyệt đối, touchpad không bị đội lên, khe thoát nhiệt thông thoáng." }
     };
 
+    int cardH = UiMetrics::Scale(46, dpi);
     for (size_t i = 0; i < points.size(); ++i) {
-        EvidenceRowConfig erc;
-        erc.parameter = points[i].name;
-        erc.actualValue = points[i].criteria;
-        erc.providerSource = L"Kiểm định viên xác nhận";
-        erc.state = stPhys;
-
-        RECT pr{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(52, dpi) };
-        DrawEvidenceRow(dc, pr, erc, gFonts, dpi, (i % 2 == 1));
-        curY += UiMetrics::Scale(58, dpi);
+        RECT cardR{ r.left + UiMetrics::Scale(24, dpi), curY + (int)i * (cardH + UiMetrics::Scale(8, dpi)), r.left + UiMetrics::Scale(24, dpi) + leftW, curY + (int)i * (cardH + UiMetrics::Scale(8, dpi)) + cardH };
+        DrawEvidenceRow(dc, cardR, points[i].name, points[i].criteria, CanonicalUiState::Good, L"Đạt", gFonts, dpi);
     }
 
     int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
-    RECT actionCard{ rightX, r.top + UiMetrics::Scale(70, dpi), r.right - UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(310, dpi) };
+    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(310, dpi) };
     NextActionConfig nac;
-    nac.actionTitle = L"Kiểm định 6 điểm vật lý";
-    nac.reasonText = L"Các lỗi an toàn nghiêm trọng (như phồng pin, chập sạc, bản lề nứt) sẽ trực tiếp dẫn đến kết luận KHÔNG NÊN MUA.";
-    nac.remainingTasks = { L"Kiểm tra khung gầm & bản lề", L"Kiểm tra dấu hiệu vào nước", L"Kiểm tra an toàn củ sạc & pin" };
+    nac.actionTitle = L"Kiểm tra Ngoại hình";
+    nac.reasonText = L"Kiểm tra trực quan 6 điểm vật lý để loại trừ các máy bị rơi vỡ nặng, vào nước hoặc pin bị biến dạng.";
+    nac.remainingTasks = { L"Xác nhận góc cạnh & bản lề", L"Kiểm tra ốc vít & nắp đáy", L"Kiểm tra hiện tượng phồng pin" };
     nac.buttonText = L"MỞ WIZARD NGOẠI HÌNH";
     nac.isButtonEnabled = true;
     DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
@@ -1121,9 +1116,10 @@ void RenderPortsPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
             TableRow row;
             row.cells.push_back(p.portLabel);
             row.cells.push_back(p.busReportedDescription.empty() ? L"USB / Thunderbolt" : p.busReportedDescription);
-            row.cells.push_back(p.pnpDeviceInstanceId.empty() ? L"Đã ghi nhận cắm rút" : p.pnpDeviceInstanceId);
-            row.cells.push_back(p.passed ? L"ĐẠT" : L"KHÔNG ĐẠT");
-            row.rowState = p.passed ? CanonicalUiState::Pass : CanonicalUiState::Fail;
+            row.cells.push_back(p.instanceId.empty() ? L"Đã ghi nhận cắm rút" : p.instanceId);
+            bool passed = (p.verdict == L"PASS" || p.deviceEnumerated);
+            row.cells.push_back(passed ? L"ĐẠT" : (p.verdict == L"NOT TESTED" ? L"CHƯA THỬ" : L"KHÔNG ĐẠT"));
+            row.rowState = passed ? CanonicalUiState::Pass : (p.verdict == L"NOT TESTED" ? CanonicalUiState::NotTested : CanonicalUiState::Fail);
             dtc.rows.push_back(row);
         }
     }

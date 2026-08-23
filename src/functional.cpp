@@ -211,12 +211,12 @@ LRESULT CALLBACK KeyVisualWndProc(HWND h,UINT msg,WPARAM w,LPARAM l){
 
         for(size_t i=0;i<kKeyCount;i++){
             const auto&k=kAnsiLayout[i];
-            int x=startX + static_cast<int>(k.col * (unitW + gap));
-            int y=startY + k.row * (unitH + gap);
-            int w=static_cast<int>(k.width * unitW + (k.width - 1.0f) * gap);
-            int h=unitH;
+            int xPos=startX + static_cast<int>(k.col * (unitW + gap));
+            int yPos=startY + k.row * (unitH + gap);
+            int keyWidth=static_cast<int>(k.width * unitW + (k.width - 1.0f) * gap);
+            int keyHeight=unitH;
 
-            RECT keyRect{x,y,x+w,y+h};
+            RECT keyRect{xPos,yPos,xPos+keyWidth,yPos+keyHeight};
             COLORREF fillCol=RGB(255,255,255);
             COLORREF borderCol=RGB(210,215,225);
             COLORREF textCol=RGB(40,50,65);

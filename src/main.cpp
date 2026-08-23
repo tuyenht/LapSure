@@ -2276,8 +2276,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT preflightCard{ rightX, rightY, cr.right - UiMetrics::Scale(24, dpi), rightY + UiMetrics::Scale(220, dpi) };
             RECT actionCard{ rightX, preflightCard.bottom + UiMetrics::Scale(12, dpi), cr.right - UiMetrics::Scale(24, dpi), preflightCard.bottom + UiMetrics::Scale(180, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 StartAudit(h);
                 return 0;
@@ -2328,8 +2328,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             RECT checkCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(305, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ checkCard.left + UiMetrics::Scale(14, dpi), checkCard.bottom - btnH - UiMetrics::Scale(12, dpi), checkCard.right - UiMetrics::Scale(14, dpi), checkCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ checkCard.left + UiMetrics::Scale(14, dpi), checkCard.bottom - actH - UiMetrics::Scale(12, dpi), checkCard.right - UiMetrics::Scale(14, dpi), checkCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 PostMessageW(h, WM_COMMAND, 1300, 0);
                 return 0;
@@ -2357,8 +2357,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(240, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 PostMessageW(h, WM_COMMAND, 1209, 0);
                 return 0;
@@ -2371,8 +2371,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(310, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 PostMessageW(h, WM_COMMAND, 1208, 0);
                 return 0;
@@ -2385,8 +2385,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(280, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 PostMessageW(h, WM_COMMAND, 1207, 0);
                 return 0;
@@ -2399,8 +2399,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(280, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 StartAudit(h);
                 return 0;
@@ -2413,8 +2413,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(300, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
                 else { gCurrentTab = MainTab::ExportShare; InvalidateRect(h, nullptr, FALSE); }
@@ -2428,8 +2428,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
                 return 0;
@@ -2442,8 +2442,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 PostMessageW(h, WM_COMMAND, 1201, 0);
                 return 0;
@@ -2456,8 +2456,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
             RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
             if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 PostMessageW(h, WM_COMMAND, 1204, 0);
                 return 0;
@@ -2583,6 +2583,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     }
     return DefWindowProcW(h, m, w, l);
 }
+
+} // namespace
 
 int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int) {
     gDir = AppDir();

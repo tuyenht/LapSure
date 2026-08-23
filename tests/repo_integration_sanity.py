@@ -5,6 +5,7 @@ manifest=(R/'app.manifest').read_text(encoding='utf-8')
 pack=(R/'package_portable.ps1').read_text(encoding='utf-8')
 checks=[
 ('LapSure CMake project','project(LapSure' in cm),
+('Beta 0.1.1 CMake version','project(LapSure VERSION 0.1.1' in cm),
 ('LapSure executable target','add_executable(LapSure' in cm),
 ('LapSure install target','install(TARGETS LapSure' in cm),
 ('LapSure manifest identity','name="LapSure"' in manifest),

@@ -29,6 +29,10 @@ jobs:
         shell: powershell
         run: .\package_portable.ps1 -BuildDir ".\out\build\msvc-x64-ci\Release" -OutputDir ".\out\portable"
 
+      - name: Verify portable package integrity
+        shell: powershell
+        run: .\validation\verify_portable_package.ps1 -ZipPath ".\out\LapSure-windows-x64-portable.zip"
+
       - name: Upload portable package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

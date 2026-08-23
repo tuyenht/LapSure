@@ -1,5 +1,7 @@
 # Real-machine Validation Checklist
 
+Follow `PILOT_RUNBOOK.md` for the first Precision 5560 session. Verify the ZIP and EXE hashes with `verify_portable_package.ps1` before launch, and keep the session record, discrepancy log and all evidence under one session ID.
+
 For each physical laptop:
 - Record operator, UTC start/end, LapSure commit SHA, artifact ID, ZIP hash and EXE hash.
 - Record identifiers for every known-good stimulus device and reference-tool version.
@@ -25,3 +27,8 @@ Acceptance thresholds:
 - HTML and JSON must be non-empty UTF-8, parse successfully and agree on the final decision.
 
 Production-certify a model profile only after validation on at least two physical units.
+
+Release gates:
+- One reviewed full-machine session may satisfy Beta runtime acceptance.
+- It does not change a chassis profile from `draft` to `physical-verified`.
+- Profile certification requires two independently validated physical units of that model with every discrepancy disposition signed off.

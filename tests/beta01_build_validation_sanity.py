@@ -8,6 +8,7 @@ cm=(R/"CMakeLists.txt").read_text(encoding="utf-8")
 pre=(R/"CMakePresets.json").read_text(encoding="utf-8")
 wf=(R/".github/workflows/windows-msvc-build.yml").read_text(encoding="utf-8")
 pack=(R/"package_portable.ps1").read_text(encoding="utf-8")
+verify=(R/"validation/verify_portable_package.ps1").read_text(encoding="utf-8")
 checks=[
 ("Runtime validation model","struct RuntimeValidationSummary" in m),
 ("Runtime validation implementation","RunRuntimeValidation" in rv),
@@ -25,8 +26,13 @@ checks=[
 ("Full regression suite in CI","run_source_tests.cmd" in wf),
 ("Portable archive with checksum","Compress-Archive" in pack and ".zip.sha256" in pack),
 ("Portable docs and validation kit",'@("docs","validation")' in pack),
+("Portable integrity verified in CI","verify_portable_package.ps1" in wf),
+("ZIP and EXE hashes verified","ZIP SHA-256 mismatch" in verify and "LapSure.exe SHA-256 mismatch" in verify),
+("Build provenance verified","Missing or invalid commit provenance" in verify),
 ("Validation matrix",(R/"validation/REAL_MACHINE_MATRIX.tsv").exists()),
 ("Validation checklist",(R/"validation/VALIDATION_CHECKLIST.md").exists()),
+("Pilot runbook",(R/"validation/PILOT_RUNBOOK.md").exists()),
+("Session and discrepancy templates",(R/"validation/SESSION_RECORD_TEMPLATE.md").exists() and (R/"validation/DISCREPANCY_LOG_TEMPLATE.tsv").exists()),
 ("Runtime source compiled","src/runtime_validation.cpp" in cm),
 ]
 bad=[]

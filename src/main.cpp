@@ -34,6 +34,21 @@ std::thread gWorker; std::atomic_bool gCancel{false},gRunning{false}; std::wstri
 COLORREF bg=RGB(245,247,250),text=RGB(24,31,42),accent=RGB(44,104,255);
 std::wstring AppDir(){wchar_t p[MAX_PATH]{};GetModuleFileNameW(nullptr,p,MAX_PATH);return std::filesystem::path(p).parent_path().wstring();}
 std::wstring Reg(const wchar_t* name){HKEY h{};if(RegOpenKeyExW(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",0,KEY_READ,&h)!=ERROR_SUCCESS)return L"";wchar_t b[512]{};DWORD sz=sizeof(b),t=0;std::wstring s;if(RegQueryValueExW(h,name,nullptr,&t,(LPBYTE)b,&sz)==ERROR_SUCCESS)s=b;RegCloseKey(h);return s;}
+int RunInventoryOnly(const std::wstring&outputDir){
+  // inventory_only_begin: this validation preflight must never invoke the stress pipeline.
+  std::atomic_bool cancel{false};auto caps=DetectCapabilities(gDir);auto model=Reg(L"SystemProductName"),tag=Reg(L"SystemSerialNumber");
+  auto pl=LoadFactoryProfile(gDir+L"\\profiles",model,tag);FactoryProfile profile=pl.loaded?pl.profile:FactoryProfile{};
+  auto report=CollectInventory(profile,caps,gDir,&cancel);report.profileSource=pl.source;report.factoryExact=pl.exact;report.genericMode=!pl.exact;
+  CollectNvidia(report,profile,caps,gDir,&cancel);CollectSmartctl(report,profile,caps,gDir,&cancel);
+  CollectPlatformForensics(report,profile,caps,gDir,&cancel);CollectFunctionalPresence(report,caps,&cancel);CollectPortPowerBaseline(report);
+  report.hardware.stress.chassisProfile=LoadChassisProfile(gDir,report.model);RunRuntimeValidation(report,caps,gDir);
+  report.findings.push_back({L"Validation",L"Inventory-only preflight",L"COMPLETED",L"No stress stages executed",State::Warning,Severity::Info,L"Explicit --inventory-only mode; verdict must remain incomplete.",Dimension::Health});
+  report.hardware.stress.decision=BuildAuditDecision(report);BuildOrchestrator(report,false,false);
+  auto out=outputDir.empty()?ResolveReportDirectory(gDir,caps.winPE):std::filesystem::absolute(outputDir).wstring();
+  auto html=SaveHtmlReport(report,out),json=SaveJsonReport(report,out);
+  // inventory_only_end
+  return html.empty()||json.empty()?2:0;
+}
 void Fill(){std::lock_guard<std::mutex> lk(gReportMutex);ListView_DeleteAllItems(gList);int i=0;for(auto&x:gReport.findings){LVITEMW it{};it.mask=LVIF_TEXT;it.iItem=i;it.pszText=(LPWSTR)ToString(x.dimension);ListView_InsertItem(gList,&it);ListView_SetItemText(gList,i,1,(LPWSTR)x.group.c_str());ListView_SetItemText(gList,i,2,(LPWSTR)x.name.c_str());ListView_SetItemText(gList,i,3,(LPWSTR)x.value.c_str());ListView_SetItemText(gList,i,4,(LPWSTR)ToString(x.state));++i;}}
 void PostStatus(HWND h,const std::wstring&s){auto* heap=new std::wstring(s);PostMessageW(h,WM_AUDIT_STATUS,0,(LPARAM)heap);}
 
@@ -145,4 +160,4 @@ case WM_CLOSE:if(gRunning){gCloseRequested=true;gCancel=true;SetWindowTextW(gSta
 case WM_DESTROY:gCancel=true;if(gWorker.joinable())gWorker.join();PostQuitMessage(0);return 0;
 }return DefWindowProcW(h,m,w,l);}
 
-int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR,int){gDir=AppDir();SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);INITCOMMONCONTROLSEX ic{sizeof(ic),ICC_LISTVIEW_CLASSES};InitCommonControlsEx(&ic);WNDCLASSEXW wc{sizeof(wc)};wc.lpfnWndProc=WndProc;wc.hInstance=hi;wc.hCursor=LoadCursor(nullptr,IDC_ARROW);wc.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);wc.lpszClassName=L"LapSure";RegisterClassExW(&wc);CreateWindowExW(0,wc.lpszClassName,L"LapSure v0.1-beta Build Validation",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,1180,760,nullptr,nullptr,hi,nullptr);MSG msg;while(GetMessageW(&msg,nullptr,0,0)){TranslateMessage(&msg);DispatchMessageW(&msg);}return 0;}
+int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR,int){gDir=AppDir();int argc=0;auto argv=CommandLineToArgvW(GetCommandLineW(),&argc);bool inventoryOnly=false;std::wstring outputDir;for(int i=1;i<argc;i++){if(std::wstring(argv[i])==L"--inventory-only")inventoryOnly=true;else if(std::wstring(argv[i])==L"--output"&&i+1<argc)outputDir=argv[++i];}if(argv)LocalFree(argv);if(inventoryOnly){try{return RunInventoryOnly(outputDir);}catch(...){return 3;}}SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);INITCOMMONCONTROLSEX ic{sizeof(ic),ICC_LISTVIEW_CLASSES};InitCommonControlsEx(&ic);WNDCLASSEXW wc{sizeof(wc)};wc.lpfnWndProc=WndProc;wc.hInstance=hi;wc.hCursor=LoadCursor(nullptr,IDC_ARROW);wc.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);wc.lpszClassName=L"LapSure";RegisterClassExW(&wc);CreateWindowExW(0,wc.lpszClassName,L"LapSure v0.1-beta Build Validation",WS_OVERLAPPEDWINDOW|WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,1180,760,nullptr,nullptr,hi,nullptr);MSG msg;while(GetMessageW(&msg,nullptr,0,0)){TranslateMessage(&msg);DispatchMessageW(&msg);}return 0;}

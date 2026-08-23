@@ -92,6 +92,7 @@ int main() {
     std::atomic_bool cancel{false};
     lap::FactoryProfile genericProfile{};
     auto providerReport=lap::CollectInventory(genericProfile,caps,appDir,&cancel);
+    lap::CollectWindowsStorageReliability(providerReport,caps,&cancel);
     lap::CollectPlatformForensics(providerReport,genericProfile,caps,appDir,&cancel);
     lap::CollectFunctionalPresence(providerReport,caps,&cancel);
     lap::CollectPortPowerBaseline(providerReport);
@@ -109,6 +110,8 @@ int main() {
     Expect(lap::ParseMemoryModuleLine(L"17179869184|5600|5600|Micron|MTC8C1084S1SC48BA1|12345678",memoryFixture)&&memoryFixture.capacityBytes==17179869184ULL&&memoryFixture.deviceLocator.empty(),"RAM parser accepts optional empty locator fields");
     lap::BatteryInfo batteryFixture{};
     Expect(lap::ParseBatteryLine(L"54002|42112|225|BYD|2656|DELL KDM9P4C3",batteryFixture)&&batteryFixture.capacityReadable&&batteryFixture.designWh>54.0&&batteryFixture.fullChargeWh>42.1&&batteryFixture.cycleCount==225,"battery report capacity schema parses explicit evidence");
+    lap::StorageDevice reliabilityFixture{};
+    Expect(lap::ParseWindowsStorageReliabilityLine(L"PM9C1a Samsung 512GB|002538A741BB3C4E|Healthy|OK|45|83|0|-1|-1|-1",reliabilityFixture)&&reliabilityFixture.reliabilityReadable&&reliabilityFixture.reliabilityHealthy&&reliabilityFixture.temperatureC==45&&reliabilityFixture.percentageUsed==0,"Windows native storage reliability schema parses health evidence");
     std::filesystem::remove_all(providerDir,cleanupError);
     return failures == 0 ? 0 : 1;
 }

@@ -21,6 +21,7 @@ bool JBool(const std::wstring&j,const wchar_t* key,bool def=false){std::wregex r
 bool HasBool(const std::wstring&j,const wchar_t*key){std::wregex rx(std::wstring(L"\\\"")+key+L"\\\"\\s*:\\s*(true|false)");return std::regex_search(j,rx);}
 std::wstring Fmt(long long x,const wchar_t* unit=L""){return x<0?L"N/A":std::to_wstring(x)+(unit?unit:L"");}
 std::wstring Fmt1(double x,const wchar_t* unit=L""){if(x<0)return L"N/A";wchar_t b[64];swprintf_s(b,L"%.1f%s",x,unit);return b;}
+std::vector<std::wstring> SplitPipeLine(const std::wstring&line){std::vector<std::wstring> fields;size_t start=0;for(;;){auto end=line.find(L'|',start);fields.push_back(line.substr(start,end==std::wstring::npos?end:end-start));if(end==std::wstring::npos)break;start=end+1;}return fields;}
 StorageDevice* MatchStorage(AuditReport&r,const std::wstring&model,const std::wstring&serial){
  for(auto&d:r.hardware.storage){
    if(!serial.empty()&&!d.serialNumber.empty()&&ContainsI(d.serialNumber,serial))return &d;
@@ -40,8 +41,40 @@ bool ParseSmartctlHealthJson(const std::wstring&j,StorageDevice&sd,std::wstring&
  sd.mediaErrors=JInt(j,L"media_errors");sd.errorLogEntries=JInt(j,L"num_err_log_entries");sd.unsafeShutdowns=JInt(j,L"unsafe_shutdowns");sd.powerOnHours=JInt(j,L"power_on_hours");sd.powerCycles=JInt(j,L"power_cycles");sd.temperatureC=JInt(j,L"temperature");sd.dataUnitsRead=JInt(j,L"data_units_read");sd.dataUnitsWritten=JInt(j,L"data_units_written");sd.approxDataReadTB=NvmeDataUnitsToTB(sd.dataUnitsRead);sd.approxDataWrittenTB=NvmeDataUnitsToTB(sd.dataUnitsWritten);return true;
 }
 
+bool ParseWindowsStorageReliabilityLine(const std::wstring&line,StorageDevice&sd){
+ auto fields=SplitPipeLine(line);if(fields.size()<10||fields[0].empty())return false;
+ auto number=[](const std::wstring&s){try{return s.empty()?-1LL:std::stoll(s);}catch(...){return -1LL;}};
+ sd.model=fields[0];sd.serialNumber=fields[1];sd.healthStatus=fields[2];sd.operationalStatus=fields[3];
+ sd.temperatureC=number(fields[4]);auto maxTemperature=number(fields[5]);sd.percentageUsed=number(fields[6]);
+ sd.enduranceRemaining=sd.percentageUsed>=0?std::max<long long>(0,100-sd.percentageUsed):-1;
+ sd.powerOnHours=number(fields[7]);sd.readErrorsUncorrected=number(fields[8]);sd.writeErrorsUncorrected=number(fields[9]);
+ sd.reliabilityReadable=!sd.healthStatus.empty()||sd.temperatureC>=0||sd.percentageUsed>=0||sd.powerOnHours>=0||sd.readErrorsUncorrected>=0||sd.writeErrorsUncorrected>=0;
+ const bool healthOk=ContainsI(sd.healthStatus,L"Healthy")&&!ContainsI(sd.healthStatus,L"Unhealthy");
+ const bool operationOk=sd.operationalStatus.empty()||ContainsI(sd.operationalStatus,L"OK");
+ const bool errorsOk=sd.readErrorsUncorrected<=0&&sd.writeErrorsUncorrected<=0;
+ sd.reliabilityHealthy=sd.reliabilityReadable&&healthOk&&operationOk&&errorsOk;sd.reliabilityProvider=L"Windows Storage Management";
+ (void)maxTemperature;return sd.reliabilityReadable;
+}
+
+void CollectWindowsStorageReliability(AuditReport&r,const Capabilities&c,const std::atomic_bool* cancel){
+ if(!c.powershell){Add(r,L"Storage",L"Windows native reliability",L"PowerShell unavailable",L"Native storage reliability evidence",State::NotTested,Severity::Critical,Dimension::Health);return;}
+ const std::wstring command=L"powershell.exe -NoProfile -NonInteractive -Command \"Get-PhysicalDisk | ForEach-Object { $d=$_; $x=$d | Get-StorageReliabilityCounter -ErrorAction SilentlyContinue; if($x){ '{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}' -f $d.FriendlyName,$d.SerialNumber,$d.HealthStatus,($d.OperationalStatus -join ','),$x.Temperature,$x.TemperatureMax,$x.Wear,$x.PowerOnHours,$x.ReadErrorsUncorrected,$x.WriteErrorsUncorrected } }\"";
+ auto pr=RunProcessCapture(command,30000,cancel);
+ if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"Storage",L"Windows native reliability",pr.error.empty()?L"No readable reliability counters (administrator access may be required)":pr.error,L"Native health, temperature and wear evidence",State::NotTested,Severity::Critical,Dimension::Health,L"Get-StorageReliabilityCounter");return;}
+ size_t parsedCount=0;
+ for(const auto&line:SplitLines(pr.output)){
+   StorageDevice native{};if(!ParseWindowsStorageReliabilityLine(line,native))continue;++parsedCount;
+   auto*sd=MatchStorage(r,native.model,native.serialNumber);auto capacity=sd->capacityBytes;auto firmware=sd->firmware;auto interfaceType=sd->interfaceType;auto devicePath=sd->devicePath;
+   *sd=native;sd->capacityBytes=capacity;sd->firmware=firmware;sd->interfaceType=interfaceType;sd->devicePath=devicePath;
+   State state=sd->reliabilityHealthy?State::Pass:State::Fail;
+   std::wstringstream value;value<<sd->healthStatus<<L" | Operational="<<sd->operationalStatus<<L" | Temp="<<Fmt(sd->temperatureC,L" C")<<L" | Used="<<Fmt(sd->percentageUsed,L"%")<<L" | Power-on="<<Fmt(sd->powerOnHours,L" h")<<L" | Read/Write uncorrected="<<Fmt(sd->readErrorsUncorrected)<<L"/"<<Fmt(sd->writeErrorsUncorrected);
+   Add(r,L"Storage",L"Windows reliability "+sd->model,value.str(),L"Healthy; Operational OK; uncorrected errors=0",state,Severity::Critical,Dimension::Health,L"Get-PhysicalDisk + Get-StorageReliabilityCounter");
+ }
+ if(!parsedCount)Add(r,L"Storage",L"Windows native reliability",L"Provider returned no parseable devices",L"One result per physical disk",State::NotTested,Severity::Critical,Dimension::Evidence,pr.output);
+}
+
 void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,const std::wstring&dir,const std::atomic_bool* cancel){
- if(!c.smartctl){Add(r,L"Storage",L"SMART deep",L"smartctl unavailable",L"SMART/NVMe health",State::NotTested,Severity::Critical,Dimension::Health);return;}
+ if(!c.smartctl){const bool native=!r.hardware.storage.empty()&&std::all_of(r.hardware.storage.begin(),r.hardware.storage.end(),[](const auto&d){return d.reliabilityReadable;});Add(r,L"Storage",L"Advanced SMART/NVMe log",L"smartctl unavailable",L"Advanced controller log",State::NotTested,native?Severity::Minor:Severity::Critical,Dimension::Health,native?L"Advanced enrichment unavailable; native reliability evidence remains available":L"No storage-health provider available");return;}
  std::wstring exe=Exists(dir+L"\\tools\\smartctl.exe")?L"\""+dir+L"\\tools\\smartctl.exe\"":L"smartctl.exe";
  auto scan=RunProcessCapture(exe+L" --scan-open",15000,cancel);
  if(!scan.launched||scan.timedOut||scan.output.empty()){Add(r,L"Storage",L"SMART device scan",scan.error.empty()?L"No devices returned":scan.error,L"Detected storage",State::Warning,Severity::Major,Dimension::Health);return;}

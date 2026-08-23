@@ -31,6 +31,9 @@ check('Service Tag BIOS fallback', 'Win32_BIOS' in inv and 'SerialNumber' in inv
 check('Kernel-Power evidence is unexpected restart only', 'Id=41' in fore)
 check('Battery report XML fallback', 'powercfg.exe /batteryreport /xml' in inv and 'LapSureBattery-' in inv)
 check('Battery fallback remains evidence gated', 'if(!bi.capacityReadable)' in inv and 'BatteryState(bi.healthPercent)' in inv)
+check('Windows native storage reliability provider', 'Get-StorageReliabilityCounter' in eng and 'CollectWindowsStorageReliability' in eng)
+check('Native storage runs before smartctl enrichment', 'CollectWindowsStorageReliability(report' in main and main.index('CollectWindowsStorageReliability(report') < main.index('CollectSmartctl(report'))
+check('Native reliability reduces smartctl dependency', 'native reliability evidence remains available' in eng)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

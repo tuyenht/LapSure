@@ -42,7 +42,7 @@ int RunInventoryOnly(const std::wstring&outputDir){
   std::atomic_bool cancel{false};auto caps=DetectCapabilities(gDir);auto model=Reg(L"SystemProductName"),tag=ServiceTag(caps,&cancel);
   auto pl=LoadFactoryProfile(gDir+L"\\profiles",model,tag);FactoryProfile profile=pl.loaded?pl.profile:FactoryProfile{};
   auto report=CollectInventory(profile,caps,gDir,&cancel);report.profileSource=pl.source;report.factoryExact=pl.exact;report.genericMode=!pl.exact;
-  CollectNvidia(report,profile,caps,gDir,&cancel);CollectSmartctl(report,profile,caps,gDir,&cancel);
+  CollectNvidia(report,profile,caps,gDir,&cancel);CollectWindowsStorageReliability(report,caps,&cancel);CollectSmartctl(report,profile,caps,gDir,&cancel);
   CollectPlatformForensics(report,profile,caps,gDir,&cancel);CollectFunctionalPresence(report,caps,&cancel);CollectPortPowerBaseline(report);
   report.hardware.stress.chassisProfile=LoadChassisProfile(gDir,report.model);RunRuntimeValidation(report,caps,gDir);
   report.findings.push_back({L"Validation",L"Inventory-only preflight",L"COMPLETED",L"No stress stages executed",State::Warning,Severity::Info,L"Explicit --inventory-only mode; verdict must remain incomplete.",Dimension::Health});
@@ -81,6 +81,7 @@ void AuditWorkerCore(HWND h){
   PostStatus(h,pl.exact?L"Đã tìm thấy factory profile chính xác theo Service Tag.":L"Không có profile chính xác — chạy Generic Audit, không gắn FAIL factory giả.");
   auto report=CollectInventory(profile,caps,gDir,&gCancel); report.profileSource=pl.source; report.factoryExact=pl.exact; report.genericMode=!pl.exact;
   if(!gCancel){PostStatus(h,L"Đang đọc GPU telemetry...");CollectNvidia(report,profile,caps,gDir,&gCancel);}
+  if(!gCancel){PostStatus(h,L"Đang đọc sức khỏe ổ đĩa bằng Windows...");CollectWindowsStorageReliability(report,caps,&gCancel);}
   if(!gCancel){PostStatus(h,L"Đang đọc SMART/NVMe cho từng ổ...");CollectSmartctl(report,profile,caps,gDir,&gCancel);}
   if(!gCancel){PostStatus(h,L"Đang đọc màn hình, BIOS, TPM và Event Log...");CollectPlatformForensics(report,profile,caps,gDir,&gCancel);CollectFunctionalPresence(report,caps,&gCancel);CollectPortPowerBaseline(report);report.hardware.stress.chassisProfile=LoadChassisProfile(gDir,report.model);}
   if(!gCancel){PostStatus(h,L"Đang chạy "+gSelectedMode+L" Stress: CPU + RAM + GPU/VRAM stability...");RunStressSession(report,caps,gDir,MakeStressPlan(gSelectedMode),&gCancel);}

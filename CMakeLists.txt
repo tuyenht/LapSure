@@ -22,6 +22,22 @@ endif()
 target_link_libraries(LapSure PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm mf mfplat mfreadwrite mfuuid wlanapi bthprops uuid)
 install(TARGETS LapSure RUNTIME DESTINATION .)
 
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(LapSureBehaviorTests
+      tests/behavioral_tests.cpp
+      src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/devpkey_defs.cpp
+      src/stress.cpp src/process.cpp src/telemetry.cpp src/sensors.cpp src/trust.cpp
+      src/journal.cpp src/baseline.cpp src/hardware.cpp)
+  target_include_directories(LapSureBehaviorTests PRIVATE include)
+  target_compile_definitions(LapSureBehaviorTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+  target_link_libraries(LapSureBehaviorTests PRIVATE advapi32 bcrypt cfgmgr32 powrprof setupapi user32)
+  if(MSVC)
+    target_compile_options(LapSureBehaviorTests PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus /utf-8)
+  endif()
+  add_test(NAME LapSureBehaviorTests COMMAND LapSureBehaviorTests)
+endif()
+
 option(LAPSURE_STRICT_WARNINGS "Treat MSVC warnings as errors in CI" OFF)
 if(MSVC AND LAPSURE_STRICT_WARNINGS)
   target_compile_options(LapSure PRIVATE /WX)

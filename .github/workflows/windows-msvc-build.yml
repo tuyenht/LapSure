@@ -19,6 +19,10 @@ jobs:
         shell: cmd
         run: cmake --build --preset build-msvc-x64-ci
 
+      - name: Executable behavioral tests
+        shell: cmd
+        run: ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
+
       - name: Package portable distribution
         shell: powershell
         run: .\package_portable.ps1 -BuildDir ".\out\build\msvc-x64-ci\Release" -OutputDir ".\out\portable"

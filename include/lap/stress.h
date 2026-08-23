@@ -14,6 +14,7 @@ struct StressPlan {
 };
 StressPlan MakeStressPlan(const std::wstring& mode);
 GpuVramMetrics ParseMemtestVulkanOutput(const std::wstring& output);
+bool HasNewEventRecord(long long beforeRecordId,long long afterRecordId);
 void RunStressSession(AuditReport& report, const Capabilities& caps, const std::wstring& appDir,
                       const StressPlan& plan, const std::atomic_bool* cancel);
 }

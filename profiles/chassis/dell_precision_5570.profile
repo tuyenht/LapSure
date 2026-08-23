@@ -1,6 +1,8 @@
 profileId=dell_precision_5570
 modelContains=Precision 5570
 displayName=Dell Precision 5570
+validationStatus=draft
+reference=Official service-manual review pending
 port=left_tb4_top|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / USB4 / DP Alt Mode|true
 port=left_tb4_bottom|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / USB4 / DP Alt Mode|true
 port=right_usb_c|Right USB-C|Right|USB-C|USB-C / DP Alt Mode|true

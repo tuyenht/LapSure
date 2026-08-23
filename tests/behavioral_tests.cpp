@@ -52,10 +52,14 @@ int main() {
     report.hardware.stress.runtimeValidation.overall = L"FAIL";
     decision = lap::BuildAuditDecision(report);
     Expect(decision.overall == L"INCOMPLETE", "runtime validation failure blocks BUY");
+    report.hardware.stress.runtimeValidation.failed=0;report.hardware.stress.runtimeValidation.overall=L"PASS";report.hardware.stress.chassisProfile.validationStatus=L"draft";
+    decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"INCOMPLETE","draft chassis profile cannot issue BUY");
+    report.hardware.stress.chassisProfile.validationStatus=L"physical-verified";decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"BUY","verified complete evidence can issue BUY");
 
     const auto quick = lap::MakeStressPlan(L"Quick");
     const auto deep = lap::MakeStressPlan(L"Deep");
     Expect(quick.gpuSeconds == 30 && deep.gpuSeconds == 600, "stress plans expose mode-specific GPU duration");
+    Expect(lap::HasNewEventRecord(100,101)&&!lap::HasNewEventRecord(100,100)&&!lap::HasNewEventRecord(100,0),"event attribution uses monotonic record checkpoints");
 
     auto vram = lap::ParseMemtestVulkanOutput(L"Standard 5-minute test PASSed\ntotal errors: 0\nwritten: 4.0GB checked: 4.0GB 10.0GB/sec");
     Expect(vram.standardFiveMinutePassed && vram.errors == 0 && vram.checkedGB == 4.0, "VRAM parser accepts explicit zero-error completed output");

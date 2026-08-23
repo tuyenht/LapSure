@@ -72,6 +72,10 @@ AuditDecision BuildAuditDecision(const AuditReport&r){
         d.coverage=L"PARTIAL";d.confidence=Confidence::Medium;
         d.reasons.push_back(std::to_wstring(requiredPortsRemaining)+L" required physical port(s) remain untested.");
     }
+    if(!r.hardware.stress.chassisProfile.profileId.empty()&&r.hardware.stress.chassisProfile.validationStatus!=L"physical-verified"){
+        if(d.overall==L"BUY"||d.overall==L"BUY WITH NOTES")d.overall=L"INCOMPLETE";
+        d.coverage=L"PARTIAL";d.reasons.push_back(L"Chassis profile is not physical-verified.");
+    }
     if(r.hardware.stress.functional.failed>0){
         d.overall=L"REJECT";d.confidence=Confidence::High;
         d.reasons.push_back(L"One or more functional hardware tests failed.");

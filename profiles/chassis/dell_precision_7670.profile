@@ -1,6 +1,8 @@
 profileId=dell_precision_7670
 modelContains=Precision 7670
 displayName=Dell Precision 7670
+validationStatus=draft
+reference=Official service-manual review pending
 port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / USB4 / DP Alt Mode|true
 port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / USB4 / DP Alt Mode|true
 port=right_usb_a_1|Right USB-A #1|Right|USB-A|USB 3.x|true

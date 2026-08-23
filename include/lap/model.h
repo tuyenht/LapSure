@@ -284,6 +284,8 @@ struct ChassisPortDefinition {
 };
 struct ChassisProfile {
     std::wstring profileId,modelContains,displayName;
+    std::wstring validationStatus{L"draft"};
+    std::wstring reference;
     std::vector<ChassisPortDefinition> ports;
     Confidence confidence{Confidence::Low};
     std::wstring source;

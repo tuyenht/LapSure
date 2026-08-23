@@ -2,7 +2,7 @@
 
 **Product:** LapSure  
 **Positioning:** Laptop Verification & Diagnostics  
-**Current milestone:** v0.1-beta — Windows/MSVC Build & Real-Machine Validation Gate  
+**Current milestone:** v0.1.1-beta — Evidence Correctness & Executable Regression Gate  
 **Primary audience:** used-laptop buyers, technicians, refurbishers, resellers, service centers
 
 ## 1. Mission
@@ -75,7 +75,7 @@ The diagnostic core remains native C++/Win32 to minimize dependencies and maximi
 No silent runtime downloads; external engines are SHA-256 allowlisted; output capture is bounded; cancellation/timeouts are controlled; interrupted stress sessions use a journal so reboot/crash does not erase evidence.
 
 ## 11. Current acceptance gate
-The project is not production-ready until MSVC x64 Release builds, strict Windows CI is green, the EXE launches on Windows, portable launch works, at least one real laptop completes the full workflow, initial chassis profiles are physically verified, and false-positive/false-negative findings are corrected.
+The project is not production-ready until MSVC x64 Release builds, strict Windows CI and executable behavioral tests are green, critical evidence gaps cannot produce BUY/PASS, HTML/JSON contracts validate, the EXE launches portably on Windows, at least one real laptop completes the full workflow, initial chassis profiles are physically verified, and false-positive/false-negative findings are corrected.
 
 ## 12. Current non-goals
 No claim of mathematically perfect diagnosis; no fabricated adapter wattage; no fake CPU package temperature from unrelated thermal zones; no generic health score without a meaningful metric; no certification from PnP presence alone; no claim to replace every vendor-specific manufacturer diagnostic.

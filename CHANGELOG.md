@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.1-beta — Evidence Correctness & Executable Regression Gate
+- Added compiled C++ behavioral tests to Windows CI.
+- Required-port and runtime-validation gaps now block acceptance verdicts.
+- Empty port evidence remains INCOMPLETE and retests replace the current per-port result.
+- SMART requires an explicit health verdict; malformed/incomplete output cannot PASS.
+- VRAM parsing uses numeric error counts, valid process completion and mode-specific duration.
+- RAM reported coverage now reflects byte-for-byte verification.
+- Reports are written as checked UTF-8 and JSON includes runtime/port/chassis/orchestrator evidence.
+- Hardened process cancellation, worker exception handling, atomic stress journal writes and portable build provenance.
+
 ## v0.1-beta — Build & Real-Machine Validation Gate
 
 ### Product rename

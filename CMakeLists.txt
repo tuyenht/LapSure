@@ -30,9 +30,12 @@ if(BUILD_TESTING)
       src/stress.cpp src/process.cpp src/telemetry.cpp src/sensors.cpp src/trust.cpp
       src/journal.cpp src/baseline.cpp src/hardware.cpp)
   target_sources(LapSureBehaviorTests PRIVATE src/engines.cpp)
+  target_sources(LapSureBehaviorTests PRIVATE
+      src/environment.cpp src/profile.cpp src/edid.cpp src/inventory.cpp src/forensics.cpp
+      src/functional.cpp src/functional_io.cpp src/orchestrator.cpp src/runtime_validation.cpp src/report.cpp)
   target_include_directories(LapSureBehaviorTests PRIVATE include)
   target_compile_definitions(LapSureBehaviorTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
-  target_link_libraries(LapSureBehaviorTests PRIVATE advapi32 bcrypt cfgmgr32 powrprof setupapi user32)
+  target_link_libraries(LapSureBehaviorTests PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm mf mfplat mfreadwrite mfuuid wlanapi bthprops uuid)
   if(MSVC)
     target_compile_options(LapSureBehaviorTests PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus /utf-8)
   endif()

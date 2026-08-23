@@ -3,6 +3,9 @@
 #include "lap/scoring.h"
 #include "lap/stress.h"
 #include "lap/engines.h"
+#include "lap/report.h"
+#include "lap/process.h"
+#include <filesystem>
 #include <iostream>
 
 namespace {
@@ -62,5 +65,14 @@ int main() {
     lap::StorageDevice storage{};std::wstring parseError;
     Expect(!lap::ParseSmartctlHealthJson(L"{\"model_name\":\"Disk\"}",storage,parseError), "SMART without health verdict is not readable PASS");
     Expect(lap::ParseSmartctlHealthJson(L"{\"model_name\":\"Disk\",\"passed\":true,\"critical_warning\":0,\"media_errors\":0}",storage,parseError) && storage.smartPassed, "SMART explicit healthy schema parses");
+
+    auto reportFixture = CompletedAutomaticReport();
+    reportFixture.model=L"Precision thử nghiệm";reportFixture.hardware.stress.runtimeValidation.overall=L"PASS";reportFixture.hardware.stress.orchestrator.overall=L"IN PROGRESS";
+    const auto reportDir=(std::filesystem::temp_directory_path()/L"lapsure-behavior-tests").wstring();
+    const auto jsonPath=lap::SaveJsonReport(reportFixture,reportDir);
+    Expect(!jsonPath.empty()&&std::filesystem::file_size(jsonPath)>0,"JSON evidence report writes non-empty UTF-8 file");
+    const auto parse=lap::RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-Content -Raw -LiteralPath '"+jsonPath+L"' -Encoding UTF8 | ConvertFrom-Json | Out-Null\"",15000,nullptr);
+    Expect(parse.launched&&!parse.timedOut&&parse.exitCode==0,"JSON evidence report parses through an independent parser");
+    std::error_code cleanupError;std::filesystem::remove_all(reportDir,cleanupError);
     return failures == 0 ? 0 : 1;
 }

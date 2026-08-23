@@ -7,9 +7,9 @@
 LapSure is a native Windows diagnostic and verification tool for used-laptop inspection, technicians, resellers and buyers who need evidence rather than assumptions. It combines hardware identity, health checks, stress/stability testing, functional I/O verification, physical-port testing, model-aware chassis profiles and structured reports in one guided workflow.
 
 ## Status
-**v0.1-beta — Build & Real-Machine Validation Gate**
+**v0.1.1-beta — Evidence Correctness & Executable Regression Gate**
 
-The architecture and source-level gates are in place. This repository is in the Windows/MSVC build and physical-hardware validation phase. A source-level PASS is **not** proof that every diagnostic path is production-ready.
+The architecture, strict Windows build and portable packaging gates are in place. Beta 0.1.1 is converting migration-era source assertions into executable evidence-policy tests and hardening false-PASS boundaries before physical-machine validation. A build or source-level PASS is **not** proof that every diagnostic path is production-ready.
 
 ## What LapSure verifies
 - Identity/configuration: model, Service Tag where exposed, BIOS, CPU, RAM, GPU, storage, battery, display and EDID.

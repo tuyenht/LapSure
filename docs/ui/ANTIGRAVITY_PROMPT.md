@@ -17,6 +17,8 @@ First read and obey:
 @docs/USED_LAPTOP_EXPERT_AUDIT.md
 @docs/ui/LAPSURE_UI_MASTER_SPEC.md
 @docs/ui/ANTIGRAVITY_IMPLEMENTATION_CONTRACT.md
+@docs/ui/references/README.md
+@docs/ui/references/CONTACT_SHEET.jpg
 @docs/ui/screens/S10_STORAGE.md
 @docs/ui/screens/S11_MEMORY.md
 @docs/ui/screens/S13_AUDIO_CAMERA.md
@@ -26,6 +28,13 @@ First read and obey:
 
 Also use the workspace skill:
 .agents/skills/lapsure-ui/SKILL.md
+
+VISUAL REFERENCE POLICY:
+- `docs/ui/references/CONTACT_SHEET.jpg` and the visual pack define design direction only.
+- They are not evidence sources and never authorize hard-coded sample values.
+- Screen contracts and product/evidence semantics override pixel fidelity.
+- Never use `docs/ui/references/archive/` unless explicitly requested.
+- If a mockup shows a value the current model/provider cannot prove, render the correct UNKNOWN / NOT TESTED / UNSUPPORTED / INCOMPLETE / unavailable / operator-confirmed state instead of faking it.
 
 NON-NEGOTIABLE:
 - Evidence before verdict.
@@ -40,28 +49,35 @@ NON-NEGOTIABLE:
 - Do not modify diagnostic semantics merely to make a mockup look complete.
 
 EXECUTION:
-1. Audit the current repository and compare the current UI to the master spec.
-2. Produce an implementation plan artifact with current gaps, reusable code, model/provider availability and regression risks.
+1. Audit the current repository and compare the current UI to the master spec and approved visual references.
+2. Produce an implementation plan artifact with current gaps, reusable code, model/provider availability, visual deviations and regression risks.
 3. Create an isolated feature branch/worktree named `feature/professional-dashboard` if available.
 4. Implement in phases defined by `ANTIGRAVITY_IMPLEMENTATION_CONTRACT.md`, starting with foundation/navigation/state components, then workflow screens, device-detail screens, and decision/evidence screens.
 5. Reuse and refactor existing Win32 rendering rather than performing an unnecessary application rewrite.
-6. Implement the six P0 missing-screen contracts. Any unavailable real evidence must render as an explicit unavailable/not-tested/unsupported state; never use demo values in production paths.
-7. Preserve automatic-audit-before-interactive gating and journal-backed interrupted-session evidence.
-8. After each phase, build and run the relevant tests. Fix regressions before moving forward.
-9. Run the strict MSVC x64 Release build, `run_source_tests.cmd`, behavioral/regression tests, and any existing CI-equivalent local gates that the environment supports.
-10. Launch the executable and capture screenshots/artifacts for the major screens when possible. Audit visual hierarchy, Vietnamese copy, DPI/clipping, keyboard navigation and status semantics.
-11. Inspect the final diff for architecture drift, duplicated UI logic, false PASS paths, hidden incomplete states and report-contract regressions.
-12. Commit coherent changes to the feature branch. Do not merge to main until all runnable P0 gates pass.
+6. Implement the six P0 missing-screen contracts. Any unavailable real evidence must render as an explicit unavailable/not-tested/unsupported state.
+7. Keep all user-facing normal copy Vietnamese-first, concise and understandable to a first-time laptop buyer.
+8. For each major screen, validate loading/running/pass/warning/fail/incomplete/not-tested/unsupported/manual-required/cancelled/interrupted/empty states where applicable.
+9. Build the strict MSVC x64 Release configuration used by CI and run `run_source_tests.cmd` plus the existing behavioral/regression test path.
+10. Launch the real executable when possible and capture visual artifacts at representative 1366x768 and 1920x1080 layouts; check 100%, 125% and 150% DPI intent.
+11. Compare resulting screens against the approved reference language. List intentional deviations, especially deviations caused by evidence correctness.
+12. Inspect the final diff for false PASS paths, hidden incomplete states, invented metrics, UI-thread blocking, cancellation/journal regressions, report regressions, WinPE regressions, duplicated design constants and hard-coded demo data.
+13. Fix all runnable P0 defects before reporting completion.
 
-Do not stop after giving me a plan. Continue implementing autonomously through the full feasible scope.
+DO NOT STOP AFTER THE PLAN.
+Continue autonomously through implementation, build/test, regression fixing, visual audit and evidence-semantic audit for all feasible phases.
 
 FINAL RESPONSE MUST INCLUDE:
 - phases/screens completed;
-- files changed;
-- build/test results with exact failures if any;
-- screenshots/artifacts created;
-- evidence/coverage correctness audit;
+- files created/modified;
+- architecture/refactoring summary;
+- exact build and test results;
+- visual artifacts/screenshots created;
+- evidence correctness audit;
+- DPI/accessibility audit;
+- gates not run and why;
 - remaining P0/P1 gaps;
-- branch and commit hashes;
-- any item that could not be verified on the current machine.
+- branch/worktree name;
+- commit hashes and PR link if created.
+
+Never say “done” while a known P0 evidence-semantic violation remains.
 ```

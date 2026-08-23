@@ -29,6 +29,7 @@ StorageDevice* MatchStorage(AuditReport&r,const std::wstring&model,const std::ws
  r.hardware.storage.push_back(StorageDevice{});return &r.hardware.storage.back();
 }
 }
+GpuInfo* MatchGpu(AuditReport&r,const std::wstring&name){for(auto&g:r.hardware.gpus)if(!name.empty()&&!g.name.empty()&&(ContainsI(g.name,name)||ContainsI(name,g.name)))return &g;r.hardware.gpus.push_back(GpuInfo{});return &r.hardware.gpus.back();}
 
 bool ParseSmartctlHealthJson(const std::wstring&j,StorageDevice&sd,std::wstring&error){
  error.clear();if(j.empty()||j.front()!=L'{'||j.back()!=L'}'){error=L"Malformed smartctl JSON object";return false;}
@@ -74,7 +75,7 @@ void CollectNvidia(AuditReport&r,const FactoryProfile&p,const Capabilities&c,con
  auto pr=RunProcessCapture(exe+L" --query-gpu=name,serial,uuid,vbios_version,driver_version,memory.total,temperature.gpu,temperature.gpu.tlimit,pstate,power.draw,power.limit,utilization.gpu,utilization.memory --format=csv,noheader,nounits",15000,cancel);
  if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"GPU",L"NVIDIA telemetry",pr.error.empty()?L"No output":pr.error,L"",State::Warning,Severity::Major,Dimension::Health);return;}
  for(const auto&line:SplitLines(pr.output)){
-   GpuInfo g{};if(!ParseNvidiaCsvLine(line,g))continue;r.hardware.gpus.push_back(g);
+   GpuInfo g{};if(!ParseNvidiaCsvLine(line,g))continue;auto*existing=MatchGpu(r,g.name);*existing=g;
    State factory=p.gpuContains.empty()?State::Info:(ContainsI(g.name,p.gpuContains)?State::Pass:State::Fail);
    Add(r,L"GPU",L"Adapter",g.name,p.gpuContains,factory,p.gpuContains.empty()?Severity::Info:Severity::Critical,p.gpuContains.empty()?Dimension::Identity:Dimension::Factory,L"nvidia-smi");
    std::wstringstream d;d<<Fmt1((double)g.vramBytes/(1024.0*1024.0*1024.0),L" GiB")<<L" VRAM | Driver "<<g.driver<<L" | VBIOS "<<g.vbios;

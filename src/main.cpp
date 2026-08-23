@@ -34,9 +34,10 @@ std::thread gWorker; std::atomic_bool gCancel{false},gRunning{false}; std::wstri
 COLORREF bg=RGB(245,247,250),text=RGB(24,31,42),accent=RGB(44,104,255);
 std::wstring AppDir(){wchar_t p[MAX_PATH]{};GetModuleFileNameW(nullptr,p,MAX_PATH);return std::filesystem::path(p).parent_path().wstring();}
 std::wstring Reg(const wchar_t* name){HKEY h{};if(RegOpenKeyExW(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",0,KEY_READ,&h)!=ERROR_SUCCESS)return L"";wchar_t b[512]{};DWORD sz=sizeof(b),t=0;std::wstring s;if(RegQueryValueExW(h,name,nullptr,&t,(LPBYTE)b,&sz)==ERROR_SUCCESS)s=b;RegCloseKey(h);return s;}
+std::wstring ServiceTag(const Capabilities&caps,const std::atomic_bool*cancel){auto tag=Reg(L"SystemSerialNumber");if(tag.empty()&&caps.powershell){auto p=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"(Get-CimInstance Win32_BIOS|Select-Object -First 1).SerialNumber\"",10000,cancel);auto lines=SplitLines(p.output);if(p.launched&&!p.timedOut&&!lines.empty())tag=lines.front();}return tag;}
 int RunInventoryOnly(const std::wstring&outputDir){
   // inventory_only_begin: this validation preflight must never invoke the stress pipeline.
-  std::atomic_bool cancel{false};auto caps=DetectCapabilities(gDir);auto model=Reg(L"SystemProductName"),tag=Reg(L"SystemSerialNumber");
+  std::atomic_bool cancel{false};auto caps=DetectCapabilities(gDir);auto model=Reg(L"SystemProductName"),tag=ServiceTag(caps,&cancel);
   auto pl=LoadFactoryProfile(gDir+L"\\profiles",model,tag);FactoryProfile profile=pl.loaded?pl.profile:FactoryProfile{};
   auto report=CollectInventory(profile,caps,gDir,&cancel);report.profileSource=pl.source;report.factoryExact=pl.exact;report.genericMode=!pl.exact;
   CollectNvidia(report,profile,caps,gDir,&cancel);CollectSmartctl(report,profile,caps,gDir,&cancel);
@@ -73,7 +74,7 @@ void RebuildDecisionAndReports(){
 
 void AuditWorkerCore(HWND h){
   gCancel=false; PostStatus(h,L"Đang nhận diện môi trường và cấu hình máy...");
-  auto caps=DetectCapabilities(gDir); auto model=Reg(L"SystemProductName"),tag=Reg(L"SystemSerialNumber");
+  auto caps=DetectCapabilities(gDir); auto model=Reg(L"SystemProductName"),tag=ServiceTag(caps,&gCancel);
   auto pl=LoadFactoryProfile(gDir+L"\\profiles",model,tag); FactoryProfile profile=pl.loaded?pl.profile:FactoryProfile{};
   PostStatus(h,pl.exact?L"Đã tìm thấy factory profile chính xác theo Service Tag.":L"Không có profile chính xác — chạy Generic Audit, không gắn FAIL factory giả.");
   auto report=CollectInventory(profile,caps,gDir,&gCancel); report.profileSource=pl.source; report.factoryExact=pl.exact; report.genericMode=!pl.exact;

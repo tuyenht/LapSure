@@ -11,6 +11,7 @@ proc=(ROOT/'src/process.cpp').read_text(encoding='utf-8')
 rep=(ROOT/'src/report.cpp').read_text(encoding='utf-8')
 cm=(ROOT/'CMakeLists.txt').read_text(encoding='utf-8')
 main=(ROOT/'src/main.cpp').read_text(encoding='utf-8')
+fore=(ROOT/'src/forensics.cpp').read_text(encoding='utf-8')
 profile=json.loads((ROOT/'profiles/Dell_Precision_5560_3ZJC6M3.json').read_text(encoding='utf-8'))
 
 check('No broken PowerShell %%{ alias', '%%{' not in inv)
@@ -24,6 +25,10 @@ check('UI audit uses worker thread', 'std::thread gWorker' in main)
 check('Admin manifest included', 'app.manifest' in cm and (ROOT/'app.manifest').exists())
 check('Exact profile Service Tag', profile.get('serviceTag')=='3ZJC6M3')
 check('Factory profile current schema', profile.get('schemaVersion')==2 and profile.get('ramBytes')==34359738368)
+check('Generic GPU inventory provider', 'Win32_VideoController' in inv)
+check('Empty DIMM provider is not valid zero modules', 'Module details unavailable' in inv)
+check('Service Tag BIOS fallback', 'Win32_BIOS' in inv and 'SerialNumber' in inv)
+check('Kernel-Power evidence is unexpected restart only', 'Id=41' in fore)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

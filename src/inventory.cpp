@@ -24,6 +24,7 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
  AuditReport r{};r.environment=EnvironmentName(caps);
  r.model=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemProductName");
  r.serviceTag=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemSerialNumber");
+ if(r.serviceTag.empty()&&caps.powershell){auto id=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"(Get-CimInstance Win32_BIOS|Select-Object -First 1).SerialNumber\"",10000,cancel);auto lines=SplitLines(id.output);if(id.launched&&!id.timedOut&&!lines.empty())r.serviceTag=lines.front();}
 
  if(!p.model.empty())Add(r,L"Machine",L"Model",r.model,p.model,ContainsI(r.model,p.model)?State::Pass:State::Fail,Severity::Critical,Dimension::Factory);
  else Add(r,L"Machine",L"Model",r.model,L"Generic audit",State::Info,Severity::Info,Dimension::Identity);
@@ -47,9 +48,9 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
    auto ram=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_PhysicalMemory | ForEach-Object { '{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $_.Capacity,$_.ConfiguredClockSpeed,$_.Speed,$_.Manufacturer,$_.PartNumber,$_.SerialNumber,$_.DeviceLocator,$_.BankLabel }\"",20000,cancel);
    if(ram.launched&&!ram.timedOut&&!ram.output.empty()){
       for(const auto& line:SplitLines(ram.output)){MemoryModule m{};if(ParseMemoryModuleLine(line,m))r.hardware.memoryModules.push_back(std::move(m));}
-      std::wstringstream summary;summary<<r.hardware.memoryModules.size()<<L" module(s)";
+      std::wstringstream summary;if(r.hardware.memoryModules.empty())summary<<L"Module details unavailable; OS total "<<F1(Gib(r.hardware.installedRamBytes))<<L" GiB";else summary<<r.hardware.memoryModules.size()<<L" module(s)";
       for(size_t i=0;i<r.hardware.memoryModules.size();++i){auto&m=r.hardware.memoryModules[i];summary<<L"\n#"<<i+1<<L": "<<F1(Gib(m.capacityBytes))<<L" GiB @ "<<m.configuredSpeed<<L" MT/s | "<<m.manufacturer<<L" | "<<m.partNumber<<L" | SN "<<m.serialNumber;}
-      State st=State::Info;
+      State st=r.hardware.memoryModules.empty()?State::NotTested:State::Info;
       if(!r.hardware.memoryModules.empty()&&p.ramSpeed){bool ok=true;for(auto&m:r.hardware.memoryModules)if(m.configuredSpeed+100<p.ramSpeed)ok=false;st=ok?State::Pass:State::Warning;}
       Add(r,L"RAM",L"DIMM modules",summary.str(),p.ramSpeed?L"Factory "+std::to_wstring(p.ramSpeed)+L" MT/s":L"",st,Severity::Major,p.ramSpeed?Dimension::Factory:Dimension::Identity,L"CIM typed capture");
    } else Add(r,L"RAM",L"DIMM modules",ram.error.empty()?L"No data":ram.error,L"",ram.timedOut?State::Warning:State::NotTested,Severity::Minor,Dimension::Evidence);
@@ -59,6 +60,12 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
       for(const auto& line:SplitLines(disk.output)){StorageDevice d{};if(ParseDiskInventoryLine(line,d))r.hardware.storage.push_back(std::move(d));}
       for(size_t i=0;i<r.hardware.storage.size();++i){auto&d=r.hardware.storage[i];Add(r,L"Storage",L"Disk #"+std::to_wstring(i+1),d.model+L" | "+F1(Gib(d.capacityBytes))+L" GiB | SN "+d.serialNumber+L" | FW "+d.firmware+L" | "+d.interfaceType,L"",State::Info,Severity::Info,Dimension::Identity,L"CIM typed capture");}
    } else Add(r,L"Storage",L"Disk inventory",disk.error.empty()?L"No data":disk.error,L"",State::NotTested,Severity::Major,Dimension::Identity);
+
+   auto gpu=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_VideoController | ForEach-Object { '{0}|{1}|{2}' -f $_.Name,$_.AdapterRAM,$_.DriverVersion }\"",20000,cancel);
+   if(gpu.launched&&!gpu.timedOut&&!gpu.output.empty()){
+      for(const auto&line:SplitLines(gpu.output)){auto q=Split(line,L'|');if(q.size()<3||q[0].empty())continue;GpuInfo g{};g.name=q[0];g.vramBytes=ParseU64(q[1],0);g.driver=q[2];r.hardware.gpus.push_back(g);Add(r,L"GPU",L"Adapter",g.name,L"",State::Info,Severity::Info,Dimension::Identity,L"Win32_VideoController; AdapterRAM may be unavailable for shared memory");}
+      if(r.hardware.gpus.empty())Add(r,L"GPU",L"Adapter inventory",L"Provider returned no usable adapters",L"",State::NotTested,Severity::Major,Dimension::Identity,L"Win32_VideoController");
+   } else Add(r,L"GPU",L"Adapter inventory",gpu.error.empty()?L"No data":gpu.error,L"",State::NotTested,Severity::Major,Dimension::Identity,L"Win32_VideoController");
 
    auto batt=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"$s=Get-CimInstance -Namespace root/wmi -ClassName BatteryStaticData -ErrorAction SilentlyContinue|Select-Object -First 1;$f=Get-CimInstance -Namespace root/wmi -ClassName BatteryFullChargedCapacity -ErrorAction SilentlyContinue|Select-Object -First 1;$c=Get-CimInstance -Namespace root/wmi -ClassName BatteryCycleCount -ErrorAction SilentlyContinue|Select-Object -First 1;$b=Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue|Select-Object -First 1;if($s -or $f -or $b){'{0}|{1}|{2}|{3}|{4}|{5}' -f $s.DesignedCapacity,$f.FullChargedCapacity,$c.CycleCount,$s.ManufactureName,$s.SerialNumber,$b.Status}\"",20000,cancel);
    if(batt.launched&&!batt.timedOut&&!batt.output.empty()){

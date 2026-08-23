@@ -5,8 +5,16 @@
 #include "lap/engines.h"
 #include "lap/report.h"
 #include "lap/process.h"
+#include "lap/environment.h"
+#include "lap/inventory.h"
+#include "lap/forensics.h"
+#include "lap/functional.h"
+#include "lap/port_power.h"
+#include "lap/runtime_validation.h"
+#include "lap/orchestrator.h"
 #include <filesystem>
 #include <iostream>
+#include <atomic>
 
 namespace {
 int failures = 0;
@@ -78,5 +86,25 @@ int main() {
     const auto parse=lap::RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-Content -Raw -LiteralPath '"+jsonPath+L"' -Encoding UTF8 | ConvertFrom-Json | Out-Null\"",15000,nullptr);
     Expect(parse.launched&&!parse.timedOut&&parse.exitCode==0,"JSON evidence report parses through an independent parser");
     std::error_code cleanupError;std::filesystem::remove_all(reportDir,cleanupError);
+
+    const auto appDir=std::filesystem::current_path().wstring();
+    const auto caps=lap::DetectCapabilities(appDir);
+    std::atomic_bool cancel{false};
+    lap::FactoryProfile genericProfile{};
+    auto providerReport=lap::CollectInventory(genericProfile,caps,appDir,&cancel);
+    lap::CollectPlatformForensics(providerReport,genericProfile,caps,appDir,&cancel);
+    lap::CollectFunctionalPresence(providerReport,caps,&cancel);
+    lap::CollectPortPowerBaseline(providerReport);
+    lap::RunRuntimeValidation(providerReport,caps,appDir);
+    lap::BuildOrchestrator(providerReport,false,true);
+    providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
+    Expect(!providerReport.environment.empty(),"native provider smoke identifies the Windows environment");
+    Expect(!providerReport.findings.empty(),"native provider smoke emits hardware evidence without stress");
+    Expect(!providerReport.hardware.stress.runtimeValidation.overall.empty(),"native provider smoke completes the runtime gate");
+    const auto providerDir=(std::filesystem::temp_directory_path()/L"lapsure-provider-smoke").wstring();
+    const auto providerJson=lap::SaveJsonReport(providerReport,providerDir);
+    const auto providerParse=lap::RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-Content -Raw -LiteralPath '"+providerJson+L"' -Encoding UTF8 | ConvertFrom-Json | Out-Null\"",15000,nullptr);
+    Expect(providerParse.launched&&!providerParse.timedOut&&providerParse.exitCode==0,"native provider evidence serializes as valid JSON");
+    std::filesystem::remove_all(providerDir,cleanupError);
     return failures == 0 ? 0 : 1;
 }

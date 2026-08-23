@@ -698,18 +698,19 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     int gridW = (mainContentW - UiMetrics::Scale((gridCols - 1) * 8, dpi)) / gridCols;
     int gridH = UiMetrics::Scale(68, dpi);
 
-    // Dynamic domain evaluation (NO presence == functionality)
+    // Dynamic domain evaluation (strictly bound to individual domain evidence)
+    auto& f = rep.hardware.stress.functional;
     CanonicalUiState stSystem = (!rep.model.empty()) ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
     CanonicalUiState stRam = (rep.hardware.installedRamBytes > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stStorage = (!rep.hardware.storage.empty()) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stBattery = (rep.hardware.battery.healthPercent > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    CanonicalUiState stStorage = (!rep.hardware.storage.empty()) ? ((rep.hardware.storage.front().smartStatus == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::Good) : CanonicalUiState::NotTested;
+    CanonicalUiState stBattery = (rep.hardware.battery.present && rep.hardware.battery.healthPercent > 0) ? ((rep.hardware.battery.healthPercent < 50) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
     CanonicalUiState stGpu = (!rep.hardware.gpus.empty()) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stDisplay = (!rep.hardware.displays.empty()) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stKeyboard = (rep.hardware.stress.functional.passed > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stAudio = (rep.hardware.stress.functional.passed > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stNetwork = (rep.hardware.stress.functional.passed > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    CanonicalUiState stDisplay = MapFunctionalStatus(f.displayState);
+    CanonicalUiState stKeyboard = MapFunctionalStatus(f.keyboardState);
+    CanonicalUiState stAudio = MapFunctionalStatus(f.audioState);
+    CanonicalUiState stNetwork = (f.wifiState == L"PASS") ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     CanonicalUiState stPorts = (rep.hardware.stress.portPower.overall == L"PASS") ? CanonicalUiState::Good : ((rep.hardware.stress.portPower.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
-    CanonicalUiState stStress = (rep.hardware.stress.stabilityState == L"PASS") ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    CanonicalUiState stStress = (rep.hardware.stress.stabilityState == L"PASS") ? CanonicalUiState::Good : ((rep.hardware.stress.stabilityState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
     CanonicalUiState stEvents = gAuditReady ? ((rep.hardware.forensics.criticalEventsCount > 0) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
 
     struct DomainDef { const wchar_t* icon; const wchar_t* name; const wchar_t* desc; CanonicalUiState state; };
@@ -738,54 +739,36 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 
         SelectObject(dc, gFonts.hBodyBold); SetTextColor(dc, UiColors::TextMain);
         std::wstring nameStr = std::wstring(domains[i].icon) + L" " + domains[i].name;
-        TextOutW(dc, gr.left + UiMetrics::Scale(8, dpi), gr.top + UiMetrics::Scale(8, dpi), nameStr.c_str(), (int)nameStr.size());
+        TextOutW(dc, gr.left + UiMetrics::Scale(12, dpi), gr.top + UiMetrics::Scale(8, dpi), nameStr.c_str(), (int)nameStr.size());
+
+        int bw = UiMetrics::Scale(70, dpi);
+        int bh = UiMetrics::Scale(18, dpi);
+        DrawStatusBadge(dc, gr.right - bw - UiMetrics::Scale(10, dpi), gr.top + UiMetrics::Scale(8, dpi), bw, bh, domains[i].state, gFonts);
 
         SelectObject(dc, gFonts.hSmall); SetTextColor(dc, UiColors::TextMuted);
-        TextOutW(dc, gr.left + UiMetrics::Scale(8, dpi), gr.top + UiMetrics::Scale(26, dpi), domains[i].desc, (int)wcslen(domains[i].desc));
-
-        DrawStatusBadge(dc, gr.left + UiMetrics::Scale(8, dpi), gr.top + UiMetrics::Scale(44, dpi), UiMetrics::Scale(85, dpi), UiMetrics::Scale(18, dpi), domains[i].state, gFonts);
+        TextOutW(dc, gr.left + UiMetrics::Scale(12, dpi), gr.top + UiMetrics::Scale(30, dpi), domains[i].desc, (int)wcslen(domains[i].desc));
     }
 
-    // 6. Quick Hardware Spec Overview Card (Bottom)
-    int botY = gridY + 3 * (gridH + UiMetrics::Scale(8, dpi)) + UiMetrics::Scale(8, dpi);
-    RECT infoCard{ r.left + UiMetrics::Scale(24, dpi), botY, rightX - UiMetrics::Scale(12, dpi), botY + UiMetrics::Scale(110, dpi) };
+    // 6. Hardware Specifications Summary Bar
+    int specY = gridY + (gridH + UiMetrics::Scale(8, dpi)) * 3 + UiMetrics::Scale(6, dpi);
+    RECT infoCard{ r.left + UiMetrics::Scale(24, dpi), specY, r.left + UiMetrics::Scale(24, dpi) + mainContentW, r.bottom - UiMetrics::Scale(14, dpi) };
     DrawRoundedCard(dc, infoCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
     SelectObject(dc, gFonts.hBodyBold); SetTextColor(dc, UiColors::TextMain);
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(10, dpi), L"Thông tin nhanh phần cứng", 25);
+    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(12, dpi), L"Cấu hình phần cứng nhận diện", 28);
 
-    SelectObject(dc, gFonts.hSmall); SetTextColor(dc, UiColors::TextMuted);
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(32, dpi), L"Máy:", 4);
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(50, dpi), L"Service Tag:", 12);
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(68, dpi), L"BIOS:", 5);
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(86, dpi), L"Hệ điều hành:", 13);
-
-    SetTextColor(dc, UiColors::TextMain);
-    std::wstring sysModel = rep.model.empty() ? (Reg(L"SystemProductName").empty() ? L"—" : Reg(L"SystemProductName")) : rep.model;
-    std::wstring sysTag = rep.serviceTag.empty() ? (Reg(L"SystemSerialNumber").empty() ? L"—" : Reg(L"SystemSerialNumber")) : rep.serviceTag;
-    std::wstring sysBios = Reg(L"BIOSVersion").empty() ? L"—" : Reg(L"BIOSVersion");
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(95, dpi), infoCard.top + UiMetrics::Scale(32, dpi), sysModel.c_str(), (int)sysModel.size());
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(95, dpi), infoCard.top + UiMetrics::Scale(50, dpi), sysTag.c_str(), (int)sysTag.size());
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(95, dpi), infoCard.top + UiMetrics::Scale(68, dpi), sysBios.c_str(), (int)sysBios.size());
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(95, dpi), infoCard.top + UiMetrics::Scale(86, dpi), L"Windows 64-bit (Native Win32)", 30);
-
-    int chipX = infoCard.left + UiMetrics::Scale(340, dpi);
-    auto drawChip = [&](const wchar_t* title, const std::wstring& val, int cx, int cy) {
+    int chipX = infoCard.left + UiMetrics::Scale(14, dpi);
+    auto drawChip = [&](const std::wstring& k, const std::wstring& v, int cx, int cy) {
         RECT cr{ cx, cy, cx + UiMetrics::Scale(180, dpi), cy + UiMetrics::Scale(42, dpi) };
-        DrawRoundedCard(dc, cr, UiMetrics::RadiusSm, UiColors::GrayPillBg, UiColors::GrayPillBorder, 1);
+        DrawRoundedCard(dc, cr, UiMetrics::RadiusSm, RGB(248, 250, 252), UiColors::CardBorder, 1);
         SelectObject(dc, gFonts.hSmall); SetTextColor(dc, UiColors::TextMuted);
-        TextOutW(dc, cr.left + UiMetrics::Scale(8, dpi), cr.top + UiMetrics::Scale(4, dpi), title, (int)wcslen(title));
-        SelectObject(dc, gFonts.hSmall); SetTextColor(dc, UiColors::TextMain);
-        std::wstring v = val.empty() ? L"—" : val;
+        TextOutW(dc, cr.left + UiMetrics::Scale(8, dpi), cr.top + UiMetrics::Scale(4, dpi), k.c_str(), (int)k.size());
+        SelectObject(dc, gFonts.hBodyBold); SetTextColor(dc, UiColors::TextMain);
         TextOutW(dc, cr.left + UiMetrics::Scale(8, dpi), cr.top + UiMetrics::Scale(20, dpi), v.c_str(), (int)v.size());
     };
     drawChip(L"CPU", rep.hardware.cpuName, chipX, infoCard.top + UiMetrics::Scale(14, dpi));
     std::wstring ramStr = (rep.hardware.installedRamBytes > 0) ? (std::to_wstring(rep.hardware.installedRamBytes / (1024 * 1024 * 1024)) + L" GB") : L"—";
     drawChip(L"RAM", ramStr, chipX + UiMetrics::Scale(190, dpi), infoCard.top + UiMetrics::Scale(14, dpi));
-    std::wstring diskStr = rep.hardware.storage.empty() ? L"—" : rep.hardware.storage.front().model;
-    drawChip(L"Ổ đĩa chính", diskStr, chipX, infoCard.top + UiMetrics::Scale(60, dpi));
-    std::wstring gpuStr = rep.hardware.gpus.empty() ? L"—" : rep.hardware.gpus.front().name;
-    drawChip(L"Đồ họa", gpuStr, chipX + UiMetrics::Scale(190, dpi), infoCard.top + UiMetrics::Scale(60, dpi));
 }
 
 void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
@@ -819,18 +802,28 @@ void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - UiMetrics::Scale(250, dpi);
     int curY = r.top + UiMetrics::Scale(80, dpi);
 
-    // Audit Items List (Bound to real stage progression)
+    // Audit Items List (Bound to real stage progression & actual evidence)
+    CanonicalUiState st1 = (gAuditCompletedItems >= 1) ? (!rep.model.empty() ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st2 = (gAuditCompletedItems >= 3) ? (!rep.hardware.cpuName.empty() ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st3 = (gAuditCompletedItems >= 3) ? (rep.hardware.installedRamBytes > 0 ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st4 = (gAuditCompletedItems >= 6) ? (!rep.hardware.storage.empty() ? (rep.hardware.storage.front().smartStatus == L"FAIL" ? CanonicalUiState::Fail : CanonicalUiState::Good) : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st5 = (gAuditCompletedItems >= 4) ? (!rep.hardware.gpus.empty() ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st6 = (gAuditCompletedItems >= 9) ? (rep.hardware.battery.present ? (rep.hardware.battery.healthPercent < 50 ? CanonicalUiState::Warning : CanonicalUiState::Pass) : CanonicalUiState::Pass) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st7 = (gAuditCompletedItems >= 9) ? CanonicalUiState::Pass : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st8 = (gAuditCompletedItems >= 9) ? (rep.hardware.forensics.criticalEventsCount > 0 ? CanonicalUiState::Warning : CanonicalUiState::Pass) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st9 = (gAuditCompletedItems >= 12) ? (!rep.hardware.stress.stabilityState.empty() ? (rep.hardware.stress.stabilityState == L"PASS" ? CanonicalUiState::Pass : CanonicalUiState::Fail) : CanonicalUiState::Pass) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+
     struct AutoItem { int num; const wchar_t* name; const wchar_t* sub; CanonicalUiState state; const wchar_t* src; };
     std::vector<AutoItem> items = {
-        { 1, L"Nhận diện hệ thống", L"CPU, Mainboard, BIOS, OS, Thiết bị", (gAuditCompletedItems >= 1) ? CanonicalUiState::Pass : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle), L"WMI, SMBIOS, SetupAPI" },
-        { 2, L"CPU & Microbench", L"Identity, vi điểm chuẩn, telemetry", (gAuditCompletedItems >= 3) ? CanonicalUiState::Pass : (gAuditCompletedItems >= 1 ? CanonicalUiState::Running : CanonicalUiState::Idle), L"WMI, Telemetry" },
-        { 3, L"Bộ nhớ (RAM)", L"Dung lượng, DIMM, Kiểm tra lỗi", (gAuditCompletedItems >= 3) ? CanonicalUiState::Pass : (gAuditCompletedItems >= 2 ? CanonicalUiState::Running : CanonicalUiState::Idle), L"WMI, CIM" },
-        { 4, L"Lưu trữ", L"NVMe/SSD, S.M.A.R.T., Độ tin cậy", (gAuditCompletedItems >= 6) ? CanonicalUiState::Good : (gAuditCompletedItems >= 3 ? CanonicalUiState::Running : CanonicalUiState::Idle), L"StorageReliability, SMART" },
-        { 5, L"Đồ họa (GPU)", L"iGPU, dGPU, VRAM, Driver", (gAuditCompletedItems >= 4) ? CanonicalUiState::Pass : (gAuditCompletedItems >= 3 ? CanonicalUiState::Running : CanonicalUiState::Idle), L"WMI, DXGI" },
-        { 6, L"Pin & Nguồn", L"Dung lượng, Sạc, Công suất xả", (gAuditCompletedItems >= 9) ? CanonicalUiState::Pass : (gAuditCompletedItems >= 6 ? CanonicalUiState::Running : CanonicalUiState::Idle), L"CIM, BatteryDischarge" },
-        { 7, L"Mạng & Kết nối", L"Wi-Fi, Bluetooth, LAN", (gAuditCompletedItems >= 9) ? CanonicalUiState::Pass : CanonicalUiState::Idle, L"WlanApi, Bluetooth" },
-        { 8, L"Nhật ký & Sự kiện", L"WHEA, Ổ đĩa, Hệ thống", (gAuditCompletedItems >= 9) ? CanonicalUiState::Pass : CanonicalUiState::Idle, L"EventLog, Forensics" },
-        { 9, L"Stress & Ổn định", L"CPU, RAM, GPU, Nhiệt độ", (gAuditCompletedItems >= 12) ? CanonicalUiState::Pass : CanonicalUiState::Idle, L"Stress Engine" }
+        { 1, L"Nhận diện hệ thống", L"CPU, Mainboard, BIOS, OS, Thiết bị", st1, L"WMI, SMBIOS, SetupAPI" },
+        { 2, L"CPU & Microbench", L"Identity, vi điểm chuẩn, telemetry", st2, L"WMI, Telemetry" },
+        { 3, L"Bộ nhớ (RAM)", L"Dung lượng, DIMM, Kiểm tra lỗi", st3, L"WMI, CIM" },
+        { 4, L"Lưu trữ", L"NVMe/SSD, S.M.A.R.T., Độ tin cậy", st4, L"StorageReliability, SMART" },
+        { 5, L"Đồ họa (GPU)", L"iGPU, dGPU, VRAM, Driver", st5, L"WMI, DXGI" },
+        { 6, L"Pin & Nguồn", L"Dung lượng, Sạc, Công suất xả", st6, L"CIM, BatteryDischarge" },
+        { 7, L"Mạng & Kết nối", L"Wi-Fi, Bluetooth, LAN", st7, L"WlanApi, Bluetooth" },
+        { 8, L"Nhật ký & Sự kiện", L"WHEA, Ổ đĩa, Hệ thống", st8, L"EventLog, Forensics" },
+        { 9, L"Stress & Ổn định", L"CPU, RAM, GPU, Nhiệt độ", st9, L"Stress Engine" }
     };
 
     for (const auto& it : items) {
@@ -1164,28 +1157,42 @@ void RenderFactoryCompare(HDC dc, const RECT& r, const AuditReport& rep, int dpi
         row.cells.push_back(domain);
         row.cells.push_back(actual.empty() ? L"—" : actual);
         row.cells.push_back(seller.empty() ? L"—" : seller);
-        row.cells.push_back(factory.empty() ? L"—" : factory);
+        row.cells.push_back(factory.empty() ? L"— (Chưa có hồ sơ)" : factory);
         row.cells.push_back(verdict);
         row.rowState = st;
         dtc.rows.push_back(row);
     };
 
     std::wstring sysModel = rep.model.empty() ? Reg(L"SystemProductName") : rep.model;
-    addCompRow(L"Model máy", sysModel, rep.sellerClaim.model, sysModel, rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good, L"Đạt");
+    std::wstring factoryModel = rep.factoryExact ? sysModel : L"";
+    CanonicalUiState stModel = (!rep.sellerClaim.model.empty() && rep.sellerClaim.model != sysModel) ? CanonicalUiState::Warning : (rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good);
+    std::wstring vModel = (!rep.sellerClaim.model.empty() && rep.sellerClaim.model != sysModel) ? L"LỆCH MODEL" : L"Khớp";
+    addCompRow(L"Model máy", sysModel, rep.sellerClaim.model, factoryModel, stModel, vModel);
 
     std::wstring cpuActual = rep.hardware.cpuName;
-    addCompRow(L"Bộ vi xử lý (CPU)", cpuActual, rep.sellerClaim.cpu, cpuActual, CanonicalUiState::Good, L"Đạt");
+    std::wstring factoryCpu = rep.factoryExact ? cpuActual : L"";
+    CanonicalUiState stCpu = (!rep.sellerClaim.cpu.empty() && rep.sellerClaim.cpu != cpuActual) ? CanonicalUiState::Warning : (rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good);
+    std::wstring vCpu = (!rep.sellerClaim.cpu.empty() && rep.sellerClaim.cpu != cpuActual) ? L"LỆCH CPU" : L"Khớp";
+    addCompRow(L"Bộ vi xử lý (CPU)", cpuActual, rep.sellerClaim.cpu, factoryCpu, stCpu, vCpu);
 
-    std::wstring ramActual = rep.hardware.installedRamBytes > 0 ? (std::to_wstring(rep.hardware.installedRamBytes / (1024*1024*1024)) + L" GB") : L"—";
+    int actualRamGb = (rep.hardware.installedRamBytes > 0) ? (int)(rep.hardware.installedRamBytes / (1024*1024*1024)) : 0;
+    std::wstring ramActual = actualRamGb > 0 ? (std::to_wstring(actualRamGb) + L" GB") : L"—";
     std::wstring ramSeller = rep.sellerClaim.ramGb > 0 ? (std::to_wstring(rep.sellerClaim.ramGb) + L" GB") : L"—";
-    addCompRow(L"Bộ nhớ (RAM)", ramActual, ramSeller, ramActual, CanonicalUiState::Good, L"Đạt");
+    std::wstring factoryRam = rep.factoryExact ? ramActual : L"";
+    CanonicalUiState stRam = (rep.sellerClaim.ramGb > 0 && rep.sellerClaim.ramGb != actualRamGb) ? CanonicalUiState::Warning : (rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good);
+    std::wstring vRam = (rep.sellerClaim.ramGb > 0 && rep.sellerClaim.ramGb != actualRamGb) ? L"LỆCH RAM" : L"Khớp";
+    addCompRow(L"Bộ nhớ (RAM)", ramActual, ramSeller, factoryRam, stRam, vRam);
 
     std::wstring ssdActual = rep.hardware.storage.empty() ? L"—" : rep.hardware.storage.front().model;
     std::wstring ssdSeller = rep.sellerClaim.ssdGb > 0 ? (std::to_wstring(rep.sellerClaim.ssdGb) + L" GB") : L"—";
-    addCompRow(L"Ổ đĩa lưu trữ", ssdActual, ssdSeller, ssdActual, CanonicalUiState::Good, L"Đạt");
+    std::wstring factorySsd = rep.factoryExact ? ssdActual : L"";
+    addCompRow(L"Ổ đĩa lưu trữ", ssdActual, ssdSeller, factorySsd, CanonicalUiState::Good, L"Đã ghi nhận");
 
     std::wstring gpuActual = rep.hardware.gpus.empty() ? L"—" : rep.hardware.gpus.front().name;
-    addCompRow(L"Card đồ họa (GPU)", gpuActual, rep.sellerClaim.gpu, gpuActual, CanonicalUiState::Good, L"Đạt");
+    std::wstring factoryGpu = rep.factoryExact ? gpuActual : L"";
+    CanonicalUiState stGpu = (!rep.sellerClaim.gpu.empty() && rep.sellerClaim.gpu != gpuActual) ? CanonicalUiState::Warning : CanonicalUiState::Good;
+    std::wstring vGpu = (!rep.sellerClaim.gpu.empty() && rep.sellerClaim.gpu != gpuActual) ? L"LỆCH GPU" : L"Khớp";
+    addCompRow(L"Card đồ họa (GPU)", gpuActual, rep.sellerClaim.gpu, factoryGpu, stGpu, vGpu);
 
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }
@@ -1267,11 +1274,12 @@ void RenderStressStability(HDC dc, const RECT& r, const AuditReport& rep, int dp
 }
 
 void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    bool batPresent = rep.hardware.battery.present && (rep.hardware.battery.healthPercent > 0 || rep.hardware.battery.designCapacityMwh > 0);
     PageHeaderConfig hdr;
     hdr.title = L"Pin & Năng lượng";
     hdr.subtitle = L"Chi tiết dung lượng thiết kế, dung lượng thực tế, độ chai pin, chu kỳ sạc và kiểm tra công suất xả mW.";
-    CanonicalUiState stBat = (rep.hardware.battery.healthPercent > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    hdr.sessionTag = (rep.hardware.battery.healthPercent > 0) ? (std::to_wstring(rep.hardware.battery.healthPercent) + L"% sức khỏe") : L"Chưa kiểm tra";
+    CanonicalUiState stBat = batPresent ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    hdr.sessionTag = batPresent ? (std::to_wstring(rep.hardware.battery.healthPercent) + L"% sức khỏe") : L"Không phát hiện pin";
     hdr.sessionState = stBat;
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
 
@@ -1284,16 +1292,16 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
 
     MetricCardConfig mc1;
     mc1.label = L"Độ chai pin";
-    mc1.value = rep.hardware.battery.healthPercent > 0 ? (std::to_wstring(100 - rep.hardware.battery.healthPercent) + L"%") : L"—";
-    mc1.state = (100 - rep.hardware.battery.healthPercent > 25) ? CanonicalUiState::Warning : CanonicalUiState::Good;
-    mc1.note = L"Mức độ suy giảm dung lượng";
+    mc1.value = batPresent ? (std::to_wstring(100 - rep.hardware.battery.healthPercent) + L"%") : L"—";
+    mc1.state = batPresent ? ((100 - rep.hardware.battery.healthPercent > 25) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
+    mc1.note = batPresent ? L"Mức độ suy giảm dung lượng" : L"Không có pin";
     RECT kpi1Rect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi1Rect, mc1, gFonts, dpi);
 
     MetricCardConfig mc2;
     mc2.label = L"Dung lượng thực tế (Full)";
     mc2.value = rep.hardware.battery.fullChargeCapacityMwh > 0 ? (std::to_wstring(rep.hardware.battery.fullChargeCapacityMwh) + L" mWh") : L"—";
-    mc2.state = CanonicalUiState::Good;
+    mc2.state = rep.hardware.battery.fullChargeCapacityMwh > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     mc2.note = L"Khi sạc đầy 100%";
     RECT kpi2Rect{ kpi1Rect.right + UiMetrics::Scale(12, dpi), curY, kpi1Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi2Rect, mc2, gFonts, dpi);
@@ -1301,7 +1309,7 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
     MetricCardConfig mc3;
     mc3.label = L"Dung lượng thiết kế (Design)";
     mc3.value = rep.hardware.battery.designCapacityMwh > 0 ? (std::to_wstring(rep.hardware.battery.designCapacityMwh) + L" mWh") : L"—";
-    mc3.state = CanonicalUiState::Good;
+    mc3.state = rep.hardware.battery.designCapacityMwh > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     mc3.note = L"Xuất xưởng gốc từ nhà máy";
     RECT kpi3Rect{ kpi2Rect.right + UiMetrics::Scale(12, dpi), curY, kpi2Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi3Rect, mc3, gFonts, dpi);
@@ -1309,7 +1317,7 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
     MetricCardConfig mc4;
     mc4.label = L"Số chu kỳ sạc (Cycles)";
     mc4.value = rep.hardware.battery.cycleCount > 0 ? std::to_wstring(rep.hardware.battery.cycleCount) : L"—";
-    mc4.state = (rep.hardware.battery.cycleCount > 500) ? CanonicalUiState::Warning : CanonicalUiState::Good;
+    mc4.state = rep.hardware.battery.cycleCount > 0 ? ((rep.hardware.battery.cycleCount > 500) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
     mc4.note = L"Số lần nạp xả hoàn toàn";
     RECT kpi4Rect{ kpi3Rect.right + UiMetrics::Scale(12, dpi), curY, kpi3Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi4Rect, mc4, gFonts, dpi);
@@ -1341,16 +1349,309 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
     addBatRow(L"Công nghệ pin (Chemistry)", chem, L"CIM / WMI", CanonicalUiState::Good, L"Tốt");
 
     std::wstring mfr = rep.hardware.battery.manufacturer.empty() ? L"—" : rep.hardware.battery.manufacturer;
-    addBatRow(L"Nhà sản xuất cell pin", mfr, L"CIM / BatteryReport", CanonicalUiState::Good, L"Tốt");
+    addBatRow(L"Nhà sản xuất cell pin", mfr, L"CIM / BatteryReport", rep.hardware.battery.manufacturer.empty() ? CanonicalUiState::NotTested : CanonicalUiState::Good, rep.hardware.battery.manufacturer.empty() ? L"Chưa rõ" : L"Tốt");
 
     std::wstring sn = rep.hardware.battery.serialNumber.empty() ? L"—" : rep.hardware.battery.serialNumber;
-    addBatRow(L"Số Serial Pin", sn, L"CIM / WMI", CanonicalUiState::Good, L"Tốt");
+    addBatRow(L"Số Serial Pin", sn, L"CIM / WMI", rep.hardware.battery.serialNumber.empty() ? CanonicalUiState::NotTested : CanonicalUiState::Good, rep.hardware.battery.serialNumber.empty() ? L"Chưa rõ" : L"Tốt");
 
     std::wstring acStatus = rep.hardware.stress.portPower.acConnected ? L"Đang cắm sạc AC (AC Line Connected)" : L"Đang dùng pin (Discharging On Battery)";
     addBatRow(L"Trạng thái nguồn AC", acStatus, L"Win32 Power API", CanonicalUiState::Good, L"Đạt");
 
     std::wstring disRate = rep.hardware.battery.liveDischargeMw > 0 ? (std::to_wstring(rep.hardware.battery.liveDischargeMw) + L" mW") : L"— (Cần rút sạc để đo)";
-    addBatRow(L"Công suất xả pin tức thời", disRate, L"Battery Discharge Telemetry", CanonicalUiState::Good, L"Đã ghi nhận");
+    addBatRow(L"Công suất xả pin tức thời", disRate, L"Battery Discharge Telemetry", rep.hardware.battery.liveDischargeMw > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested, rep.hardware.battery.liveDischargeMw > 0 ? L"Đã ghi nhận" : L"Chưa kiểm tra");
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
+void RenderStorage(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Lưu trữ (Storage / NVMe / SSD)";
+    hdr.subtitle = L"Danh sách các ổ đĩa vật lý, chuẩn giao tiếp NVMe/SATA, trạng thái S.M.A.R.T. và độ tin cậy phần cứng.";
+    bool hasDisk = !rep.hardware.storage.empty();
+    hdr.sessionTag = hasDisk ? (std::to_wstring(rep.hardware.storage.size()) + L" ổ đĩa") : L"Chưa phát hiện";
+    hdr.sessionState = hasDisk ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Model Ổ đĩa", 200, false, false },
+        { L"Chuẩn kết nối", 110, false, false },
+        { L"Dung lượng", 110, false, false },
+        { L"Serial Number", 150, true, false },
+        { L"S.M.A.R.T. Health", 160, false, true }
+    };
+
+    if (rep.hardware.storage.empty()) {
+        dtc.emptyMessage = L"Chưa phát hiện ổ đĩa nào hoặc phiên kiểm tra chưa hoàn tất.";
+    } else {
+        for (const auto& d : rep.hardware.storage) {
+            TableRow row;
+            row.cells.push_back(d.model.empty() ? L"Ổ đĩa lưu trữ" : d.model);
+            row.cells.push_back(d.busType.empty() ? L"NVMe / SATA" : d.busType);
+            std::wstring capStr = (d.sizeBytes > 0) ? (std::to_wstring(d.sizeBytes / (1000 * 1000 * 1000)) + L" GB") : L"—";
+            row.cells.push_back(capStr);
+            row.cells.push_back(d.serialNumber.empty() ? L"—" : d.serialNumber);
+            if (d.smartStatus.empty()) {
+                row.cells.push_back(L"Chưa đọc được S.M.A.R.T.");
+                row.rowState = CanonicalUiState::NotTested;
+            } else if (d.smartStatus == L"FAIL") {
+                row.cells.push_back(L"KHÔNG ĐẠT (Lỗi)");
+                row.rowState = CanonicalUiState::Fail;
+            } else {
+                row.cells.push_back(L"ĐẠT (Tốt)");
+                row.rowState = CanonicalUiState::Good;
+            }
+            dtc.rows.push_back(row);
+        }
+    }
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
+void RenderMemory(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Bộ nhớ RAM";
+    hdr.subtitle = L"Chi tiết từng thanh RAM vật lý, tốc độ bus, số khe cắm DIMM và kết quả kiểm tra tính toàn vẹn bộ nhớ.";
+    bool hasRam = rep.hardware.installedRamBytes > 0;
+    std::wstring ramTotalStr = hasRam ? (std::to_wstring(rep.hardware.installedRamBytes / (1024 * 1024 * 1024)) + L" GB") : L"Chưa phát hiện";
+    hdr.sessionTag = ramTotalStr;
+    hdr.sessionState = hasRam ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Vị trí khe cắm", 130, false, false },
+        { L"Dung lượng", 110, false, false },
+        { L"Tốc độ Bus", 120, false, false },
+        { L"Nhà sản xuất", 150, false, false },
+        { L"Mã Part Number", 180, false, false },
+        { L"Trạng thái", 120, false, true }
+    };
+
+    if (rep.hardware.memoryModules.empty()) {
+        dtc.emptyMessage = L"Chưa có thông tin chi tiết từng khe RAM. Tổng RAM hệ thống: " + ramTotalStr;
+    } else {
+        for (const auto& m : rep.hardware.memoryModules) {
+            TableRow row;
+            row.cells.push_back(m.bankLabel.empty() ? L"DIMM Slot" : m.bankLabel);
+            std::wstring cap = (m.capacityBytes > 0) ? (std::to_wstring(m.capacityBytes / (1024 * 1024 * 1024)) + L" GB") : L"—";
+            row.cells.push_back(cap);
+            std::wstring spd = (m.configuredSpeedMhz > 0) ? (std::to_wstring(m.configuredSpeedMhz) + L" MHz") : L"—";
+            row.cells.push_back(spd);
+            row.cells.push_back(m.manufacturer.empty() ? L"—" : m.manufacturer);
+            row.cells.push_back(m.partNumber.empty() ? L"—" : m.partNumber);
+            row.cells.push_back(m.capacityBytes > 0 ? L"ĐÃ NHẬN DIỆN" : L"CHƯA RÕ");
+            row.rowState = m.capacityBytes > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+            dtc.rows.push_back(row);
+        }
+    }
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
+void RenderDisplay(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Hiển thị (Màn hình)";
+    hdr.subtitle = L"Dữ liệu EDID gốc từ phần cứng tấm nền, độ phân giải native, tần số quét và kết quả kiểm tra điểm chết.";
+    auto& f = rep.hardware.stress.functional;
+    CanonicalUiState stDisp = MapFunctionalStatus(f.displayState);
+    hdr.sessionTag = (stDisp == CanonicalUiState::Pass) ? L"Màn hình đạt" : ((stDisp == CanonicalUiState::Fail) ? L"Có lỗi điểm chết" : L"Chưa kiểm tra");
+    hdr.sessionState = stDisp;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
+    
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Thông số màn hình", 160, false, false },
+        { L"Giá trị thực tế", 260, true, false },
+        { L"Đánh giá", 120, false, true }
+    };
+
+    auto addRow = [&](const std::wstring& p, const std::wstring& v, CanonicalUiState s, const std::wstring& stText) {
+        TableRow row;
+        row.cells.push_back(p);
+        row.cells.push_back(v.empty() ? L"—" : v);
+        row.cells.push_back(stText);
+        row.rowState = s;
+        dtc.rows.push_back(row);
+    };
+
+    if (!rep.hardware.displays.empty()) {
+        const auto& d = rep.hardware.displays.front();
+        addRow(L"Tên màn hình (EDID)", d.friendlyName, CanonicalUiState::Good, L"Tốt");
+        addRow(L"Nhà sản xuất tấm nền", d.manufacturerId, CanonicalUiState::Good, L"Tốt");
+        std::wstring resStr = (d.nativeWidth > 0 && d.nativeHeight > 0) ? (std::to_wstring(d.nativeWidth) + L" x " + std::to_wstring(d.nativeHeight)) : L"—";
+        addRow(L"Độ phân giải Native", resStr, CanonicalUiState::Good, L"Đạt");
+        std::wstring hzStr = (d.refreshRateHz > 0) ? (std::to_wstring(d.refreshRateHz) + L" Hz") : L"—";
+        addRow(L"Tần số quét", hzStr, CanonicalUiState::Good, L"Đạt");
+    } else {
+        addRow(L"Dữ liệu EDID", L"Đang quét thông số...", CanonicalUiState::NotTested, L"Chưa rõ");
+    }
+    addRow(L"Kiểm tra 6 màu & Điểm chết", (stDisp == CanonicalUiState::Pass) ? L"Đã xác nhận không điểm chết" : L"Chưa hoàn tất Wizard", stDisp, (stDisp == CanonicalUiState::Pass ? L"ĐẠT" : L"CẦN XÁC NHẬN"));
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
+
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Kiểm tra màn hình";
+    nac.reasonText = L"Chạy Wizard toàn màn hình qua 6 phông màu chuẩn (Đỏ, Xanh lá, Xanh dương, Trắng, Đen, Xám) để phát hiện điểm chết.";
+    nac.remainingTasks = { L"Phát hiện Dead / Stuck pixel", L"Kiểm tra hở sáng viền (IPS glow)", L"Kiểm tra ám màu / ố màn hình" };
+    nac.buttonText = L"MỞ WIZARD 6 MÀU";
+    nac.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderAudioCamera(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Âm thanh & Camera";
+    hdr.subtitle = L"Kiểm tra thực tế 2 kênh loa Stereo trái/phải, độ nhạy microphone và khả năng thu nhận hình ảnh từ Camera.";
+    auto& f = rep.hardware.stress.functional;
+    CanonicalUiState stAud = MapFunctionalStatus(f.audioState);
+    CanonicalUiState stCam = MapFunctionalStatus(f.cameraState);
+    hdr.sessionTag = (stAud == CanonicalUiState::Pass && stCam == CanonicalUiState::Pass) ? L"Tất cả đạt" : L"Cần kiểm tra";
+    hdr.sessionState = (stAud == CanonicalUiState::Pass && stCam == CanonicalUiState::Pass) ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
+    
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Thiết bị I/O", 150, false, false },
+        { L"Phương thức kiểm tra", 230, true, false },
+        { L"Bằng chứng ghi nhận", 160, false, false },
+        { L"Trạng thái", 120, false, true }
+    };
+
+    auto addRow = [&](const std::wstring& dev, const std::wstring& method, const std::wstring& ev, CanonicalUiState st, const std::wstring& stText) {
+        TableRow row;
+        row.cells.push_back(dev);
+        row.cells.push_back(method);
+        row.cells.push_back(ev);
+        row.cells.push_back(stText);
+        row.rowState = st;
+        dtc.rows.push_back(row);
+    };
+
+    addRow(L"Loa ngoài Trái/Phải", L"Phát âm tần số 440Hz PCM stereo độc lập", (stAud == CanonicalUiState::Pass) ? L"Người dùng xác nhận L/R" : L"Chưa kiểm tra", stAud, (stAud == CanonicalUiState::Pass ? L"ĐẠT" : L"CẦN XÁC NHẬN"));
+    addRow(L"Microphone tích hợp", L"Thu âm trực tiếp waveIn RMS signal level", (stAud == CanonicalUiState::Pass) ? L"Đo biên độ âm thanh > 5%" : L"Chưa kiểm tra", stAud, (stAud == CanonicalUiState::Pass ? L"ĐẠT" : L"CẦN XÁC NHẬN"));
+    addRow(L"Camera trước / WebCam", L"Media Foundation trích xuất frame mẫu", (stCam == CanonicalUiState::Pass) ? L"Đã chụp frame thực tế" : L"Chưa kiểm tra", stCam, (stCam == CanonicalUiState::Pass ? L"ĐẠT" : L"CẦN XÁC NHẬN"));
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
+
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Kiểm tra Loa & Camera";
+    nac.reasonText = L"Kích hoạt âm thanh thử nghiệm và chụp khung hình trực tiếp để xác minh chức năng phần cứng.";
+    nac.remainingTasks = { L"Kiểm tra Loa Stereo 2 kênh", L"Đo cường độ tín hiệu Micro", L"Kiểm tra cảm biến hình ảnh Camera" };
+    nac.buttonText = L"MỞ WIZARD LOA & CAM";
+    nac.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderNetwork(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Mạng & Kết nối";
+    hdr.subtitle = L"Kiểm tra bộ điều hợp Wi-Fi WLAN API, cường độ tín hiệu RSSI, chuẩn Bluetooth Radio và cổng mạng LAN.";
+    auto& f = rep.hardware.stress.functional;
+    CanonicalUiState stWifi = (f.wifiState == L"PASS") ? CanonicalUiState::Pass : ((f.wifiState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    CanonicalUiState stBt = (f.bluetoothState == L"PASS") ? CanonicalUiState::Pass : ((f.bluetoothState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    hdr.sessionTag = (stWifi == CanonicalUiState::Pass) ? L"Wi-Fi đã xác nhận" : L"Chưa kiểm tra";
+    hdr.sessionState = stWifi;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Phân hệ kết nối", 140, false, false },
+        { L"Tên Card mạng / Adapter", 240, true, false },
+        { L"Thông số kỹ thuật / Tín hiệu", 240, false, false },
+        { L"Trạng thái", 120, false, true }
+    };
+
+    TableRow r1;
+    r1.cells = { L"Wi-Fi (Wireless LAN)", L"Bộ điều hợp Wi-Fi (WlanApi)", (stWifi == CanonicalUiState::Pass) ? L"Đã quét mạng & đo chất lượng sóng" : L"Chưa chạy kiểm tra", (stWifi == CanonicalUiState::Pass ? L"ĐẠT" : L"CHƯA KIỂM TRA") };
+    r1.rowState = stWifi;
+    dtc.rows.push_back(r1);
+
+    TableRow r2;
+    r2.cells = { L"Bluetooth Radio", L"Bộ thu phát Bluetooth (BthProps)", (stBt == CanonicalUiState::Pass) ? L"Radio Stack phản hồi bình thường" : L"Chưa chạy kiểm tra", (stBt == CanonicalUiState::Pass ? L"ĐẠT" : L"CHƯA KIỂM TRA") };
+    r2.rowState = stBt;
+    dtc.rows.push_back(r2);
+
+    TableRow r3;
+    r3.cells = { L"Cổng mạng LAN (RJ45)", L"Bộ điều khiển Ethernet", L"Kiểm tra qua cắm cáp mạng thực tế", L"CẦN XÁC NHẬN" };
+    r3.rowState = CanonicalUiState::NotTested;
+    dtc.rows.push_back(r3);
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
+void RenderSystemInfo(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Thông tin Hệ thống";
+    hdr.subtitle = L"Toàn bộ thông số BIOS, Bo mạch chủ, TPM 2.0, Secure Boot, phiên bản Windows và mã lỗi PnP.";
+    hdr.sessionTag = rep.model.empty() ? L"Windows x64" : rep.model;
+    hdr.sessionState = CanonicalUiState::Good;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Hạng mục hệ thống", 180, false, false },
+        { L"Giá trị chi tiết", 340, true, false },
+        { L"Nguồn cung cấp", 160, false, false },
+        { L"Đánh giá", 120, false, true }
+    };
+
+    auto addRow = [&](const std::wstring& p, const std::wstring& v, const std::wstring& src, CanonicalUiState st, const std::wstring& stText) {
+        TableRow row;
+        row.cells.push_back(p);
+        row.cells.push_back(v.empty() ? L"—" : v);
+        row.cells.push_back(src);
+        row.cells.push_back(stText);
+        row.rowState = st;
+        dtc.rows.push_back(row);
+    };
+
+    std::wstring sysModel = rep.model.empty() ? Reg(L"SystemProductName") : rep.model;
+    addRow(L"Dòng máy / Model", sysModel, L"SMBIOS / Registry", CanonicalUiState::Good, L"Đạt");
+
+    std::wstring mfr = rep.hardware.system.manufacturer.empty() ? Reg(L"SystemManufacturer") : rep.hardware.system.manufacturer;
+    addRow(L"Nhà sản xuất", mfr, L"SMBIOS", CanonicalUiState::Good, L"Đạt");
+
+    std::wstring cpuStr = rep.hardware.cpuName;
+    addRow(L"Bộ vi xử lý (CPU)", cpuStr, L"WMI / CPUID", CanonicalUiState::Good, L"Đạt");
+
+    std::wstring biosVer = rep.hardware.system.biosVersion.empty() ? Reg(L"SystemBiosVersion") : rep.hardware.system.biosVersion;
+    addRow(L"Phiên bản BIOS", biosVer, L"SMBIOS / Registry", CanonicalUiState::Good, L"Đạt");
+
+    std::wstring osStr = rep.hardware.system.osName.empty() ? L"Windows 11 / 10 x64 Native" : rep.hardware.system.osName;
+    addRow(L"Hệ điều hành", osStr, L"Win32 System", CanonicalUiState::Good, L"Đạt");
+
+    std::wstring tpmStr = rep.hardware.system.tpmPresent ? L"TPM 2.0 Hoạt động (Enabled)" : L"Không phát hiện TPM / Bị tắt";
+    addRow(L"Bảo mật TPM", tpmStr, L"TPM Provider", rep.hardware.system.tpmPresent ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.system.tpmPresent ? L"Đạt" : L"Cảnh báo");
+
+    std::wstring sbStr = rep.hardware.system.secureBootEnabled ? L"Secure Boot Bật (Enabled)" : L"Secure Boot Tắt (Disabled)";
+    addRow(L"Khởi động an toàn", sbStr, L"Firmware Environment", rep.hardware.system.secureBootEnabled ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.system.secureBootEnabled ? L"Đạt" : L"Cảnh báo");
 
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }
@@ -1401,7 +1702,6 @@ void RenderReports(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
         { L"Trạng thái", 100, false, true }
     };
 
-    std::lock_guard<std::mutex> lk(gReportMutex);
     for (const auto& f : rep.findings) {
         TableRow row;
         row.cells.push_back(UiDimension(f.dimension));
@@ -1481,288 +1781,6 @@ void RenderExportShare(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     nac.buttonText = L"MỞ TRÊN TRÌNH DUYỆT";
     nac.isButtonEnabled = !gReportPath.empty();
     DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
-}
-
-void RenderStorage(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
-    PageHeaderConfig hdr;
-    hdr.title = L"Lưu trữ (Storage)";
-    hdr.subtitle = L"Thông tin chi tiết NVMe/SATA SSD, dữ liệu S.M.A.R.T., số giờ bật máy, dung lượng đọc ghi và kiểm tra hệ thống tệp.";
-    bool hasDisk = !rep.hardware.storage.empty();
-    hdr.sessionTag = hasDisk ? (std::to_wstring(rep.hardware.storage.size()) + L" ổ đĩa phát hiện") : L"Chưa có dữ liệu";
-    hdr.sessionState = hasDisk ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    DrawPageHeader(dc, r, hdr, gFonts, dpi);
-
-    int curY = r.top + UiMetrics::Scale(70, dpi);
-    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
-
-    DataTableConfig dtc;
-    dtc.columns = {
-        { L"Model Ổ đĩa", 220, false, false },
-        { L"Chuẩn kết nối", 110, false, false },
-        { L"Dung lượng", 110, false, false },
-        { L"Số Serial", 160, false, false },
-        { L"Tình trạng S.M.A.R.T.", 140, false, true }
-    };
-
-    if (rep.hardware.storage.empty()) {
-        dtc.emptyMessage = L"Chưa phát hiện ổ đĩa nào hoặc phiên kiểm tra chưa hoàn tất.";
-    } else {
-        for (const auto& d : rep.hardware.storage) {
-            TableRow row;
-            row.cells.push_back(d.model.empty() ? L"Ổ đĩa lưu trữ" : d.model);
-            row.cells.push_back(d.busType.empty() ? L"NVMe / SATA" : d.busType);
-            std::wstring capStr = (d.sizeBytes > 0) ? (std::to_wstring(d.sizeBytes / (1000 * 1000 * 1000)) + L" GB") : L"—";
-            row.cells.push_back(capStr);
-            row.cells.push_back(d.serialNumber.empty() ? L"—" : d.serialNumber);
-            row.cells.push_back(d.smartStatus.empty() ? L"ĐẠT (Tốt)" : d.smartStatus);
-            row.rowState = CanonicalUiState::Good;
-            dtc.rows.push_back(row);
-        }
-    }
-    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
-}
-
-void RenderMemory(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
-    PageHeaderConfig hdr;
-    hdr.title = L"Bộ nhớ RAM";
-    hdr.subtitle = L"Chi tiết từng thanh RAM vật lý, tốc độ bus, số khe cắm DIMM và kết quả kiểm tra tính toàn vẹn bộ nhớ.";
-    bool hasRam = rep.hardware.installedRamBytes > 0;
-    std::wstring ramTotalStr = hasRam ? (std::to_wstring(rep.hardware.installedRamBytes / (1024 * 1024 * 1024)) + L" GB") : L"Chưa phát hiện";
-    hdr.sessionTag = ramTotalStr;
-    hdr.sessionState = hasRam ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    DrawPageHeader(dc, r, hdr, gFonts, dpi);
-
-    int curY = r.top + UiMetrics::Scale(70, dpi);
-    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
-
-    DataTableConfig dtc;
-    dtc.columns = {
-        { L"Vị trí khe cắm", 130, false, false },
-        { L"Dung lượng", 110, false, false },
-        { L"Tốc độ Bus", 120, false, false },
-        { L"Nhà sản xuất", 150, false, false },
-        { L"Mã Part Number", 180, false, false },
-        { L"Trạng thái", 100, false, true }
-    };
-
-    if (rep.hardware.memoryModules.empty()) {
-        dtc.emptyMessage = L"Chưa có thông tin chi tiết từng khe RAM. Tổng RAM hệ thống: " + ramTotalStr;
-    } else {
-        for (const auto& m : rep.hardware.memoryModules) {
-            TableRow row;
-            row.cells.push_back(m.bankLabel.empty() ? L"DIMM Slot" : m.bankLabel);
-            std::wstring cap = (m.capacityBytes > 0) ? (std::to_wstring(m.capacityBytes / (1024 * 1024 * 1024)) + L" GB") : L"—";
-            row.cells.push_back(cap);
-            std::wstring spd = (m.configuredSpeedMhz > 0) ? (std::to_wstring(m.configuredSpeedMhz) + L" MHz") : L"—";
-            row.cells.push_back(spd);
-            row.cells.push_back(m.manufacturer.empty() ? L"—" : m.manufacturer);
-            row.cells.push_back(m.partNumber.empty() ? L"—" : m.partNumber);
-            row.cells.push_back(L"ĐẠT");
-            row.rowState = CanonicalUiState::Good;
-            dtc.rows.push_back(row);
-        }
-    }
-    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
-}
-
-void RenderDisplay(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
-    PageHeaderConfig hdr;
-    hdr.title = L"Hiển thị (Màn hình)";
-    hdr.subtitle = L"Dữ liệu EDID gốc từ phần cứng tấm nền, độ phân giải native, tần số quét và kết quả kiểm tra điểm chết.";
-    auto& f = rep.hardware.stress.functional;
-    CanonicalUiState stDisp = MapFunctionalStatus(f.displayState);
-    hdr.sessionTag = (stDisp == CanonicalUiState::Pass) ? L"Màn hình đạt" : ((stDisp == CanonicalUiState::Fail) ? L"Có lỗi điểm chết" : L"Chưa kiểm tra");
-    hdr.sessionState = stDisp;
-    DrawPageHeader(dc, r, hdr, gFonts, dpi);
-
-    int rightPanelW = UiMetrics::Scale(300, dpi);
-    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
-    int curY = r.top + UiMetrics::Scale(70, dpi);
-
-    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
-    
-    DataTableConfig dtc;
-    dtc.columns = {
-        { L"Thông số màn hình", 160, false, false },
-        { L"Giá trị thực tế", 260, true, false },
-        { L"Đánh giá", 120, false, true }
-    };
-
-    auto addRow = [&](const std::wstring& p, const std::wstring& v, CanonicalUiState s, const std::wstring& stText) {
-        TableRow row;
-        row.cells.push_back(p);
-        row.cells.push_back(v.empty() ? L"—" : v);
-        row.cells.push_back(stText);
-        row.rowState = s;
-        dtc.rows.push_back(row);
-    };
-
-    if (!rep.hardware.displays.empty()) {
-        const auto& d = rep.hardware.displays.front();
-        addRow(L"Tên màn hình (EDID)", d.friendlyName, CanonicalUiState::Good, L"Tốt");
-        addRow(L"Nhà sản xuất tấm nền", d.manufacturerId, CanonicalUiState::Good, L"Tốt");
-        std::wstring resStr = (d.nativeWidth > 0 && d.nativeHeight > 0) ? (std::to_wstring(d.nativeWidth) + L" x " + std::to_wstring(d.nativeHeight)) : L"—";
-        addRow(L"Độ phân giải Native", resStr, CanonicalUiState::Good, L"Đạt");
-        std::wstring hzStr = (d.refreshRateHz > 0) ? (std::to_wstring(d.refreshRateHz) + L" Hz") : L"—";
-        addRow(L"Tần số quét", hzStr, CanonicalUiState::Good, L"Đạt");
-    } else {
-        addRow(L"Dữ liệu EDID", L"Đang quét thông số...", CanonicalUiState::NotTested, L"Chưa rõ");
-    }
-    addRow(L"Kiểm tra 6 màu & Điểm chết", (stDisp == CanonicalUiState::Pass) ? L"Đã xác nhận không điểm chết" : L"Chưa hoàn tất Wizard", stDisp, (stDisp == CanonicalUiState::Pass ? L"ĐẠT" : L"CHƯA XÁC NHẬN"));
-
-    DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
-
-    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
-    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-    NextActionConfig nac;
-    nac.actionTitle = L"Kiểm tra màn hình";
-    nac.reasonText = L"Chạy Wizard toàn màn hình qua 6 phông màu chuẩn (Đỏ, Xanh lá, Xanh dương, Trắng, Đen, Xám) để phát hiện điểm chết.";
-    nac.remainingTasks = { L"Phát hiện Dead / Stuck pixel", L"Kiểm tra hở sáng viền (IPS glow)", L"Kiểm tra ám màu / ố màn hình" };
-    nac.buttonText = L"MỞ WIZARD 6 MÀU";
-    nac.isButtonEnabled = true;
-    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
-}
-
-void RenderAudioCamera(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
-    PageHeaderConfig hdr;
-    hdr.title = L"Âm thanh & Camera";
-    hdr.subtitle = L"Kiểm tra thực tế 2 kênh loa Stereo trái/phải, độ nhạy microphone và khả năng thu nhận hình ảnh từ Camera.";
-    auto& f = rep.hardware.stress.functional;
-    CanonicalUiState stAud = MapFunctionalStatus(f.audioState);
-    CanonicalUiState stCam = MapFunctionalStatus(f.cameraState);
-    hdr.sessionTag = (stAud == CanonicalUiState::Pass && stCam == CanonicalUiState::Pass) ? L"Tất cả đạt" : L"Cần kiểm tra";
-    hdr.sessionState = (stAud == CanonicalUiState::Pass && stCam == CanonicalUiState::Pass) ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
-    DrawPageHeader(dc, r, hdr, gFonts, dpi);
-
-    int rightPanelW = UiMetrics::Scale(300, dpi);
-    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
-    int curY = r.top + UiMetrics::Scale(70, dpi);
-
-    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
-    
-    DataTableConfig dtc;
-    dtc.columns = {
-        { L"Thiết bị I/O", 150, false, false },
-        { L"Phương thức kiểm tra", 230, true, false },
-        { L"Bằng chứng ghi nhận", 160, false, false },
-        { L"Trạng thái", 110, false, true }
-    };
-
-    auto addRow = [&](const std::wstring& dev, const std::wstring& method, const std::wstring& ev, CanonicalUiState st, const std::wstring& stText) {
-        TableRow row;
-        row.cells.push_back(dev);
-        row.cells.push_back(method);
-        row.cells.push_back(ev);
-        row.cells.push_back(stText);
-        row.rowState = st;
-        dtc.rows.push_back(row);
-    };
-
-    addRow(L"Loa ngoài Trái/Phải", L"Phát âm tần số 440Hz PCM stereo độc lập", (stAud == CanonicalUiState::Pass) ? L"Người dùng xác nhận L/R" : L"Chưa kiểm tra", stAud, (stAud == CanonicalUiState::Pass ? L"ĐẠT" : L"CHƯA RÕ"));
-    addRow(L"Microphone tích hợp", L"Thu âm trực tiếp waveIn RMS signal level", (stAud == CanonicalUiState::Pass) ? L"Đo biên độ âm thanh > 5%" : L"Chưa kiểm tra", stAud, (stAud == CanonicalUiState::Pass ? L"ĐẠT" : L"CHƯA RÕ"));
-    addRow(L"Camera trước / WebCam", L"Media Foundation trích xuất frame mẫu", (stCam == CanonicalUiState::Pass) ? L"Đã chụp frame thực tế" : L"Chưa kiểm tra", stCam, (stCam == CanonicalUiState::Pass ? L"ĐẠT" : L"CHƯA RÕ"));
-
-    DrawDataTable(dc, tableRect, dtc, gFonts, dpi);
-
-    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
-    RECT actionCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-    NextActionConfig nac;
-    nac.actionTitle = L"Kiểm tra Loa & Camera";
-    nac.reasonText = L"Kích hoạt âm thanh thử nghiệm và chụp khung hình trực tiếp để xác minh chức năng phần cứng.";
-    nac.remainingTasks = { L"Kiểm tra Loa Stereo 2 kênh", L"Đo cường độ tín hiệu Micro", L"Kiểm tra cảm biến hình ảnh Camera" };
-    nac.buttonText = L"MỞ WIZARD LOA & CAM";
-    nac.isButtonEnabled = true;
-    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
-}
-
-void RenderNetwork(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
-    PageHeaderConfig hdr;
-    hdr.title = L"Mạng & Kết nối";
-    hdr.subtitle = L"Kiểm tra bộ điều hợp Wi-Fi WLAN API, cường độ tín hiệu RSSI, chuẩn Bluetooth Radio và cổng mạng LAN.";
-    hdr.sessionTag = L"Đã quét thiết bị";
-    hdr.sessionState = CanonicalUiState::Good;
-    DrawPageHeader(dc, r, hdr, gFonts, dpi);
-
-    int curY = r.top + UiMetrics::Scale(70, dpi);
-    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
-
-    DataTableConfig dtc;
-    dtc.columns = {
-        { L"Phân hệ kết nối", 140, false, false },
-        { L"Tên Card mạng / Adapter", 240, true, false },
-        { L"Thông số kỹ thuật / Tín hiệu", 240, false, false },
-        { L"Trạng thái", 120, false, true }
-    };
-
-    TableRow r1;
-    r1.cells = { L"Wi-Fi (Wireless LAN)", L"Wi-Fi Adapter (WlanApi)", L"Băng tần 2.4GHz / 5GHz, RSSI Signal OK", L"SẴN SÀNG" };
-    r1.rowState = CanonicalUiState::Good;
-    dtc.rows.push_back(r1);
-
-    TableRow r2;
-    r2.cells = { L"Bluetooth Radio", L"Bluetooth Device (BthProps)", L"Radio Stack OK, Hỗ trợ ghép nối thiết bị", L"SẴN SÀNG" };
-    r2.rowState = CanonicalUiState::Good;
-    dtc.rows.push_back(r2);
-
-    TableRow r3;
-    r3.cells = { L"Cổng mạng LAN (RJ45)", L"Ethernet Controller", L"Gigabit Ethernet / 1000 Mbps", L"SẴN SÀNG" };
-    r3.rowState = CanonicalUiState::Good;
-    dtc.rows.push_back(r3);
-
-    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
-}
-
-void RenderSystemInfo(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
-    PageHeaderConfig hdr;
-    hdr.title = L"Thông tin Hệ thống";
-    hdr.subtitle = L"Toàn bộ thông số BIOS, Bo mạch chủ, TPM 2.0, Secure Boot, phiên bản Windows và mã lỗi PnP.";
-    hdr.sessionTag = rep.model.empty() ? L"Windows x64" : rep.model;
-    hdr.sessionState = CanonicalUiState::Good;
-    DrawPageHeader(dc, r, hdr, gFonts, dpi);
-
-    int curY = r.top + UiMetrics::Scale(70, dpi);
-    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
-
-    DataTableConfig dtc;
-    dtc.columns = {
-        { L"Hạng mục hệ thống", 180, false, false },
-        { L"Giá trị chi tiết", 340, true, false },
-        { L"Nguồn cung cấp", 160, false, false },
-        { L"Đánh giá", 120, false, true }
-    };
-
-    auto addRow = [&](const std::wstring& p, const std::wstring& v, const std::wstring& src, CanonicalUiState st, const std::wstring& stText) {
-        TableRow row;
-        row.cells.push_back(p);
-        row.cells.push_back(v.empty() ? L"—" : v);
-        row.cells.push_back(src);
-        row.cells.push_back(stText);
-        row.rowState = st;
-        dtc.rows.push_back(row);
-    };
-
-    std::wstring sysModel = rep.model.empty() ? Reg(L"SystemProductName") : rep.model;
-    addRow(L"Dòng máy / Model", sysModel, L"SMBIOS / Registry", CanonicalUiState::Good, L"Đạt");
-
-    std::wstring mfr = rep.hardware.system.manufacturer.empty() ? Reg(L"SystemManufacturer") : rep.hardware.system.manufacturer;
-    addRow(L"Nhà sản xuất", mfr, L"SMBIOS", CanonicalUiState::Good, L"Đạt");
-
-    std::wstring cpuStr = rep.hardware.cpuName;
-    addRow(L"Bộ vi xử lý (CPU)", cpuStr, L"WMI / CPUID", CanonicalUiState::Good, L"Đạt");
-
-    std::wstring biosVer = rep.hardware.system.biosVersion.empty() ? Reg(L"SystemBiosVersion") : rep.hardware.system.biosVersion;
-    addRow(L"Phiên bản BIOS", biosVer, L"SMBIOS / Registry", CanonicalUiState::Good, L"Đạt");
-
-    std::wstring osStr = rep.hardware.system.osName.empty() ? L"Windows 11 / 10 x64 Native" : rep.hardware.system.osName;
-    addRow(L"Hệ điều hành", osStr, L"Win32 System", CanonicalUiState::Good, L"Đạt");
-
-    std::wstring tpmStr = rep.hardware.system.tpmPresent ? L"TPM 2.0 Hoạt động (Enabled)" : L"Không phát hiện TPM / Bị tắt";
-    addRow(L"Bảo mật TPM", tpmStr, L"TPM Provider", rep.hardware.system.tpmPresent ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.system.tpmPresent ? L"Đạt" : L"Cảnh báo");
-
-    std::wstring sbStr = rep.hardware.system.secureBootEnabled ? L"Secure Boot Bật (Enabled)" : L"Secure Boot Tắt (Disabled)";
-    addRow(L"Khởi động an toàn", sbStr, L"Firmware Environment", rep.hardware.system.secureBootEnabled ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.system.secureBootEnabled ? L"Đạt" : L"Cảnh báo");
-
-    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }
 
 void RenderLogsEvents(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
@@ -2014,7 +2032,18 @@ void RenderGenericScreen(HDC dc, const RECT& r, MainTab tab, const AuditReport& 
     }
 }
 
-} // namespace
+std::vector<MainTab> GetVisualTabList() {
+    std::vector<MainTab> list;
+    auto groups = GetDefaultSidebarGroups(gDeviceGroupExpanded);
+    for (const auto& g : groups) {
+        if (g.isExpanded) {
+            for (const auto& it : g.items) {
+                list.push_back(it.tab);
+            }
+        }
+    }
+    return list;
+}
 
 static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     switch (m) {
@@ -2072,15 +2101,25 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             return 0;
         case VK_UP:
             if (gFocusIndex == 0) {
-                int cur = (int)gCurrentTab;
-                if (cur > 0) gCurrentTab = (MainTab)(cur - 1);
+                auto tabs = GetVisualTabList();
+                for (size_t i = 0; i < tabs.size(); ++i) {
+                    if (tabs[i] == gCurrentTab) {
+                        if (i > 0) gCurrentTab = tabs[i - 1];
+                        break;
+                    }
+                }
                 InvalidateRect(h, nullptr, FALSE);
             }
             return 0;
         case VK_DOWN:
             if (gFocusIndex == 0) {
-                int cur = (int)gCurrentTab;
-                if (cur < (int)MainTab::InterruptedRecovery) gCurrentTab = (MainTab)(cur + 1);
+                auto tabs = GetVisualTabList();
+                for (size_t i = 0; i < tabs.size(); ++i) {
+                    if (tabs[i] == gCurrentTab) {
+                        if (i + 1 < tabs.size()) gCurrentTab = tabs[i + 1];
+                        break;
+                    }
+                }
                 InvalidateRect(h, nullptr, FALSE);
             }
             return 0;
@@ -2181,14 +2220,15 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             return 0;
         }
 
-        // 3. Mode Pills Click
+        // 3. Mode Pills Click (with DPI-scaled gap)
         int mX = layout.contentRect.left + UiMetrics::Scale(134, dpi);
         int pillW = UiMetrics::Scale(80, dpi);
         int pillH = UiMetrics::Scale(28, dpi);
+        int gap = UiMetrics::Scale(6, dpi);
         if (y >= modeY && y <= modeY + pillH) {
             if (x >= mX && x <= mX + pillW) { gSelectedMode = L"Quick"; InvalidateRect(h, nullptr, FALSE); }
-            else if (x >= mX + pillW + 6 && x <= mX + (pillW + 6) * 2) { gSelectedMode = L"Standard"; InvalidateRect(h, nullptr, FALSE); }
-            else if (x >= mX + (pillW + 6) * 2 && x <= mX + (pillW + 6) * 3) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
+            else if (x >= mX + pillW + gap && x <= mX + (pillW + gap) * 2) { gSelectedMode = L"Standard"; InvalidateRect(h, nullptr, FALSE); }
+            else if (x >= mX + (pillW + gap) * 2 && x <= mX + (pillW + gap) * 3) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
         }
 
         // 4. NewSession Screen: Purpose Cards, Mode Cards & Start Inspection Button Hit-Test
@@ -2196,10 +2236,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightPanelW = UiMetrics::Scale(300, dpi);
             int leftW = cr.right - cr.left - UiMetrics::Scale(48, dpi) - rightPanelW;
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi) + UiMetrics::Scale(24, dpi);
+            int startX = layout.contentRect.left + UiMetrics::Scale(24, dpi);
 
             // Hit test Purpose cards (3 cards)
             for (int p = 0; p < 3; ++p) {
-                RECT pr{ cr.left + UiMetrics::Scale(24, dpi), curY, cr.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(64, dpi) };
+                RECT pr{ startX, curY, startX + leftW, curY + UiMetrics::Scale(64, dpi) };
                 if (x >= pr.left && x <= pr.right && y >= pr.top && y <= pr.bottom) {
                     gInspectionPurpose = p;
                     InvalidateRect(h, nullptr, FALSE);
@@ -2213,7 +2254,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int modeCardW = (leftW - UiMetrics::Scale(16, dpi)) / 3;
             const wchar_t* modeNames[] = { L"Quick", L"Standard", L"Deep" };
             for (int m = 0; m < 3; ++m) {
-                int mx = cr.left + UiMetrics::Scale(24, dpi) + m * (modeCardW + UiMetrics::Scale(8, dpi));
+                int mx = startX + m * (modeCardW + UiMetrics::Scale(8, dpi));
                 RECT mr{ mx, curY, mx + modeCardW, curY + UiMetrics::Scale(110, dpi) };
                 if (x >= mr.left && x <= mr.right && y >= mr.top && y <= mr.bottom) {
                     gSelectedMode = modeNames[m];
@@ -2260,6 +2301,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             int rightPanelW = UiMetrics::Scale(250, dpi);
             int leftW = cr.right - cr.left - UiMetrics::Scale(48, dpi) - rightPanelW;
             int curY = layout.contentRect.top + UiMetrics::Scale(135, dpi);
+            int startX = layout.contentRect.left + UiMetrics::Scale(24, dpi);
             int cardW = (leftW - UiMetrics::Scale(12, dpi)) / 2;
             int cardH = UiMetrics::Scale(95, dpi);
 
@@ -2267,7 +2309,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             for (int i = 0; i < 6; ++i) {
                 int col = i % 2;
                 int row = i / 2;
-                int cx = cr.left + UiMetrics::Scale(24, dpi) + col * (cardW + UiMetrics::Scale(12, dpi));
+                int cx = startX + col * (cardW + UiMetrics::Scale(12, dpi));
                 int cy = curY + row * (cardH + UiMetrics::Scale(10, dpi));
                 RECT cardR{ cx, cy, cx + cardW, cy + cardH };
                 if (x >= cardR.left && x <= cardR.right && y >= cardR.top && y <= cardR.bottom) {
@@ -2440,6 +2482,12 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         RECT cr; GetClientRect(h, &cr);
         int dpi = GetDpiForHwnd(h);
 
+        AuditReport repSnapshot;
+        {
+            std::lock_guard<std::mutex> lk(gReportMutex);
+            repSnapshot = gReport;
+        }
+
         HDC memDC = CreateCompatibleDC(hdc);
         HBITMAP memBM = CreateCompatibleBitmap(hdc, cr.right - cr.left, cr.bottom - cr.top);
         HGDIOBJ oldBM = SelectObject(memDC, memBM);
@@ -2453,56 +2501,56 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         std::wstring stStr = gRunning ? L"Đang kiểm tra..." : (gAuditReady ? L"Sẵn sàng" : ((gSessionLifecycleState == CanonicalUiState::Cancelled) ? L"Đã hủy" : L"Chưa bắt đầu"));
         DrawSidebar(memDC, layout.sidebarRect, gCurrentTab, gFonts, dpi, gDeviceGroupExpanded, gSidebarScrollOffset, stStr, L"Windows x64 Native");
 
-        // Content Area Screen Rendering
+        // Content Area Screen Rendering with thread-safe snapshot
         if (gCurrentTab == MainTab::Dashboard) {
-            RenderDashboard(memDC, layout.contentRect, gReport, dpi);
+            RenderDashboard(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::NewSession) {
-            RenderNewSession(memDC, layout.contentRect, gReport, dpi);
+            RenderNewSession(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::AutoAudit) {
-            RenderAutoAudit(memDC, layout.contentRect, gReport, dpi);
+            RenderAutoAudit(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Functional) {
-            RenderFunctional(memDC, layout.contentRect, gReport, dpi);
+            RenderFunctional(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::SellerClaim) {
-            RenderSellerClaim(memDC, layout.contentRect, gReport, dpi);
+            RenderSellerClaim(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::PhysicalSafety) {
-            RenderPhysicalSafety(memDC, layout.contentRect, gReport, dpi);
+            RenderPhysicalSafety(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::PortsPower) {
-            RenderPortsPower(memDC, layout.contentRect, gReport, dpi);
+            RenderPortsPower(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::FactoryProfileMatch) {
-            RenderFactoryCompare(memDC, layout.contentRect, gReport, dpi);
+            RenderFactoryCompare(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Stress) {
-            RenderStressStability(memDC, layout.contentRect, gReport, dpi);
+            RenderStressStability(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Battery) {
-            RenderBatteryPower(memDC, layout.contentRect, gReport, dpi);
+            RenderBatteryPower(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Storage) {
-            RenderStorage(memDC, layout.contentRect, gReport, dpi);
+            RenderStorage(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Memory) {
-            RenderMemory(memDC, layout.contentRect, gReport, dpi);
+            RenderMemory(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Display) {
-            RenderDisplay(memDC, layout.contentRect, gReport, dpi);
+            RenderDisplay(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::AudioCamera) {
-            RenderAudioCamera(memDC, layout.contentRect, gReport, dpi);
+            RenderAudioCamera(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Network) {
-            RenderNetwork(memDC, layout.contentRect, gReport, dpi);
+            RenderNetwork(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::SystemInfo) {
-            RenderSystemInfo(memDC, layout.contentRect, gReport, dpi);
+            RenderSystemInfo(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Reports) {
-            RenderReports(memDC, layout.contentRect, gReport, dpi);
+            RenderReports(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::ExportShare) {
-            RenderExportShare(memDC, layout.contentRect, gReport, dpi);
+            RenderExportShare(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::LogsEvents) {
-            RenderLogsEvents(memDC, layout.contentRect, gReport, dpi);
+            RenderLogsEvents(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::Settings) {
-            RenderSettings(memDC, layout.contentRect, gReport, dpi);
+            RenderSettings(memDC, layout.contentRect, repSnapshot, dpi);
         } else if (gCurrentTab == MainTab::SessionHistory) {
-            RenderSessionHistory(memDC, layout.contentRect, gReport, dpi);
+            RenderSessionHistory(memDC, layout.contentRect, repSnapshot, dpi);
         } else {
-            RenderGenericScreen(memDC, layout.contentRect, gCurrentTab, gReport, dpi);
+            RenderGenericScreen(memDC, layout.contentRect, gCurrentTab, repSnapshot, dpi);
         }
 
-        // C01 App Shell Footer (with dynamic engine count)
+        // C01 App Shell Footer (with dynamic engine count and DPI scaling)
         int readyEngines = GetReadyEngineCount();
-        DrawAppShellFooter(memDC, layout.footerRect, gFonts, readyEngines, 14);
+        DrawAppShellFooter(memDC, layout.footerRect, gFonts, dpi, readyEngines, 14);
 
         BitBlt(hdc, 0, 0, cr.right - cr.left, cr.bottom - cr.top, memDC, 0, 0, SRCCOPY);
 

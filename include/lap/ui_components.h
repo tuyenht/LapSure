@@ -20,7 +20,7 @@ struct AppShellLayout {
 
 AppShellLayout ComputeAppShellLayout(const RECT& clientRect, int dpi);
 void DrawAppShellBackground(HDC dc, const RECT& clientRect);
-void DrawAppShellFooter(HDC dc, const RECT& r, const UiFonts& fonts, int readyEngines = 14, int totalEngines = 14);
+void DrawAppShellFooter(HDC dc, const RECT& r, const UiFonts& fonts, int dpi = 96, int readyEngines = 14, int totalEngines = 14);
 
 // ============================================================
 // C02 — Sidebar & Grouped Navigation

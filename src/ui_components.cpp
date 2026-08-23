@@ -26,7 +26,7 @@ void DrawAppShellBackground(HDC dc, const RECT& clientRect) {
     DeleteObject(bgBrush);
 }
 
-void DrawAppShellFooter(HDC dc, const RECT& r, const UiFonts& fonts, int readyEngines, int totalEngines) {
+void DrawAppShellFooter(HDC dc, const RECT& r, const UiFonts& fonts, int dpi, int readyEngines, int totalEngines) {
     HBRUSH b = CreateSolidBrush(UiColors::CardBg);
     FillRect(dc, &r, b);
     DeleteObject(b);
@@ -42,12 +42,12 @@ void DrawAppShellFooter(HDC dc, const RECT& r, const UiFonts& fonts, int readyEn
     SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, readyEngines >= totalEngines ? UiColors::SuccessGreen : UiColors::WarnAmber);
     std::wstring engineText = L"● Engine: " + std::to_wstring(readyEngines) + L"/" + std::to_wstring(totalEngines) + L" sẵn sàng";
-    TextOutW(dc, r.left + 16, r.top + 8, engineText.c_str(), (int)engineText.size());
+    TextOutW(dc, r.left + UiMetrics::Scale(16, dpi), r.top + UiMetrics::Scale(8, dpi), engineText.c_str(), (int)engineText.size());
 
     SetTextColor(dc, UiColors::TextMuted);
-    TextOutW(dc, r.left + 240, r.top + 8, L"Cơ sở dữ liệu: 2026.08.23", 25);
-    TextOutW(dc, r.left + 480, r.top + 8, L"Chế độ chẩn đoán: Win32 Native C++20", 36);
-    TextOutW(dc, r.right - 180, r.top + 8, L"Chính sách: Evidence First", 26);
+    TextOutW(dc, r.left + UiMetrics::Scale(240, dpi), r.top + UiMetrics::Scale(8, dpi), L"Cơ sở dữ liệu: 2026.08.23", 25);
+    TextOutW(dc, r.left + UiMetrics::Scale(480, dpi), r.top + UiMetrics::Scale(8, dpi), L"Chế độ chẩn đoán: Win32 Native C++20", 36);
+    TextOutW(dc, r.right - UiMetrics::Scale(180, dpi), r.top + UiMetrics::Scale(8, dpi), L"Chính sách: Evidence First", 26);
 }
 
 // ============================================================
@@ -81,41 +81,41 @@ std::vector<SidebarGroup> GetDefaultSidebarGroups(bool deviceGroupExpanded) {
     g2.isCollapsible = true;
     g2.isExpanded = deviceGroupExpanded;
     g2.items = {
-        { MainTab::Battery, L"🔋", L"Pin & Năng lượng" },
+        { MainTab::Battery, L"🔋", L"Pin & Nguồn" },
         { MainTab::Storage, L"💾", L"Lưu trữ" },
         { MainTab::Memory, L"🧠", L"Bộ nhớ (RAM)" },
-        { MainTab::Display, L"🖥️", L"Hiển thị (Màn hình)" },
-        { MainTab::AudioCamera, L"🎧", L"Âm thanh & Camera" },
+        { MainTab::Display, L"🖥️", L"Hiển thị" },
+        { MainTab::AudioCamera, L"🔊", L"Âm thanh & Cam" },
         { MainTab::Network, L"📶", L"Mạng & Kết nối" },
-        { MainTab::SystemInfo, L"🛡️", L"Thông tin Hệ thống" }
+        { MainTab::SystemInfo, L"ℹ️", L"Thông tin Hệ thống" }
     };
     groups.push_back(g2);
 
     // Group 3: ĐÁNH GIÁ & HỒ SƠ
     SidebarGroup g3;
-    g3.group = NavGroup::AuditAndRecords;
+    g3.group = NavGroup::ReportVerification;
     g3.name = L"ĐÁNH GIÁ & HỒ SƠ";
     g3.isCollapsible = false;
     g3.isExpanded = true;
     g3.items = {
-        { MainTab::SellerClaim, L"📝", L"Cam kết người bán" },
-        { MainTab::FactoryProfileMatch, L"📋", L"Hồ sơ & Đối chiếu" },
-        { MainTab::EvidenceLibrary, L"🗂️", L"Thư viện bằng chứng" },
-        { MainTab::Reports, L"📊", L"Đánh giá & Báo cáo" },
-        { MainTab::ExportShare, L"📤", L"Xuất & Chia sẻ" },
-        { MainTab::LogsEvents, L"📜", L"Nhật ký & Sự kiện" },
-        { MainTab::SessionHistory, L"⏳", L"Lịch sử phiên" }
+        { MainTab::SellerClaim, L"📋", L"Cam kết người bán" },
+        { MainTab::FactoryProfileMatch, L"🏭", L"Hồ sơ Nhà máy" },
+        { MainTab::EvidenceLibrary, L"📚", L"Thư viện Bằng chứng" },
+        { MainTab::Reports, L"📊", L"Báo cáo & Đánh giá" },
+        { MainTab::ExportShare, L"📤", L"Xuất báo cáo" }
     };
     groups.push_back(g3);
 
-    // Group 4: HỆ THỐNG / CÀI ĐẶT
+    // Group 4: HỆ THỐNG
     SidebarGroup g4;
-    g4.group = NavGroup::SystemSettings;
+    g4.group = NavGroup::System;
     g4.name = L"HỆ THỐNG";
     g4.isCollapsible = false;
     g4.isExpanded = true;
     g4.items = {
-        { MainTab::Settings, L"⚙️", L"Cài đặt" }
+        { MainTab::LogsEvents, L"📜", L"Nhật ký & Sự kiện" },
+        { MainTab::Settings, L"⚙️", L"Cài đặt" },
+        { MainTab::SessionHistory, L"🕒", L"Lịch sử kiểm định" }
     };
     groups.push_back(g4);
 
@@ -123,30 +123,41 @@ std::vector<SidebarGroup> GetDefaultSidebarGroups(bool deviceGroupExpanded) {
 }
 
 void DrawSidebar(HDC dc, const RECT& r, MainTab activeTab, const UiFonts& fonts, int dpi, bool deviceGroupExpanded, int scrollOffsetY, const std::wstring& sessionStatus, const std::wstring& osVersion) {
-    HBRUSH bgBrush = CreateSolidBrush(UiColors::SidebarBg);
-    FillRect(dc, &r, bgBrush);
-    DeleteObject(bgBrush);
+    HBRUSH b = CreateSolidBrush(UiColors::SidebarBg);
+    FillRect(dc, &r, b);
+    DeleteObject(b);
 
-    // Logo & Header
+    // Right border
+    HPEN p = CreatePen(PS_SOLID, 1, UiColors::SidebarBorder);
+    HGDIOBJ op = SelectObject(dc, p);
+    MoveToEx(dc, r.right - 1, r.top, nullptr);
+    LineTo(dc, r.right - 1, r.bottom);
+    SelectObject(dc, op);
+    DeleteObject(p);
+
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, RGB(255, 255, 255));
+
+    // Brand Logo & Title
     SelectObject(dc, fonts.hTitle);
-    TextOutW(dc, r.left + UiMetrics::Scale(20, dpi), r.top + UiMetrics::Scale(14, dpi), L"🛡️ LapSure", 11);
+    SetTextColor(dc, UiColors::TextWhite);
+    std::wstring brand = L"LapSure";
+    TextOutW(dc, r.left + UiMetrics::Scale(16, dpi), r.top + UiMetrics::Scale(16, dpi), brand.c_str(), (int)brand.size());
 
-    SetTextColor(dc, UiColors::SidebarText);
     SelectObject(dc, fonts.hSmall);
-    TextOutW(dc, r.left + UiMetrics::Scale(22, dpi), r.top + UiMetrics::Scale(38, dpi), L"Kiểm định & Chẩn đoán Laptop", 28);
-    TextOutW(dc, r.left + UiMetrics::Scale(22, dpi), r.top + UiMetrics::Scale(52, dpi), L"v0.1.1-beta (Phase A)", 21);
+    SetTextColor(dc, UiColors::TextMuted);
+    std::wstring tag = L"PRO DASHBOARD";
+    TextOutW(dc, r.left + UiMetrics::Scale(16, dpi), r.top + UiMetrics::Scale(38, dpi), tag.c_str(), (int)tag.size());
 
-    int y = r.top + UiMetrics::Scale(70, dpi) - scrollOffsetY;
+    // Navigation Groups
     auto groups = GetDefaultSidebarGroups(deviceGroupExpanded);
-
-    int botH = UiMetrics::Scale(60, dpi);
-    int maxContentY = r.bottom - botH - UiMetrics::Scale(10, dpi);
+    int y = r.top + UiMetrics::Scale(68, dpi) - scrollOffsetY;
+    int botH = UiMetrics::Scale(70, dpi);
+    int maxContentY = r.bottom - botH - UiMetrics::Scale(12, dpi);
 
     for (const auto& grp : groups) {
-        // Group Header
-        if (y + UiMetrics::Scale(18, dpi) > r.top + UiMetrics::Scale(60, dpi) && y < maxContentY) {
+        if (y > maxContentY) break;
+
+        if (y >= r.top + UiMetrics::Scale(55, dpi)) {
             SetTextColor(dc, UiColors::SidebarGroupHeader);
             SelectObject(dc, fonts.hSmall);
             std::wstring grpTitle = grp.name;
@@ -168,6 +179,7 @@ void DrawSidebar(HDC dc, const RECT& r, MainTab activeTab, const UiFonts& fonts,
                         DrawRoundedCard(dc, itemRect, UiMetrics::RadiusSm, UiColors::SidebarActive, UiColors::SidebarActive, 1);
                         SetTextColor(dc, UiColors::SidebarTextActive);
                         SelectObject(dc, fonts.hBodyBold);
+                        DrawFocusRing(dc, itemRect, UiMetrics::RadiusSm);
                     } else {
                         SetTextColor(dc, UiColors::SidebarText);
                         SelectObject(dc, fonts.hBody);

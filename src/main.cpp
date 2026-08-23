@@ -23,6 +23,8 @@
 #include "lap/profile.h"
 #include "lap/report.h"
 #include "lap/scoring.h"
+#include "lap/process.h"
+#include "lap/hardware.h"
 
 #pragma comment(lib,"Comctl32.lib")
 using namespace lap;

@@ -28,22 +28,22 @@ void AssessStressStage(StressStageResult&stage){
 std::vector<CoverageDomain> BuildCoverageContract(const AuditReport&r){
     std::vector<CoverageDomain> out;
     auto add=[&](const wchar_t*id,const wchar_t*name,bool complete,const wchar_t*sources,const wchar_t*missing,bool required=true){out.push_back({id,name,complete?L"COMPLETE":L"PARTIAL",required,sources,complete?L"":missing});};
-    add(L"identity",L"System identity",!r.model.empty()&&!r.serviceTag.empty()&&!r.hardware.cpuName.empty(),L"BIOS registry + CIM",L"Model, Service Tag, or CPU identity missing");
-    add(L"memory",L"Memory inventory",r.hardware.installedRamBytes>0&&!r.hardware.memoryModules.empty(),L"GlobalMemoryStatusEx + CIM",L"Installed capacity or physical module evidence missing");
+    add(L"identity",L"Thông tin nhận diện máy",!r.model.empty()&&!r.serviceTag.empty()&&!r.hardware.cpuName.empty(),L"BIOS registry + CIM",L"Thiếu tên máy, Service Tag hoặc thông tin bộ xử lý");
+    add(L"memory",L"Bộ nhớ RAM",r.hardware.installedRamBytes>0&&!r.hardware.memoryModules.empty(),L"GlobalMemoryStatusEx + CIM",L"Thiếu dung lượng RAM hoặc thông tin thanh RAM vật lý");
     const bool storage=!r.hardware.storage.empty()&&std::all_of(r.hardware.storage.begin(),r.hardware.storage.end(),[](const auto&d){return !d.model.empty()&&d.capacityBytes>0&&d.reliabilityReadable;});
-    add(L"storage",L"Storage inventory and health",storage,L"CIM + Windows Storage Reliability; optional SMART enrichment",L"Identity, capacity, or native health evidence missing for one or more disks");
+    add(L"storage",L"Ổ lưu trữ và sức khỏe ổ",storage,L"CIM + Windows Storage Reliability; SMART là dữ liệu bổ sung",L"Có ổ đĩa thiếu nhận diện, dung lượng hoặc bằng chứng sức khỏe");
     const bool battery=!r.hardware.battery.present||(r.hardware.battery.capacityReadable&&r.hardware.battery.healthPercent>=0);
-    add(L"battery",L"Battery",battery,L"CIM + Windows battery report",L"Battery capacity/health evidence missing",r.hardware.battery.present);
-    add(L"graphics",L"Graphics inventory",!r.hardware.gpus.empty(),L"CIM; optional vendor telemetry",L"No graphics adapter evidence");
-    add(L"display",L"Display identity",!r.hardware.displays.empty(),L"Native EDID + display configuration",L"No validated display/EDID evidence");
+    add(L"battery",L"Pin",battery,L"CIM + báo cáo pin Windows",L"Thiếu dung lượng hoặc sức khỏe pin",r.hardware.battery.present);
+    add(L"graphics",L"Bộ xử lý đồ họa",!r.hardware.gpus.empty(),L"CIM; dữ liệu hãng là phần bổ sung",L"Chưa nhận diện được bộ xử lý đồ họa");
+    add(L"display",L"Màn hình",!r.hardware.displays.empty(),L"EDID gốc + cấu hình hiển thị",L"Chưa có bằng chứng EDID/màn hình hợp lệ");
     const bool stability=!r.hardware.stress.stages.empty()&&std::all_of(r.hardware.stress.stages.begin(),r.hardware.stress.stages.end(),[](const auto&s){return s.verdict!=TestVerdict::NotTested&&s.verdict!=TestVerdict::Cancelled;});
-    add(L"stability",L"CPU/RAM/GPU stability",stability,L"LapSure stress stages + event deltas",L"One or more required stress stages not completed");
+    add(L"stability",L"Độ ổn định CPU, RAM và GPU",stability,L"Các bài tải LapSure + sự kiện phát sinh",L"Còn bài kiểm tra tải bắt buộc chưa hoàn tất");
     bool thermal=false;for(const auto&s:r.hardware.stress.stages)thermal=thermal||s.telemetrySummary.maxCpuPackageTempC>=0||s.telemetrySummary.maxGpuTempC>=0;
-    add(L"thermals",L"Thermals and throttling",thermal,L"Trusted sensor providers sampled during stress",L"No trusted temperature/throttling sample");
+    add(L"thermals",L"Nhiệt độ và giảm hiệu năng do nóng",thermal,L"Cảm biến tin cậy trong khi chạy tải",L"Chưa có mẫu nhiệt độ/giảm xung đủ tin cậy");
     const bool functional=!r.hardware.stress.functional.items.empty()&&r.hardware.stress.functional.notTested==0&&r.hardware.stress.functional.manualRequired==0;
-    add(L"functional",L"Functional devices",functional,L"Native automated probes + guided operator tests",L"Manual or untested functional items remain");
-    add(L"ports_power",L"Physical ports and power",r.hardware.stress.portPower.overall==L"PASS",L"PnP baseline/delta + physical stimulus",L"Required physical port/power tests remain");
-    add(L"runtime",L"Build and report integrity",r.hardware.stress.runtimeValidation.overall==L"PASS",L"LapSure runtime validation gate",L"Runtime validation did not pass");
+    add(L"functional",L"Các thiết bị và chức năng",functional,L"Kiểm tra tự động + hướng dẫn người dùng",L"Còn chức năng cần người dùng xác nhận hoặc chưa kiểm tra");
+    add(L"ports_power",L"Cổng kết nối và nguồn sạc",r.hardware.stress.portPower.overall==L"PASS",L"So sánh thiết bị trước/sau + cắm thử thực tế",L"Còn cổng hoặc nguồn sạc bắt buộc chưa kiểm tra");
+    add(L"runtime",L"Tính toàn vẹn chương trình và báo cáo",r.hardware.stress.runtimeValidation.overall==L"PASS",L"Cổng xác thực nội bộ LapSure",L"Xác thực khi chạy chưa đạt");
     return out;
 }
 AuditDecision BuildAuditDecision(const AuditReport&r){

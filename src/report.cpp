@@ -20,6 +20,10 @@ std::wstring Ts(){SYSTEMTIME t;GetLocalTime(&t);wchar_t b[64];swprintf_s(b,L"%04
 bool Writable(const std::filesystem::path&p){std::error_code ec;std::filesystem::create_directories(p,ec);if(ec)return false;auto test=p/L".write_test.tmp";std::ofstream f(test,std::ios::binary);if(!f)return false;f<<"ok";f.close();std::filesystem::remove(test,ec);return true;}
 std::wstring F(double x,int n=1){if(x<0)return L"N/A";wchar_t b[64];swprintf_s(b,n==1?L"%.1f":L"%.2f",x);return b;}
 std::wstring GiB(uint64_t b){return F((double)b/(1024.0*1024.0*1024.0),1);}
+const wchar_t* ViDecision(const std::wstring&s){if(s==L"BUY")return L"CÓ THỂ MUA";if(s==L"BUY WITH NOTES")return L"CÓ THỂ MUA — CẦN LƯU Ý";if(s==L"REJECT")return L"KHÔNG NÊN MUA";return L"CHƯA ĐỦ DỮ LIỆU ĐỂ KẾT LUẬN";}
+const wchar_t* ViStatus(const std::wstring&s){if(s==L"COMPLETE"||s==L"PASS"||s==L"HIGH")return L"ĐÃ KIỂM TRA ĐỦ";if(s==L"FAIL")return L"KHÔNG ĐẠT";if(s==L"WARNING")return L"CẦN LƯU Ý";if(s==L"PARTIAL")return L"CHƯA HOÀN TẤT";if(s==L"NOT TESTED"||s==L"NOT RUN")return L"CHƯA KIỂM TRA";return L"CHƯA XÁC ĐỊNH";}
+const wchar_t* ViConfidence(Confidence c){return c==Confidence::High?L"Cao":(c==Confidence::Medium?L"Trung bình":L"Thấp");}
+const wchar_t* ViTestVerdict(TestVerdict v){switch(v){case TestVerdict::Pass:return L"Đạt";case TestVerdict::Warning:return L"Cần lưu ý";case TestVerdict::Fail:return L"Không đạt";case TestVerdict::Cancelled:return L"Đã dừng";default:return L"Chưa kiểm tra";}}
 bool WriteUtf8File(const std::filesystem::path&p,const std::wstring&text){if(text.size()>static_cast<size_t>(INT_MAX))return false;int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),nullptr,0,nullptr,nullptr);if(n<=0)return false;std::string bytes(static_cast<size_t>(n),'\0');if(WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),bytes.data(),n,nullptr,nullptr)!=n)return false;std::ofstream out(p,std::ios::binary|std::ios::trunc);if(!out)return false;out.write(bytes.data(),static_cast<std::streamsize>(bytes.size()));out.flush();return out.good();}
 }
 std::wstring ResolveReportDirectory(const std::wstring& appDir,bool winPE){
@@ -31,24 +35,26 @@ std::wstring ResolveReportDirectory(const std::wstring& appDir,bool winPE){
 }
 std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
  std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+Ts()+L".html");std::wostringstream f;
- f<<L"<meta charset='utf-8'><style>body{font-family:Segoe UI;margin:28px;color:#20242a;background:#f6f8fb}.hero,.card{background:white;border:1px solid #e0e4ea;border-radius:12px;padding:16px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.metric{font-size:24px;font-weight:700}table{border-collapse:collapse;width:100%;background:white}td,th{border:1px solid #ddd;padding:8px;vertical-align:top}th{background:#eee}pre{white-space:pre-wrap;margin:0}.PASS{background:#dff3e4}.GOOD{background:#eaf4e8}.FAIL{background:#ffd9d9}.WARNING{background:#fff4ce}.CHANGED{background:#e8e4ff}</style>";
- f<<L"<div class='hero'><h1>LapSure v0.1-beta — Laptop Verification & Diagnostics</h1><b>"<<Html(r.model)<<L"</b> | Service Tag "<<Html(r.serviceTag)<<L" | "<<Html(r.environment)<<L"<br>Factory exact: "<<(r.factoryExact?L"Yes":L"No")<<L" | Generic mode: "<<(r.genericMode?L"Yes":L"No")<<L"</div>";
+ const auto overall=r.hardware.stress.decision.overall;const wchar_t*resultClass=overall==L"REJECT"?L"bad":((overall==L"BUY"||overall==L"BUY WITH NOTES")?L"ok":L"wait");
+ f<<L"<!doctype html><html lang='vi'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Kết quả kiểm tra LapSure</title><style>:root{font-family:'Segoe UI',Arial,sans-serif;font-size:18px;line-height:1.55;color:#18202b;background:#f3f6fa}body{margin:0}.page{max-width:1180px;margin:auto;padding:24px}.hero,.card,details{background:white;border:1px solid #d8dee8;border-radius:14px;padding:20px;margin:14px 0;box-shadow:0 2px 8px #1e293b12}.hero h1{font-size:1.55rem;margin:0 0 8px}.result{border-left:10px solid;padding:24px}.result.ok{border-color:#16833b;background:#eefaf1}.result.wait{border-color:#bd7700;background:#fff8e8}.result.bad{border-color:#b42318;background:#fff1f0}.result .metric{font-size:2rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}.metric{font-size:1.35rem;font-weight:750;margin:6px 0}.label{color:#536174}.status{font-weight:700}.ok-text{color:#116b32}.wait-text{color:#8a5300}.bad-text{color:#9f1c13}table{border-collapse:collapse;width:100%;background:white;font-size:.9rem}td,th{border:1px solid #d8dee8;padding:9px;vertical-align:top;text-align:left}th{background:#edf1f6}pre{white-space:pre-wrap;margin:0}summary{cursor:pointer;font-size:1.1rem;font-weight:700}.PASS,.GOOD{background:#e5f6e9}.FAIL{background:#ffe3e0}.WARNING{background:#fff3cf}.CHANGED{background:#ece8ff}@media(max-width:650px){.page{padding:12px}.metric{font-size:1.25rem}.result .metric{font-size:1.55rem}table{display:block;overflow-x:auto}}</style><body><main class='page'>";
+ f<<L"<div class='hero'><h1>LapSure — Kết quả kiểm tra laptop</h1><b>"<<Html(r.model)<<L"</b> · Mã máy (Service Tag): "<<Html(r.serviceTag)<<L"<br><span class='label'>Môi trường kiểm tra: "<<Html(r.environment)<<L" · Cấu hình đối chiếu chính xác: "<<(r.factoryExact?L"Có":L"Chưa có")<<L"</span></div>";
+ f<<L"<section class='result "<<resultClass<<L"'><div class='label'>KẾT LUẬN HIỆN TẠI</div><div class='metric'>"<<ViDecision(overall)<<L"</div>";
+ if(overall==L"REJECT")f<<L"<div>LapSure đã phát hiện lỗi nghiêm trọng. Không nên mua hoặc tiếp tục sử dụng trước khi kiểm tra và khắc phục.</div>";else if(overall==L"BUY"||overall==L"BUY WITH NOTES")f<<L"<div>Các phần kiểm tra bắt buộc đã hoàn tất. Hãy đọc các lưu ý bên dưới trước khi quyết định.</div>";else f<<L"<div>Chưa nên đưa ra quyết định mua. Hãy hoàn tất các mục còn thiếu được liệt kê ngay bên dưới.</div>";
+ f<<L"<div>Độ tin cậy của kết quả: <b>"<<ViConfidence(r.hardware.stress.decision.confidence)<<L"</b></div></section>";
  f<<L"<div class='grid'>";
- f<<L"<div class='card'><b>CPU</b><div class='metric'>"<<Html(r.hardware.cpuName)<<L"</div><div>Threads: "<<r.hardware.cpuThreads<<L"</div></div>";
- f<<L"<div class='card'><b>RAM</b><div class='metric'>"<<GiB(r.hardware.installedRamBytes)<<L" GiB</div><div>Modules: "<<r.hardware.memoryModules.size()<<L"</div></div>";
- f<<L"<div class='card'><b>Storage</b><div class='metric'>"<<r.hardware.storage.size()<<L" device(s)</div>";
- for(auto&d:r.hardware.storage)f<<L"<div>"<<Html(d.model)<<L" | "<<GiB(d.capacityBytes)<<L" GiB | Endurance "<<(d.enduranceRemaining>=0?std::to_wstring(d.enduranceRemaining)+L"%":L"N/A")<<L" | "<<(d.powerOnHours>=0?std::to_wstring(d.powerOnHours)+L"h":L"N/A")<<L"</div>";
+ f<<L"<div class='card'><b>Bộ xử lý (CPU)</b><div class='metric'>"<<Html(r.hardware.cpuName)<<L"</div><div>Luồng xử lý: "<<r.hardware.cpuThreads<<L"</div></div>";
+ f<<L"<div class='card'><b>Bộ nhớ RAM</b><div class='metric'>"<<GiB(r.hardware.installedRamBytes)<<L" GB</div><div>Số thanh RAM: "<<r.hardware.memoryModules.size()<<L"</div></div>";
+ f<<L"<div class='card'><b>Ổ lưu trữ</b><div class='metric'>"<<r.hardware.storage.size()<<L" ổ</div>";
+ for(auto&d:r.hardware.storage)f<<L"<div>"<<Html(d.model)<<L" · "<<GiB(d.capacityBytes)<<L" GB · Tuổi thọ còn lại "<<(d.enduranceRemaining>=0?std::to_wstring(d.enduranceRemaining)+L"%":L"Chưa đọc được")<<L" · Nhiệt độ "<<(d.temperatureC>=0?std::to_wstring(d.temperatureC)+L"°C":L"Chưa đọc được")<<L"</div>";
  f<<L"</div>";
- f<<L"<div class='card'><b>Battery</b><div class='metric'>"<<F(r.hardware.battery.healthPercent)<<L"% health</div><div>Design "<<F(r.hardware.battery.designWh)<<L" Wh | Full "<<F(r.hardware.battery.fullChargeWh)<<L" Wh | Wear "<<F(r.hardware.battery.wearPercent)<<L"%</div></div>";
- f<<L"<div class='card'><b>GPU</b><div class='metric'>"<<r.hardware.gpus.size()<<L" GPU(s)</div>";for(auto&g:r.hardware.gpus)f<<L"<div>"<<Html(g.name)<<L" | "<<GiB(g.vramBytes)<<L" GiB | "<<F(g.temperatureC)<<L" C</div>";f<<L"</div>";
- f<<L"<div class='card'><b>Audit Decision</b><div class='metric'>"<<Html(r.hardware.stress.decision.overall)<<L"</div><div>Stability: "<<Html(r.hardware.stress.decision.stability)<<L"</div><div>Thermal: "<<Html(r.hardware.stress.decision.thermal)<<L"</div><div>Performance: "<<Html(r.hardware.stress.decision.performance)<<L"</div><div>CPU microbench: "<<F(r.hardware.stress.cpuBenchmark.score)<<L" Mops/s | "<<Html(r.hardware.stress.cpuBenchmark.verdict)<<L"</div><div>Coverage: "<<Html(r.hardware.stress.decision.coverage)<<L" | Confidence: "<<ConfidenceText(r.hardware.stress.decision.confidence)<<L"</div>";
- for(auto&reason:r.hardware.stress.decision.reasons)f<<L"<div>• "<<Html(reason)<<L"</div>";
+ f<<L"<div class='card'><b>Pin</b><div class='metric'>"<<F(r.hardware.battery.healthPercent)<<L"% sức khỏe</div><div>Dung lượng thiết kế "<<F(r.hardware.battery.designWh)<<L" Wh · Hiện còn "<<F(r.hardware.battery.fullChargeWh)<<L" Wh · Hao mòn "<<F(r.hardware.battery.wearPercent)<<L"%</div></div>";
+ f<<L"<div class='card'><b>Đồ họa (GPU)</b><div class='metric'>"<<r.hardware.gpus.size()<<L" bộ xử lý</div>";for(auto&g:r.hardware.gpus)f<<L"<div>"<<Html(g.name)<<L" · Bộ nhớ đồ họa "<<(g.vramBytes?GiB(g.vramBytes)+L" GB":L"Chưa đọc được")<<L" · Nhiệt độ "<<(g.temperatureC>=0?F(g.temperatureC)+L"°C":L"Chưa đọc được")<<L"</div>";f<<L"</div>";
+ f<<L"<div class='card'><b>Tiến độ kiểm tra</b><div class='metric'>"<<r.hardware.stress.orchestrator.percent<<L"%</div><div>Độ ổn định: "<<ViStatus(r.hardware.stress.decision.stability)<<L"</div><div>Nhiệt độ: "<<ViStatus(r.hardware.stress.decision.thermal)<<L"</div><div>Độ phủ: "<<ViStatus(r.hardware.stress.decision.coverage)<<L"</div></div>";
+ f<<L"<div class='card'><b>Các phần cần hoàn tất</b><div>LapSure không tự suy đoán khi thiếu bằng chứng.</div>";
+ for(const auto&x:BuildCoverageContract(r))f<<L"<div><span class='status'>"<<(x.status==L"COMPLETE"?L"✓ Đã đủ":L"! Chưa đủ")<<L"</span> — <b>"<<Html(x.name)<<L"</b>"<<(x.missingEvidence.empty()?L"":L": "+Html(x.missingEvidence))<<L"</div>";
  f<<L"</div>";
- f<<L"<div class='card'><b>Coverage Contract</b><div>LapSure reports every required domain explicitly; missing evidence is never inferred.</div>";
- for(const auto&x:BuildCoverageContract(r))f<<L"<div><b>"<<Html(x.name)<<L"</b> — "<<Html(x.status)<<L" — "<<Html(x.sources)<<(x.missingEvidence.empty()?L"":L" — Missing: "+Html(x.missingEvidence))<<L"</div>";
- f<<L"</div>";
- f<<L"<div class='card'><b>Stress Session</b><div class='metric'>"<<Html(r.hardware.stress.mode)<<L"</div>";
- for(auto&s:r.hardware.stress.stages){f<<L"<div><b>"<<Html(s.name)<<L"</b> | "<<VerdictText(s.verdict)<<L" | "<<s.elapsedSeconds<<L"s | WHEA+"<<s.newWhea;
+ f<<L"<details><summary>Thông tin kỹ thuật chi tiết</summary><div class='card'><b>Các bài kiểm tra độ ổn định</b><div class='metric'>Chế độ "<<Html(r.hardware.stress.mode)<<L"</div>";
+ for(auto&s:r.hardware.stress.stages){f<<L"<div><b>"<<Html(s.name)<<L"</b> · "<<ViTestVerdict(s.verdict)<<L" · "<<s.elapsedSeconds<<L" giây · Lỗi phần cứng mới (WHEA): "<<s.newWhea;
    if(s.ram.bytesTested)f<<L" | RAM "<<F((double)s.ram.bytesTested/1073741824.0)<<L" GiB tested | mismatch "<<s.ram.mismatches;
    if(s.gpuVram.checkedGB>0||s.gpuVram.errors)f<<L" | VRAM "<<F(s.gpuVram.checkedGB)<<L" GB checked | errors "<<s.gpuVram.errors;
    if(s.telemetrySummary.sampleCount){f<<L" | CPU avg "<<F(s.telemetrySummary.avgCpuUtil)<<L"% | GPU max "<<F(s.telemetrySummary.maxGpuTempC)<<L"C";if(s.telemetrySummary.maxCpuPackageTempC>=0)f<<L" | CPU pkg max "<<F(s.telemetrySummary.maxCpuPackageTempC)<<L"C | CPU pkg max power "<<F(s.telemetrySummary.maxCpuPackagePowerW)<<L"W";}
@@ -56,26 +62,26 @@ std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
  }
  f<<L"</div>";
  f<<L"</div>";
- f<<L"<div class='card'><b>Functional Test Center</b><div class='metric'>"<<Html(r.hardware.stress.functional.overall)<<L"</div><div>PASS "<<r.hardware.stress.functional.passed<<L" | FAIL "<<r.hardware.stress.functional.failed<<L" | WARNING "<<r.hardware.stress.functional.warning<<L" | MANUAL "<<r.hardware.stress.functional.manualRequired<<L"</div>";
+ f<<L"<div class='card'><b>Kiểm tra chức năng</b><div class='metric'>"<<ViStatus(r.hardware.stress.functional.overall)<<L"</div><div>Đạt "<<r.hardware.stress.functional.passed<<L" · Không đạt "<<r.hardware.stress.functional.failed<<L" · Cần lưu ý "<<r.hardware.stress.functional.warning<<L" · Cần xác nhận "<<r.hardware.stress.functional.manualRequired<<L"</div>";
  for(auto&i:r.hardware.stress.functional.items)f<<L"<div>"<<Html(i.name)<<L" — "<<FunctionalStatusText(i.status)<<L" — "<<Html(i.detail)<<L"</div>";
  f<<L"</div>";
- f<<L"<div class='card'><b>Port & Power Verification</b><div class='metric'>"<<Html(r.hardware.stress.portPower.overall)<<L"</div>";
+ f<<L"<div class='card'><b>Cổng kết nối và nguồn sạc</b><div class='metric'>"<<ViStatus(r.hardware.stress.portPower.overall)<<L"</div>";
  f<<L"<div>USB4 host router: "<<(r.hardware.stress.portPower.usb4HostRouterPresent?L"YES":L"NO/UNKNOWN")<<L" | USB4 device routers: "<<r.hardware.stress.portPower.usb4DeviceRouters<<L" | Thunderbolt matches: "<<r.hardware.stress.portPower.thunderboltDevices<<L"</div>";
  f<<L"<div>Power: "<<Html(r.hardware.stress.portPower.power.verdict)<<L" | Adapter watts: "<<(r.hardware.stress.portPower.power.adapterWatts<0?L"UNKNOWN":F(r.hardware.stress.portPower.power.adapterWatts))<<L"</div>";
  for(auto&port:r.hardware.stress.portPower.ports)f<<L"<div>"<<Html(port.portLabel)<<L" — "<<Html(port.verdict)<<L" — "<<Html(port.deviceDescription)<<L" — "<<Html(port.negotiatedSpeed)<<L"</div>";
  f<<L"</div>";
- f<<L"<div class='card'><b>Guided Test Progress</b><div class='metric'>"<<r.hardware.stress.orchestrator.percent<<L"%</div><div>Next: "<<Html(r.hardware.stress.orchestrator.nextAction)<<L"</div>";
+ f<<L"<div class='card'><b>Quy trình kiểm tra có hướng dẫn</b><div class='metric'>"<<r.hardware.stress.orchestrator.percent<<L"%</div><div>Bước tiếp theo: "<<Html(r.hardware.stress.orchestrator.nextAction)<<L"</div>";
  for(auto&s:r.hardware.stress.orchestrator.stages)f<<L"<div>"<<Html(s.title)<<L" — "<<StageStateText(s.state)<<L" — "<<s.completed<<L"/"<<s.total<<L" — "<<Html(s.subtitle)<<L"</div>";
  f<<L"</div>";
- f<<L"<div class='card'><b>Model-aware Chassis / Port Map</b><div class='metric'>"<<Html(r.hardware.stress.chassisProfile.displayName.empty()?L"Generic":r.hardware.stress.chassisProfile.displayName)<<L"</div>";
+ f<<L"<div class='card'><b>Sơ đồ cổng theo đúng kiểu máy</b><div class='metric'>"<<Html(r.hardware.stress.chassisProfile.displayName.empty()?L"Chưa có cấu hình riêng":r.hardware.stress.chassisProfile.displayName)<<L"</div>";
  for(auto&port:r.hardware.stress.chassisProfile.ports)f<<L"<div>"<<Html(port.label)<<L" | "<<Html(port.side)<<L" | "<<Html(port.connector)<<L" | "<<Html(port.capability)<<L" | "<<(port.tested?Html(port.verdict):L"NOT TESTED")<<L"</div>";
  f<<L"</div>";
- f<<L"<div class='card'><b>Runtime Validation Gate</b><div class='metric'>"<<Html(r.hardware.stress.runtimeValidation.overall)<<L"</div><div>Build: "<<Html(r.hardware.stress.runtimeValidation.buildLabel)<<L" | Compiler: "<<Html(r.hardware.stress.runtimeValidation.compilerLabel)<<L" | Arch: "<<Html(r.hardware.stress.runtimeValidation.architecture)<<L"</div>";
+ f<<L"<div class='card'><b>Xác thực chương trình và báo cáo</b><div class='metric'>"<<ViStatus(r.hardware.stress.runtimeValidation.overall)<<L"</div><div>Bản dựng: "<<Html(r.hardware.stress.runtimeValidation.buildLabel)<<L" · Trình biên dịch: "<<Html(r.hardware.stress.runtimeValidation.compilerLabel)<<L" · Kiến trúc: "<<Html(r.hardware.stress.runtimeValidation.architecture)<<L"</div>";
  for(auto&x:r.hardware.stress.runtimeValidation.checks)f<<L"<div>"<<Html(x.name)<<L" — "<<ValidationStatusText(x.status)<<L" — "<<Html(x.detail)<<L"</div>";
  f<<L"</div>";
- f<<L"<h2>Detailed findings</h2><table><tr><th>Dimension</th><th>Group</th><th>Item</th><th>Value</th><th>Expected</th><th>Status</th><th>Severity</th><th>Evidence</th></tr>";
+ f<<L"<h2>Toàn bộ bằng chứng kỹ thuật</h2><table><tr><th>Lĩnh vực</th><th>Nhóm</th><th>Hạng mục</th><th>Giá trị thực tế</th><th>Mức mong đợi</th><th>Trạng thái</th><th>Mức độ</th><th>Nguồn bằng chứng</th></tr>";
  for(auto&x:r.findings)f<<L"<tr><td>"<<ToString(x.dimension)<<L"</td><td>"<<Html(x.group)<<L"</td><td>"<<Html(x.name)<<L"</td><td><pre>"<<Html(x.value)<<L"</pre></td><td>"<<Html(x.expected)<<L"</td><td class='"<<ToString(x.state)<<L"'>"<<ToString(x.state)<<L"</td><td>"<<ToString(x.severity)<<L"</td><td>"<<Html(x.evidence)<<L"</td></tr>";
- f<<L"</table>";return WriteUtf8File(p,f.str())?p.wstring():L"";
+ f<<L"</table></details></main></body></html>";return WriteUtf8File(p,f.str())?p.wstring():L"";
 }
 std::wstring SaveJsonReport(const AuditReport&r,const std::wstring&dir){
  std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+Ts()+L".json");std::wostringstream f;

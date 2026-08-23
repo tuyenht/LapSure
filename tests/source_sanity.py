@@ -35,6 +35,10 @@ check('Windows native storage reliability provider', 'Get-StorageReliabilityCoun
 check('Native storage runs before smartctl enrichment', 'CollectWindowsStorageReliability(report' in main and main.index('CollectWindowsStorageReliability(report') < main.index('CollectSmartctl(report'))
 check('Native reliability reduces smartctl dependency', 'native reliability evidence remains available' in eng)
 check('Machine-readable coverage contract', 'coverageContract' in rep and 'BuildCoverageContract' in rep)
+check('Vietnamese default application title', 'Kiểm tra laptop toàn diện' in main and 'BẮT ĐẦU KIỂM TRA' in main)
+check('Plain-language Vietnamese result', 'CHƯA ĐỦ DỮ LIỆU ĐỂ KẾT LUẬN' in rep and "lang='vi'" in rep)
+check('Accessible report is not color-only', '✓ Đã đủ' in rep and '! Chưa đủ' in rep and "viewport" in rep)
+check('Technical evidence uses progressive disclosure', '<details><summary>Thông tin kỹ thuật chi tiết' in rep)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

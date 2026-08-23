@@ -22,7 +22,7 @@ checks=[
 ("Adapter wattage unknown","adapterWatts=-1" in p and "wattage is not inferred" in p),
 ("Port result persisted","CommitPortResult" in main),
 ("Port failure affects decision","portPower.overall==L\"FAIL\"" in sc),
-("Port card report","Port & Power Verification" in rp),
+("Port card report","Cổng kết nối và nguồn sạc" in rp),
 ("Source compiled","src/port_power.cpp" in cm),
 ]
 bad=[]

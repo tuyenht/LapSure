@@ -15,7 +15,7 @@ checks=[
 ("MSVC identity","_MSC_VER" in rv),
 ("Optional provider remains warning","Optional trusted provider not configured" in rv),
 ("Runtime gate wired after stress","RunRuntimeValidation(report,caps,gDir)" in main),
-("Runtime gate reported","Runtime Validation Gate" in rep),
+("Runtime gate reported","Xác thực chương trình và báo cáo" in rep),
 ("MSVC /W4","/W4" in cm),
 ("MSVC permissive off","/permissive-" in cm),
 ("Strict /WX option","/WX" in cm),

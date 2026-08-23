@@ -887,57 +887,105 @@ void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 void RenderFunctional(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     PageHeaderConfig hdr;
     hdr.title = L"Kiểm tra Chức năng";
-    hdr.subtitle = L"Kiểm tra thực tế các thiết bị cần thao tác tương tác (Bàn phím, Màn hình, Loa, Camera, Cổng kết nối)";
+    hdr.subtitle = L"Kiểm tra thực tế các thiết bị cần thao tác tương tác (Bàn phím, Màn hình, Loa, Camera, Cổng kết nối, Ngoại hình)";
     hdr.sessionState = gAuditReady ? CanonicalUiState::Pass : CanonicalUiState::Idle;
     hdr.sessionTag = gAuditReady ? L"Sẵn sàng tương tác" : L"Cần chạy tự động";
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
 
     // C07 Guided Stepper
+    auto& f = rep.hardware.stress.functional;
+    CanonicalUiState stDisp = MapFunctionalStatus(f.displayState);
+    CanonicalUiState stKb = MapFunctionalStatus(f.keyboardState);
+    CanonicalUiState stAud = MapFunctionalStatus(f.audioState);
+    CanonicalUiState stCam = MapFunctionalStatus(f.cameraState);
+
     std::vector<StepperStep> steps = {
-        { 1, L"Màn hình", L"Điểm chết, màu", (rep.hardware.stress.functional.passed > 0) ? CanonicalUiState::Pass : CanonicalUiState::NotTested, false },
-        { 2, L"Bàn phím & Touch", L"Phím, touchpad", gAuditReady ? CanonicalUiState::Ready : CanonicalUiState::Locked, true },
-        { 3, L"Loa trái / phải", L"Âm lượng, pha", CanonicalUiState::NotTested, false },
-        { 4, L"Camera & Mic", L"Hình ảnh, âm thanh", CanonicalUiState::NotTested, false }
+        { 1, L"Màn hình", L"Điểm chết, màu sắc", stDisp, (stDisp == CanonicalUiState::NotTested) },
+        { 2, L"Bàn phím & Touch", L"68 phím, touchpad 80 ô", stKb, (stDisp == CanonicalUiState::Pass && stKb == CanonicalUiState::NotTested) },
+        { 3, L"Loa trái / phải", L"Âm lượng, pha stereo", stAud, (stKb == CanonicalUiState::Pass && stAud == CanonicalUiState::NotTested) },
+        { 4, L"Camera & Mic", L"Hình ảnh, âm thanh", stCam, (stAud == CanonicalUiState::Pass && stCam == CanonicalUiState::NotTested) }
     };
     RECT stepperRect{ r.left + UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(70, dpi), r.right - UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(125, dpi) };
     DrawGuidedStepper(dc, stepperRect, steps, gFonts, dpi);
 
-    // Main Test Area
-    int mainW = r.right - r.left - UiMetrics::Scale(48, dpi) - UiMetrics::Scale(250, dpi);
-    RECT testArea{ r.left + UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(135, dpi), r.left + UiMetrics::Scale(24, dpi) + mainW, r.bottom - UiMetrics::Scale(60, dpi) };
-    DrawRoundedCard(dc, testArea, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
+    // Layout division: 6 Interactive Module Cards on left, Summary & Next Action on right
+    int rightPanelW = UiMetrics::Scale(250, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(135, dpi);
 
-    SelectObject(dc, gFonts.hBodyBold); SetTextColor(dc, UiColors::TextMain);
-    TextOutW(dc, testArea.left + UiMetrics::Scale(16, dpi), testArea.top + UiMetrics::Scale(12, dpi), L"Đang kiểm tra: Bàn phím & Touchpad (Wizard tương tác)", 52);
+    // 6 Interactive Module Cards in 2 columns x 3 rows
+    int cardW = (leftW - UiMetrics::Scale(12, dpi)) / 2;
+    int cardH = UiMetrics::Scale(95, dpi);
 
-    RECT kbRect{ testArea.left + UiMetrics::Scale(16, dpi), testArea.top + UiMetrics::Scale(40, dpi), testArea.left + UiMetrics::Scale(380, dpi), testArea.top + UiMetrics::Scale(230, dpi) };
-    DrawRoundedCard(dc, kbRect, UiMetrics::RadiusSm, RGB(248, 250, 252), UiColors::CardBorder, 1);
-    SelectObject(dc, gFonts.hSmall); SetTextColor(dc, UiColors::TextMuted);
-    TextOutW(dc, kbRect.left + UiMetrics::Scale(10, dpi), kbRect.top + UiMetrics::Scale(8, dpi), L"1. Bấm nút bên dưới để mở Wizard kiểm tra phím vật lý:", 54);
+    CanonicalUiState stPorts = (rep.hardware.stress.portPower.overall == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.portPower.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    CanonicalUiState stPhys = (rep.hardware.stress.physicalCondition.overall == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.physicalCondition.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
 
-    const wchar_t* rows[] = {
-        L"Esc  F1  F2  F3  F4  F5  F6  F7  F8  F9  F10 F11 F12 Del",
-        L"`  1  2  3  4  5  6  7  8  9  0  -  =  Backspace",
-        L"Tab   Q   W   E   R   T   Y   U   I   O   P   [   ]   \\",
-        L"Caps   A   S   D   F   G   H   J   K   L   ;   '   Enter",
-        L"Shift    Z   X   C   V   B   N   M   ,   .   /    Shift",
-        L"Ctrl   Fn   Win   Alt      Space      Alt   Ctrl  ◀  ▲  ▼  ▶"
+    struct FuncModule {
+        int cmdId;
+        const wchar_t* icon;
+        const wchar_t* title;
+        const wchar_t* desc;
+        CanonicalUiState state;
+        const wchar_t* btnText;
     };
-    int ky = kbRect.top + UiMetrics::Scale(32, dpi);
-    SelectObject(dc, gFonts.hMono);
-    SetTextColor(dc, UiColors::TextMuted);
-    for (int i = 0; i < 6; ++i) {
-        TextOutW(dc, kbRect.left + UiMetrics::Scale(12, dpi), ky, rows[i], (int)wcslen(rows[i]));
-        ky += UiMetrics::Scale(22, dpi);
+
+    std::vector<FuncModule> modules = {
+        { 1201, L"🖥️", L"Kiểm tra Màn hình", L"Phát hiện điểm chết (Dead/Stuck pixel), hở sáng, ám màu trên 6 phông màu chuẩn.", stDisp, L"Mở Wizard Màn hình" },
+        { 1202, L"⌨️", L"Bàn phím & Touchpad", L"Kiểm tra ma trận phím vật lý 68 nút, độ nảy phím và độ nhạy trackpad 80 ô.", stKb, L"Mở Wizard Phím & Touch" },
+        { 1204, L"🔊", L"Loa Stereo & Micro", L"Kiểm tra tín hiệu âm thanh 2 kênh Trái/Phải độc lập và độ nhạy microphone waveIn.", stAud, L"Mở Wizard Loa & Mic" },
+        { 1206, L"📷", L"Camera & Kết nối I/O", L"Chụp mẫu hình ảnh Media Foundation, kiểm tra Wi-Fi WLAN API và Bluetooth radio.", stCam, L"Wizard Camera & I/O" },
+        { 1207, L"🔌", L"Cổng cắm & Sạc AC", L"Cắm thiết bị vào từng cổng USB-A/C, HDMI, LAN để kiểm tra PnP delta và nguồn sạc.", stPorts, L"Kiểm tra Cổng kết nối" },
+        { 1208, L"🔍", L"Ngoại hình & An toàn", L"Kiểm tra 6 điểm vật lý: Bản lề, Vỏ máy, Ốc vít/Cạy mở, Vào nước, Phồng pin, Sạc.", stPhys, L"Wizard 6 điểm vật lý" }
+    };
+
+    for (size_t i = 0; i < modules.size(); ++i) {
+        int col = (int)i % 2;
+        int row = (int)i / 2;
+        int cx = r.left + UiMetrics::Scale(24, dpi) + col * (cardW + UiMetrics::Scale(12, dpi));
+        int cy = curY + row * (cardH + UiMetrics::Scale(10, dpi));
+
+        RECT cr{ cx, cy, cx + cardW, cy + cardH };
+        DrawRoundedCard(dc, cr, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
+
+        // Header icon & title
+        SelectObject(dc, gFonts.hBodyBold);
+        SetTextColor(dc, UiColors::TextMain);
+        std::wstring titleStr = std::wstring(modules[i].icon) + L" " + modules[i].title;
+        TextOutW(dc, cr.left + UiMetrics::Scale(12, dpi), cr.top + UiMetrics::Scale(10, dpi), titleStr.c_str(), (int)titleStr.size());
+
+        // Status Badge
+        int bw = UiMetrics::Scale(90, dpi);
+        int bh = UiMetrics::Scale(20, dpi);
+        DrawStatusBadge(dc, cr.right - bw - UiMetrics::Scale(12, dpi), cr.top + UiMetrics::Scale(10, dpi), bw, bh, modules[i].state, gFonts);
+
+        // Description
+        SelectObject(dc, gFonts.hSmall);
+        SetTextColor(dc, UiColors::TextMuted);
+        RECT descR{ cr.left + UiMetrics::Scale(12, dpi), cr.top + UiMetrics::Scale(32, dpi), cr.right - UiMetrics::Scale(12, dpi), cr.top + UiMetrics::Scale(62, dpi) };
+        DrawTextW(dc, modules[i].desc, (int)wcslen(modules[i].desc), &descR, DT_LEFT | DT_WORDBREAK);
+
+        // Launch Wizard Button
+        RECT btnR{ cr.left + UiMetrics::Scale(12, dpi), cr.bottom - UiMetrics::Scale(30, dpi), cr.right - UiMetrics::Scale(12, dpi), cr.bottom - UiMetrics::Scale(8, dpi) };
+        COLORREF btnBg = gAuditReady ? UiColors::GrayPillBg : RGB(248, 250, 252);
+        COLORREF btnTextClr = gAuditReady ? UiColors::PrimaryBlue : UiColors::TextMuted;
+        DrawRoundedCard(dc, btnR, UiMetrics::RadiusSm, btnBg, UiColors::GrayPillBorder, 1);
+        SelectObject(dc, gFonts.hSmall);
+        SetTextColor(dc, btnTextClr);
+        DrawTextW(dc, modules[i].btnText, (int)wcslen(modules[i].btnText), &btnR, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
-    // Right Rail: Functional summary
-    int rightX = r.right - UiMetrics::Scale(250, dpi);
-    RECT checkCard{ rightX, r.top + UiMetrics::Scale(135, dpi), r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(60, dpi) };
+    // Right Rail: Functional summary & Next Action Panel (C10)
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT checkCard{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(305, dpi) };
     NextActionConfig nac;
-    nac.actionTitle = L"Tiến trình tương tác";
-    nac.reasonText = L"Hoàn tất các bước kiểm tra phần cứng vật lý.";
-    nac.remainingTasks = { L"Kiểm tra Màn hình", L"Kiểm tra Bàn phím & Touch", L"Kiểm tra Loa & Microphone", L"Kiểm tra Cổng kết nối" };
+    nac.actionTitle = L"Tiến trình kiểm tra tương tác";
+    nac.reasonText = L"Thực hiện xác nhận thực tế các thiết bị trước khi đưa ra kết luận mua máy.";
+    nac.remainingTasks = {
+        (stDisp == CanonicalUiState::Pass ? L"✓ Màn hình đã kiểm tra" : L"• Chưa kiểm tra Màn hình"),
+        (stKb == CanonicalUiState::Pass ? L"✓ Bàn phím & Touch đã kiểm tra" : L"• Chưa kiểm tra Bàn phím"),
+        (stAud == CanonicalUiState::Pass ? L"✓ Loa & Mic đã kiểm tra" : L"• Chưa kiểm tra Âm thanh"),
+        (stPorts == CanonicalUiState::Pass ? L"✓ Cổng kết nối đã kiểm tra" : L"• Chưa kiểm tra Cổng cắm")
+    };
     nac.buttonText = L"TIẾP TỤC BƯỚC KẾ";
     nac.isButtonEnabled = gAuditReady;
     DrawNextActionPanel(dc, checkCard, nac, gFonts, dpi);
@@ -1301,11 +1349,32 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
         }
 
-        // 6. Functional Screen: Next Action Button Hit-Test
+        // 6. Functional Screen: Interactive Module Cards & Next Action Button Hit-Test
         if (gCurrentTab == MainTab::Functional) {
-            int rightX = cr.right - UiMetrics::Scale(250, dpi);
-            RECT checkCard{ rightX, layout.contentRect.top + UiMetrics::Scale(135, dpi), cr.right - UiMetrics::Scale(24, dpi), layout.contentRect.bottom - UiMetrics::Scale(60, dpi) };
-            if (x >= checkCard.left && x <= checkCard.right && y >= checkCard.top && y <= checkCard.bottom) {
+            int rightPanelW = UiMetrics::Scale(250, dpi);
+            int leftW = cr.right - cr.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+            int curY = layout.contentRect.top + UiMetrics::Scale(135, dpi);
+            int cardW = (leftW - UiMetrics::Scale(12, dpi)) / 2;
+            int cardH = UiMetrics::Scale(95, dpi);
+
+            int cmdIds[] = { 1201, 1202, 1204, 1206, 1207, 1208 };
+            for (int i = 0; i < 6; ++i) {
+                int col = i % 2;
+                int row = i / 2;
+                int cx = cr.left + UiMetrics::Scale(24, dpi) + col * (cardW + UiMetrics::Scale(12, dpi));
+                int cy = curY + row * (cardH + UiMetrics::Scale(10, dpi));
+                RECT cardR{ cx, cy, cx + cardW, cy + cardH };
+                if (x >= cardR.left && x <= cardR.right && y >= cardR.top && y <= cardR.bottom) {
+                    PostMessageW(h, WM_COMMAND, cmdIds[i], 0);
+                    return 0;
+                }
+            }
+
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            RECT checkCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(305, dpi) };
+            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ checkCard.left + UiMetrics::Scale(14, dpi), checkCard.bottom - btnH - UiMetrics::Scale(12, dpi), checkCard.right - UiMetrics::Scale(14, dpi), checkCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
                 PostMessageW(h, WM_COMMAND, 1300, 0);
                 return 0;
             }

@@ -1,3 +1,4 @@
+#include "lap/baseline.h"
 #include "lap/chassis_profile.h"
 #include "lap/port_power.h"
 #include "lap/scoring.h"

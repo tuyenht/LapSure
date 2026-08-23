@@ -72,7 +72,7 @@ void DrawBadge(HDC dc, int x, int y, int w, int h, const std::wstring& text, COL
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, textClr);
     HGDIOBJ oldFont = SelectObject(dc, font);
-    DrawTextW(dc, text.c_str(), (int)text.size(), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(dc, text.c_str(), (int)text.size(), &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     SelectObject(dc, oldFont);
 }
 

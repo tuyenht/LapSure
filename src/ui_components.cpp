@@ -187,7 +187,7 @@ void DrawSidebar(HDC dc, const RECT& r, MainTab activeTab, const UiFonts& fonts,
 
                     std::wstring text = std::wstring(item.icon) + L"  " + item.title;
                     RECT textRect{ itemRect.left + UiMetrics::Scale(10, dpi), itemRect.top + UiMetrics::Scale(4, dpi), itemRect.right - UiMetrics::Scale(6, dpi), itemRect.bottom };
-                    DrawTextW(dc, text.c_str(), (int)text.size(), &textRect, DT_LEFT | DT_SINGLELINE);
+                    DrawTextW(dc, text.c_str(), (int)text.size(), &textRect, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX);
                 }
 
                 y += itemH + UiMetrics::Scale(2, dpi);
@@ -277,7 +277,7 @@ void DrawPageHeader(HDC dc, const RECT& r, const PageHeaderConfig& config, const
         DrawRoundedCard(dc, btnRect, UiMetrics::RadiusPill, btnBg, btnBorder, 1);
         SetTextColor(dc, config.actionButtonEnabled ? RGB(255, 255, 255) : UiColors::TextMuted);
         SelectObject(dc, fonts.hBodyBold);
-        DrawTextW(dc, config.actionButtonText.c_str(), (int)config.actionButtonText.size(), &btnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        DrawTextW(dc, config.actionButtonText.c_str(), (int)config.actionButtonText.size(), &btnRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
 }
 
@@ -295,7 +295,7 @@ void DrawStatusBadge(HDC dc, const RECT& r, CanonicalUiState state, const UiFont
     SetTextColor(dc, p.textColor);
     HGDIOBJ oldFont = SelectObject(dc, fonts.hSmall);
     RECT tr = r;
-    DrawTextW(dc, fullText.c_str(), (int)fullText.size(), &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(dc, fullText.c_str(), (int)fullText.size(), &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     SelectObject(dc, oldFont);
 }
 
@@ -357,10 +357,12 @@ void DrawProgressCoverage(HDC dc, const RECT& r, const ProgressCoverageConfig& c
 
     // Percentage
     SelectObject(dc, fonts.hSmall);
+    // Percentage
+    SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, config.barColor);
     std::wstring pctStr = std::to_wstring(pct) + L"%";
     RECT pctRect{ r.right - UiMetrics::Scale(50, dpi), r.top, r.right, r.top + UiMetrics::Scale(20, dpi) };
-    DrawTextW(dc, pctStr.c_str(), (int)pctStr.size(), &pctRect, DT_RIGHT | DT_SINGLELINE);
+    DrawTextW(dc, pctStr.c_str(), (int)pctStr.size(), &pctRect, DT_RIGHT | DT_SINGLELINE | DT_NOPREFIX);
 
     // Bar
     int barH = UiMetrics::Scale(10, dpi);
@@ -388,9 +390,9 @@ void DrawGuidedStepper(HDC dc, const RECT& r, const std::vector<StepperStep>& st
 
         SetBkMode(dc, TRANSPARENT);
         // Step number circle / badge
-        int badgeW = UiMetrics::Scale(75, dpi);
+        int badgeW = UiMetrics::Scale(105, dpi);
         int badgeH = UiMetrics::Scale(20, dpi);
-        DrawStatusBadge(dc, stepRect.right - badgeW - UiMetrics::Scale(8, dpi), stepRect.top + UiMetrics::Scale(8, dpi), badgeW, badgeH, s.state, fonts);
+        DrawStatusBadge(dc, stepRect.right - badgeW - UiMetrics::Scale(6, dpi), stepRect.top + UiMetrics::Scale(8, dpi), badgeW, badgeH, s.state, fonts);
 
         SelectObject(dc, fonts.hBodyBold);
         SetTextColor(dc, s.isCurrent ? UiColors::PrimaryBlue : UiColors::TextMain);
@@ -458,7 +460,7 @@ void DrawDataTable(HDC dc, const RECT& r, const DataTableConfig& config, const U
     for (const auto& col : config.columns) {
         int w = UiMetrics::Scale(col.widthPx, dpi);
         RECT chRect{ curX, r.top + UiMetrics::Scale(8, dpi), curX + w, r.top + headerH };
-        DrawTextW(dc, col.header.c_str(), (int)col.header.size(), &chRect, DT_LEFT | DT_SINGLELINE);
+        DrawTextW(dc, col.header.c_str(), (int)col.header.size(), &chRect, DT_LEFT | DT_SINGLELINE | DT_NOPREFIX);
         curX += w + UiMetrics::Scale(8, dpi);
     }
 
@@ -467,7 +469,7 @@ void DrawDataTable(HDC dc, const RECT& r, const DataTableConfig& config, const U
         SelectObject(dc, fonts.hBody);
         SetTextColor(dc, UiColors::TextMuted);
         RECT emRect{ r.left, r.top + headerH, r.right, r.bottom };
-        DrawTextW(dc, config.emptyMessage.c_str(), (int)config.emptyMessage.size(), &emRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        DrawTextW(dc, config.emptyMessage.c_str(), (int)config.emptyMessage.size(), &emRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         return;
     }
 
@@ -503,7 +505,7 @@ void DrawDataTable(HDC dc, const RECT& r, const DataTableConfig& config, const U
             } else {
                 SelectObject(dc, col.isMonospace ? fonts.hMono : fonts.hBody);
                 SetTextColor(dc, UiColors::TextMain);
-                DrawTextW(dc, row.cells[c].c_str(), (int)row.cells[c].size(), &cr, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
+                DrawTextW(dc, row.cells[c].c_str(), (int)row.cells[c].size(), &cr, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
             }
             rx += cw + UiMetrics::Scale(8, dpi);
         }
@@ -537,7 +539,10 @@ void DrawNextActionPanel(HDC dc, const RECT& r, const NextActionConfig& config, 
     for (const auto& t : config.remainingTasks) {
         SelectObject(dc, fonts.hSmall);
         SetTextColor(dc, UiColors::TextMuted);
-        std::wstring itemStr = L"• " + t;
+        std::wstring itemStr = t;
+        if (itemStr.rfind(L"•", 0) != 0 && itemStr.rfind(L"-", 0) != 0 && itemStr.rfind(L"*", 0) != 0) {
+            itemStr = L"• " + itemStr;
+        }
         TextOutW(dc, r.left + UiMetrics::Scale(14, dpi), taskY, itemStr.c_str(), (int)itemStr.size());
         taskY += UiMetrics::Scale(18, dpi);
     }
@@ -550,7 +555,7 @@ void DrawNextActionPanel(HDC dc, const RECT& r, const NextActionConfig& config, 
         DrawRoundedCard(dc, br, UiMetrics::RadiusPill, bg, border, 1);
         SetTextColor(dc, config.isButtonEnabled ? RGB(255, 255, 255) : UiColors::TextMuted);
         SelectObject(dc, fonts.hBodyBold);
-        DrawTextW(dc, config.buttonText.c_str(), (int)config.buttonText.size(), &br, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        DrawTextW(dc, config.buttonText.c_str(), (int)config.buttonText.size(), &br, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
 }
 
@@ -571,7 +576,7 @@ void DrawDialogBox(HDC dc, const RECT& dialogRect, const DialogConfig& config, c
     SelectObject(dc, fonts.hBody);
     SetTextColor(dc, UiColors::TextMain);
     RECT msgRect{ dialogRect.left + UiMetrics::Scale(20, dpi), dialogRect.top + UiMetrics::Scale(50, dpi), dialogRect.right - UiMetrics::Scale(20, dpi), dialogRect.top + UiMetrics::Scale(110, dpi) };
-    DrawTextW(dc, config.message.c_str(), (int)config.message.size(), &msgRect, DT_LEFT | DT_WORDBREAK);
+    DrawTextW(dc, config.message.c_str(), (int)config.message.size(), &msgRect, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
 
     // Consequence
     if (!config.consequenceWarning.empty()) {
@@ -580,7 +585,7 @@ void DrawDialogBox(HDC dc, const RECT& dialogRect, const DialogConfig& config, c
         SelectObject(dc, fonts.hSmall);
         SetTextColor(dc, UiColors::WarnAmber);
         RECT wtRect = { warnRect.left + UiMetrics::Scale(8, dpi), warnRect.top + UiMetrics::Scale(6, dpi), warnRect.right - UiMetrics::Scale(8, dpi), warnRect.bottom - UiMetrics::Scale(6, dpi) };
-        DrawTextW(dc, config.consequenceWarning.c_str(), (int)config.consequenceWarning.size(), &wtRect, DT_LEFT | DT_WORDBREAK);
+        DrawTextW(dc, config.consequenceWarning.c_str(), (int)config.consequenceWarning.size(), &wtRect, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
     }
 
     // Cancel Button
@@ -592,7 +597,7 @@ void DrawDialogBox(HDC dc, const RECT& dialogRect, const DialogConfig& config, c
     DrawRoundedCard(dc, cancelBtn, UiMetrics::RadiusSm, UiColors::GrayPillBg, UiColors::GrayPillBorder, 1);
     SelectObject(dc, fonts.hBody);
     SetTextColor(dc, UiColors::TextMain);
-    DrawTextW(dc, config.cancelButtonText.c_str(), (int)config.cancelButtonText.size(), &cancelBtn, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(dc, config.cancelButtonText.c_str(), (int)config.cancelButtonText.size(), &cancelBtn, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
     // Confirm Button
     RECT confirmBtn{ dialogRect.right - btnW - UiMetrics::Scale(16, dpi), btnY, dialogRect.right - UiMetrics::Scale(16, dpi), btnY + btnH };
@@ -600,7 +605,7 @@ void DrawDialogBox(HDC dc, const RECT& dialogRect, const DialogConfig& config, c
     DrawRoundedCard(dc, confirmBtn, UiMetrics::RadiusSm, cBg, cBg, 1);
     SetTextColor(dc, RGB(255, 255, 255));
     SelectObject(dc, fonts.hBodyBold);
-    DrawTextW(dc, config.confirmButtonText.c_str(), (int)config.confirmButtonText.size(), &confirmBtn, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(dc, config.confirmButtonText.c_str(), (int)config.confirmButtonText.size(), &confirmBtn, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 }
 
 // ============================================================
@@ -618,21 +623,21 @@ void DrawEmptyState(HDC dc, const RECT& r, const EmptyStateConfig& config, const
     SelectObject(dc, fonts.hTitle);
     SetTextColor(dc, sp.textColor);
     RECT iconRect{ r.left, cy - UiMetrics::Scale(60, dpi), r.right, cy - UiMetrics::Scale(25, dpi) };
-    DrawTextW(dc, sp.icon, (int)wcslen(sp.icon), &iconRect, DT_CENTER | DT_SINGLELINE);
+    DrawTextW(dc, sp.icon, (int)wcslen(sp.icon), &iconRect, DT_CENTER | DT_SINGLELINE | DT_NOPREFIX);
 
     // Title
     SelectObject(dc, fonts.hSection);
     SetTextColor(dc, UiColors::TextMain);
     std::wstring t = config.title.empty() ? sp.label : config.title;
     RECT titleRect{ r.left, cy - UiMetrics::Scale(20, dpi), r.right, cy + UiMetrics::Scale(5, dpi) };
-    DrawTextW(dc, t.c_str(), (int)t.size(), &titleRect, DT_CENTER | DT_SINGLELINE);
+    DrawTextW(dc, t.c_str(), (int)t.size(), &titleRect, DT_CENTER | DT_SINGLELINE | DT_NOPREFIX);
 
     // Description
     if (!config.description.empty()) {
         SelectObject(dc, fonts.hSmall);
         SetTextColor(dc, UiColors::TextMuted);
         RECT descRect{ r.left + UiMetrics::Scale(40, dpi), cy + UiMetrics::Scale(10, dpi), r.right - UiMetrics::Scale(40, dpi), cy + UiMetrics::Scale(40, dpi) };
-        DrawTextW(dc, config.description.c_str(), (int)config.description.size(), &descRect, DT_CENTER | DT_WORDBREAK);
+        DrawTextW(dc, config.description.c_str(), (int)config.description.size(), &descRect, DT_CENTER | DT_WORDBREAK | DT_NOPREFIX);
     }
 
     // Recovery Hint
@@ -640,7 +645,7 @@ void DrawEmptyState(HDC dc, const RECT& r, const EmptyStateConfig& config, const
         SelectObject(dc, fonts.hSmall);
         SetTextColor(dc, UiColors::PrimaryBlue);
         RECT hintRect{ r.left + UiMetrics::Scale(40, dpi), cy + UiMetrics::Scale(45, dpi), r.right - UiMetrics::Scale(40, dpi), cy + UiMetrics::Scale(65, dpi) };
-        DrawTextW(dc, config.recoveryHint.c_str(), (int)config.recoveryHint.size(), &hintRect, DT_CENTER | DT_SINGLELINE);
+        DrawTextW(dc, config.recoveryHint.c_str(), (int)config.recoveryHint.size(), &hintRect, DT_CENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
 }
 

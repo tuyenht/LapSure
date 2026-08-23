@@ -29,6 +29,8 @@ checks=[
 ("Portable integrity verified in CI","verify_portable_package.ps1" in wf),
 ("ZIP and EXE hashes verified","ZIP SHA-256 mismatch" in verify and "LapSure.exe SHA-256 mismatch" in verify),
 ("Build provenance verified","Missing or invalid commit provenance" in verify),
+("PR head provenance selected","github.event.pull_request.head.sha || github.sha" in wf and "SOURCE_COMMIT" in pack),
+("Expected commit enforced","Commit provenance mismatch" in verify and '-ExpectedCommit "$env:SOURCE_COMMIT"' in wf),
 ("Validation matrix",(R/"validation/REAL_MACHINE_MATRIX.tsv").exists()),
 ("Validation checklist",(R/"validation/VALIDATION_CHECKLIST.md").exists()),
 ("Pilot runbook",(R/"validation/PILOT_RUNBOOK.md").exists()),

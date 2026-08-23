@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$ZipPath,
-  [string]$ChecksumPath = ""
+  [string]$ChecksumPath = "",
+  [string]$ExpectedCommit = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +35,9 @@ try {
   if ($buildInfo.product -ne "LapSure") { throw "Unexpected product in BUILD_INFO.txt" }
   if ($buildInfo.version -ne "0.1.1-beta") { throw "Unexpected version in BUILD_INFO.txt" }
   if (!$buildInfo.commit -or $buildInfo.commit -notmatch '^[0-9a-fA-F]{40}$') { throw "Missing or invalid commit provenance" }
+  if ($ExpectedCommit -and $buildInfo.commit.ToLowerInvariant() -ne $ExpectedCommit.ToLowerInvariant()) {
+    throw "Commit provenance mismatch. Expected $ExpectedCommit, got $($buildInfo.commit)"
+  }
 
   Write-Host "PASS portable package integrity"
   Write-Host "ZIP SHA-256: $actualZipHash"

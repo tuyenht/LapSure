@@ -22,7 +22,7 @@ foreach ($d in @("docs","validation")) {
 }
 $hash=(Get-FileHash (Join-Path $OutputDir "LapSure.exe") -Algorithm SHA256).Hash.ToLower()
 "LapSure.exe sha256=$hash" | Set-Content (Join-Path $OutputDir "BUILD_HASH.txt") -Encoding ascii
-$commit = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { (git rev-parse HEAD 2>$null) }
+$commit = if ($env:SOURCE_COMMIT) { $env:SOURCE_COMMIT } elseif ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { (git rev-parse HEAD 2>$null) }
 @(
   "product=LapSure"
   "version=0.1.1-beta"

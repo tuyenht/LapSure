@@ -6,6 +6,8 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
+    env:
+      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
@@ -31,7 +33,7 @@ jobs:
 
       - name: Verify portable package integrity
         shell: powershell
-        run: .\validation\verify_portable_package.ps1 -ZipPath ".\out\LapSure-windows-x64-portable.zip"
+        run: .\validation\verify_portable_package.ps1 -ZipPath ".\out\LapSure-windows-x64-portable.zip" -ExpectedCommit "$env:SOURCE_COMMIT"
 
       - name: Upload portable package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

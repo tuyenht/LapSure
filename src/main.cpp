@@ -718,7 +718,7 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     CanonicalUiState stNetwork = GetFunctionalItemUiState(f, L"wifi_scan");
     CanonicalUiState stPorts = (rep.hardware.stress.portPower.overall == L"PASS") ? CanonicalUiState::Good : ((rep.hardware.stress.portPower.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
     CanonicalUiState stStress = (rep.hardware.stress.completed) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    long long totalCritEvents = rep.hardware.forensics.whea + rep.hardware.forensics.kernelPower + rep.hardware.forensics.bugCheck;
+    long long totalCritEvents = rep.hardware.events.whea + rep.hardware.events.kernelPower + rep.hardware.events.bugCheck;
     CanonicalUiState stEvents = gAuditReady ? ((totalCritEvents > 0) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
 
     struct DomainDef { const wchar_t* icon; const wchar_t* name; const wchar_t* desc; CanonicalUiState state; };
@@ -814,12 +814,12 @@ void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     CanonicalUiState st1 = (gAuditCompletedItems >= 1) ? (!rep.model.empty() ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
     CanonicalUiState st2 = (gAuditCompletedItems >= 3) ? (!rep.hardware.cpuName.empty() ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
     CanonicalUiState st3 = (gAuditCompletedItems >= 3) ? (rep.hardware.installedRamBytes > 0 ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
-    CanonicalUiState st4 = (gAuditCompletedItems >= 6) ? (!rep.hardware.storage.empty() ? (rep.hardware.storage.front().smartStatus == L"FAIL" ? CanonicalUiState::Fail : CanonicalUiState::Good) : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st4 = (gAuditCompletedItems >= 6) ? (!rep.hardware.storage.empty() ? ((!rep.hardware.storage.front().smartPassed && rep.hardware.storage.front().smartReadable) ? CanonicalUiState::Fail : CanonicalUiState::Good) : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
     CanonicalUiState st5 = (gAuditCompletedItems >= 4) ? (!rep.hardware.gpus.empty() ? CanonicalUiState::Pass : CanonicalUiState::Warning) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
     CanonicalUiState st6 = (gAuditCompletedItems >= 9) ? (rep.hardware.battery.present ? (rep.hardware.battery.healthPercent < 50 ? CanonicalUiState::Warning : CanonicalUiState::Pass) : CanonicalUiState::Pass) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
     CanonicalUiState st7 = (gAuditCompletedItems >= 9) ? CanonicalUiState::Pass : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
-    CanonicalUiState st8 = (gAuditCompletedItems >= 9) ? (rep.hardware.forensics.criticalEventsCount > 0 ? CanonicalUiState::Warning : CanonicalUiState::Pass) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
-    CanonicalUiState st9 = (gAuditCompletedItems >= 12) ? (!rep.hardware.stress.stabilityState.empty() ? (rep.hardware.stress.stabilityState == L"PASS" ? CanonicalUiState::Pass : CanonicalUiState::Fail) : CanonicalUiState::Pass) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st8 = (gAuditCompletedItems >= 9) ? (((rep.hardware.events.whea + rep.hardware.events.kernelPower + rep.hardware.events.bugCheck) > 0) ? CanonicalUiState::Warning : CanonicalUiState::Pass) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
+    CanonicalUiState st9 = (gAuditCompletedItems >= 12) ? (rep.hardware.stress.completed ? CanonicalUiState::Pass : CanonicalUiState::Fail) : (gRunning ? CanonicalUiState::Running : CanonicalUiState::Idle);
 
     struct AutoItem { int num; const wchar_t* name; const wchar_t* sub; CanonicalUiState state; const wchar_t* src; };
     std::vector<AutoItem> items = {
@@ -1048,7 +1048,7 @@ void RenderPhysicalSafety(HDC dc, const RECT& r, const AuditReport& rep, int dpi
     PageHeaderConfig hdr;
     hdr.title = L"Ngoại hình & An toàn";
     hdr.subtitle = L"Ghi nhận kiểm định 6 điểm vật lý trọng yếu không thể suy diễn bằng phần mềm (Bản lề, Vỏ máy, Ốc vít, Vào nước, Phồng pin, Sạc).";
-    CanonicalUiState stPhys = (rep.hardware.stress.physicalCondition.overall == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.physicalCondition.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    CanonicalUiState stPhys = GetFunctionalItemUiState(rep.hardware.stress.functional, L"physical_chassis");
     hdr.sessionTag = (stPhys == CanonicalUiState::Pass) ? L"Đạt an toàn" : ((stPhys == CanonicalUiState::Fail) ? L"Không đạt" : L"Chưa kiểm tra");
     hdr.sessionState = stPhys;
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
@@ -1209,8 +1209,8 @@ void RenderStressStability(HDC dc, const RECT& r, const AuditReport& rep, int dp
     PageHeaderConfig hdr;
     hdr.title = L"Stress & Độ ổn định";
     hdr.subtitle = L"Kiểm tra tải nặng CPU/RAM/GPU, theo dõi nhiệt độ tản nhiệt và phát hiện lỗi phần cứng phát sinh dưới tải.";
-    CanonicalUiState stStress = (rep.hardware.stress.stabilityState == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.stabilityState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
-    hdr.sessionTag = (stStress == CanonicalUiState::Pass) ? L"Ổn định" : ((stStress == CanonicalUiState::Fail) ? L"Không ổn định" : L"Chưa kiểm tra");
+    CanonicalUiState stStress = rep.hardware.stress.completed ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
+    hdr.sessionTag = rep.hardware.stress.completed ? L"Ổn định" : L"Chưa kiểm tra";
     hdr.sessionState = stStress;
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
 
@@ -1224,7 +1224,7 @@ void RenderStressStability(HDC dc, const RECT& r, const AuditReport& rep, int dp
 
     MetricCardConfig mc1;
     mc1.label = L"Độ ổn định chung";
-    mc1.value = rep.hardware.stress.stabilityState.empty() ? L"—" : rep.hardware.stress.stabilityState;
+    mc1.value = rep.hardware.stress.completed ? L"ĐẠT (PASS)" : L"—";
     mc1.state = stStress;
     mc1.note = L"Kết luận Stress Test";
     RECT kpi1Rect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + kpiW, curY + kpiH };
@@ -1232,16 +1232,17 @@ void RenderStressStability(HDC dc, const RECT& r, const AuditReport& rep, int dp
 
     MetricCardConfig mc2;
     mc2.label = L"CPU Microbenchmark";
-    mc2.value = rep.hardware.stress.cpuBenchScore > 0 ? (std::to_wstring(rep.hardware.stress.cpuBenchScore) + L" pts") : L"—";
-    mc2.state = rep.hardware.stress.cpuBenchScore > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    mc2.value = rep.hardware.stress.cpuBenchmark.score > 0 ? (std::to_wstring(rep.hardware.stress.cpuBenchmark.score) + L" pts") : L"—";
+    mc2.state = rep.hardware.stress.cpuBenchmark.score > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     mc2.note = L"Điểm hiệu năng vi xử lý";
     RECT kpi2Rect{ kpi1Rect.right + UiMetrics::Scale(8, dpi), curY, kpi1Rect.right + UiMetrics::Scale(8, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi2Rect, mc2, gFonts, dpi);
 
+    long long critEvents = rep.hardware.events.whea + rep.hardware.events.kernelPower + rep.hardware.events.bugCheck;
     MetricCardConfig mc3;
     mc3.label = L"Sự kiện WHEA / Lỗi";
-    mc3.value = std::to_wstring(rep.hardware.forensics.criticalEventsCount);
-    mc3.state = (rep.hardware.forensics.criticalEventsCount > 0) ? CanonicalUiState::Warning : CanonicalUiState::Good;
+    mc3.value = std::to_wstring(critEvents);
+    mc3.state = (critEvents > 0) ? CanonicalUiState::Warning : CanonicalUiState::Good;
     mc3.note = L"Lỗi kiến trúc phần cứng";
     RECT kpi3Rect{ kpi2Rect.right + UiMetrics::Scale(8, dpi), curY, kpi2Rect.right + UiMetrics::Scale(8, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi3Rect, mc3, gFonts, dpi);
@@ -1282,12 +1283,12 @@ void RenderStressStability(HDC dc, const RECT& r, const AuditReport& rep, int dp
 }
 
 void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
-    bool batPresent = rep.hardware.battery.present && (rep.hardware.battery.healthPercent > 0 || rep.hardware.battery.designCapacityMwh > 0);
+    bool batPresent = rep.hardware.battery.present && (rep.hardware.battery.healthPercent > 0 || rep.hardware.battery.designWh > 0);
     PageHeaderConfig hdr;
     hdr.title = L"Pin & Năng lượng";
     hdr.subtitle = L"Chi tiết dung lượng thiết kế, dung lượng thực tế, độ chai pin, chu kỳ sạc và kiểm tra công suất xả mW.";
     CanonicalUiState stBat = batPresent ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    hdr.sessionTag = batPresent ? (std::to_wstring(rep.hardware.battery.healthPercent) + L"% sức khỏe") : L"Không phát hiện pin";
+    hdr.sessionTag = batPresent ? (std::to_wstring((int)rep.hardware.battery.healthPercent) + L"% sức khỏe") : L"Không phát hiện pin";
     hdr.sessionState = stBat;
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
 
@@ -1300,7 +1301,7 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
 
     MetricCardConfig mc1;
     mc1.label = L"Độ chai pin";
-    mc1.value = batPresent ? (std::to_wstring(100 - rep.hardware.battery.healthPercent) + L"%") : L"—";
+    mc1.value = batPresent ? (std::to_wstring((int)(100 - rep.hardware.battery.healthPercent)) + L"%") : L"—";
     mc1.state = batPresent ? ((100 - rep.hardware.battery.healthPercent > 25) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
     mc1.note = batPresent ? L"Mức độ suy giảm dung lượng" : L"Không có pin";
     RECT kpi1Rect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + kpiW, curY + kpiH };
@@ -1308,16 +1309,16 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
 
     MetricCardConfig mc2;
     mc2.label = L"Dung lượng thực tế (Full)";
-    mc2.value = rep.hardware.battery.fullChargeCapacityMwh > 0 ? (std::to_wstring(rep.hardware.battery.fullChargeCapacityMwh) + L" mWh") : L"—";
-    mc2.state = rep.hardware.battery.fullChargeCapacityMwh > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    mc2.value = rep.hardware.battery.fullChargeWh > 0 ? (std::to_wstring((int)rep.hardware.battery.fullChargeWh) + L" Wh") : L"—";
+    mc2.state = rep.hardware.battery.fullChargeWh > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     mc2.note = L"Khi sạc đầy 100%";
     RECT kpi2Rect{ kpi1Rect.right + UiMetrics::Scale(12, dpi), curY, kpi1Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi2Rect, mc2, gFonts, dpi);
 
     MetricCardConfig mc3;
     mc3.label = L"Dung lượng thiết kế (Design)";
-    mc3.value = rep.hardware.battery.designCapacityMwh > 0 ? (std::to_wstring(rep.hardware.battery.designCapacityMwh) + L" mWh") : L"—";
-    mc3.state = rep.hardware.battery.designCapacityMwh > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    mc3.value = rep.hardware.battery.designWh > 0 ? (std::to_wstring((int)rep.hardware.battery.designWh) + L" Wh") : L"—";
+    mc3.state = rep.hardware.battery.designWh > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     mc3.note = L"Xuất xưởng gốc từ nhà máy";
     RECT kpi3Rect{ kpi2Rect.right + UiMetrics::Scale(12, dpi), curY, kpi2Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
     DrawMetricCard(dc, kpi3Rect, mc3, gFonts, dpi);
@@ -1643,23 +1644,23 @@ void RenderSystemInfo(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     std::wstring sysModel = rep.model.empty() ? Reg(L"SystemProductName") : rep.model;
     addRow(L"Dòng máy / Model", sysModel, L"SMBIOS / Registry", CanonicalUiState::Good, L"Đạt");
 
-    std::wstring mfr = rep.hardware.system.manufacturer.empty() ? Reg(L"SystemManufacturer") : rep.hardware.system.manufacturer;
+    std::wstring mfr = rep.hardware.mainboard.manufacturer.empty() ? Reg(L"SystemManufacturer") : rep.hardware.mainboard.manufacturer;
     addRow(L"Nhà sản xuất", mfr, L"SMBIOS", CanonicalUiState::Good, L"Đạt");
 
     std::wstring cpuStr = rep.hardware.cpuName;
     addRow(L"Bộ vi xử lý (CPU)", cpuStr, L"WMI / CPUID", CanonicalUiState::Good, L"Đạt");
 
-    std::wstring biosVer = rep.hardware.system.biosVersion.empty() ? Reg(L"SystemBiosVersion") : rep.hardware.system.biosVersion;
+    std::wstring biosVer = rep.hardware.bios.version.empty() ? Reg(L"SystemBiosVersion") : rep.hardware.bios.version;
     addRow(L"Phiên bản BIOS", biosVer, L"SMBIOS / Registry", CanonicalUiState::Good, L"Đạt");
 
-    std::wstring osStr = rep.hardware.system.osName.empty() ? L"Windows 11 / 10 x64 Native" : rep.hardware.system.osName;
+    std::wstring osStr = rep.environment.empty() ? L"Windows 11 / 10 x64 Native" : rep.environment;
     addRow(L"Hệ điều hành", osStr, L"Win32 System", CanonicalUiState::Good, L"Đạt");
 
-    std::wstring tpmStr = rep.hardware.system.tpmPresent ? L"TPM 2.0 Hoạt động (Enabled)" : L"Không phát hiện TPM / Bị tắt";
-    addRow(L"Bảo mật TPM", tpmStr, L"TPM Provider", rep.hardware.system.tpmPresent ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.system.tpmPresent ? L"Đạt" : L"Cảnh báo");
+    std::wstring tpmStr = rep.hardware.security.tpmPresent ? L"TPM 2.0 Hoạt động (Enabled)" : L"Không phát hiện TPM / Bị tắt";
+    addRow(L"Bảo mật TPM", tpmStr, L"TPM Provider", rep.hardware.security.tpmPresent ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.security.tpmPresent ? L"Đạt" : L"Cảnh báo");
 
-    std::wstring sbStr = rep.hardware.system.secureBootEnabled ? L"Secure Boot Bật (Enabled)" : L"Secure Boot Tắt (Disabled)";
-    addRow(L"Khởi động an toàn", sbStr, L"Firmware Environment", rep.hardware.system.secureBootEnabled ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.system.secureBootEnabled ? L"Đạt" : L"Cảnh báo");
+    std::wstring sbStr = rep.hardware.security.secureBootEnabled ? L"Secure Boot Bật (Enabled)" : L"Secure Boot Tắt (Disabled)";
+    addRow(L"Khởi động an toàn", sbStr, L"Firmware Environment", rep.hardware.security.secureBootEnabled ? CanonicalUiState::Good : CanonicalUiState::Warning, rep.hardware.security.secureBootEnabled ? L"Đạt" : L"Cảnh báo");
 
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }
@@ -2261,11 +2262,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             // Hit test Mode cards (3 cards)
             int modeCardW = (leftW - UiMetrics::Scale(16, dpi)) / 3;
             const wchar_t* modeNames[] = { L"Quick", L"Standard", L"Deep" };
-            for (int m = 0; m < 3; ++m) {
-                int mx = startX + m * (modeCardW + UiMetrics::Scale(8, dpi));
+            for (int modeIdx = 0; modeIdx < 3; ++modeIdx) {
+                int mx = startX + modeIdx * (modeCardW + UiMetrics::Scale(8, dpi));
                 RECT mr{ mx, curY, mx + modeCardW, curY + UiMetrics::Scale(110, dpi) };
                 if (x >= mr.left && x <= mr.right && y >= mr.top && y <= mr.bottom) {
-                    gSelectedMode = modeNames[m];
+                    gSelectedMode = modeNames[modeIdx];
                     InvalidateRect(h, nullptr, FALSE);
                     return 0;
                 }

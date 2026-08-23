@@ -1,45 +1,18 @@
 # S13 — Âm thanh & Camera
 
-## Purpose
-Guide real functional verification of camera, microphone and stereo speakers. Device enumeration alone is insufficient.
+`components: [C01,C02,C03,C04,C08,C10,C11,C12]`
 
-## Subtests
+## User outcome
+Verify camera sample, microphone capture and stereo L/R through actual stimulus.
 
-### Camera
-- device identity;
-- start Media Foundation sample;
-- show live/last sample preview only when a real frame was captured;
-- automatic evidence: frame acquisition success;
-- operator confirmation: image quality/obstruction if required.
+## Objects
+Camera preview/sample status; mic capture/waveform; stereo left/right stimulus; operator quality confirmation; source/confidence.
 
-PASS requires actual sample evidence, not PnP presence.
+## Data
+`FunctionalItemResult`, Media Foundation evidence, WaveIn/PCM evidence, operator confirmation.
 
-### Microphone
-- actual PCM capture;
-- live level/waveform derived from captured data;
-- duration/peak/RMS or existing meaningful signal evidence;
-- playback optional if safely implemented;
-- operator confirmation for audible quality/noise.
+## Invariant
+Camera/mic device presence is not PASS. Camera requires actual usable frame/sample evidence; mic requires actual capture evidence; stereo L/R requires stimulus + operator confirmation.
 
-### Speakers
-- separate Left / Right stimulus;
-- clear buttons: `Phát loa trái`, `Phát loa phải`;
-- operator chooses `Nghe rõ`, `Rè/yếu`, `Không nghe`;
-- record manual evidence/confidence.
-
-## Screen layout
-Top cards: Camera / Microphone / Loa stereo with independent statuses.
-Main task panel focuses on one current subtest.
-Right rail: progress, instructions, next action.
-
-## States
-`CHƯA KIỂM TRA`, `ĐANG KIỂM TRA`, `CẦN XÁC NHẬN`, `ĐẠT`, `CẦN LƯU Ý`, `KHÔNG ĐẠT`, `KHÔNG HỖ TRỢ`.
-
-If OS/WinPE capability lacks Media Foundation or capture support, show unsupported—not hardware failure.
-
-## Actions
-- `Bắt đầu`
-- `Thử lại`
-- `Xác nhận kết quả`
-- `Tiếp tục`
-- `Bỏ qua` with clear final-coverage consequence.
+## Acceptance
+No false PASS from enumeration; clear privacy/permission failure states; manual quality judgment labeled.

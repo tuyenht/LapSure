@@ -1,6 +1,6 @@
 # LapSure Brand & Product Naming
 
-## Product name
+## Product
 **LapSure**
 
 ## Descriptor
@@ -15,21 +15,21 @@
 ## English tagline
 **Know the machine. Trust the decision.**
 
-## Short description
-LapSure is an evidence-based laptop verification and diagnostics tool for Windows/WinPE that combines hardware identity, health, stability, functional I/O, physical-port verification and structured reports in one guided workflow.
+## Brand promise
+Evidence-based verification: identity, health, stability, functional I/O, physical ports and structured reports in one guided workflow.
 
-## Recommended GitHub About description
-`Laptop verification & diagnostics for Windows/WinPE — hardware identity, health, stress, functional I/O, ports, factory comparison, and evidence-based reports.`
-
-## Recommended GitHub topics
-`laptop-diagnostics` · `hardware-diagnostics` · `windows` · `winpe` · `cpp` · `used-laptop` · `hardware-audit` · `dell-precision` · `system-information` · `diagnostics`
-
-## Naming conventions
-- Product: `LapSure`
+## Naming
 - Binary: `LapSure.exe`
-- CMake target: `LapSure`
 - Report directory: `LapSureReports`
 - Diagnostic core: `LapSure Diagnostic Engine`
 - Human report: `LapSure Inspection Report`
 
-Avoid using “Certified” for normal test completion. A future `Verified by LapSure` label should only be shown when mandatory evidence-coverage requirements are fully satisfied.
+Avoid “Certified” for normal completion. `Verified by LapSure` is future-only and requires mandatory evidence coverage to be fully satisfied.
+
+## Visual identity authority
+Professional Dashboard visual implementation is governed by:
+- `docs/ui/DESIGN_SYSTEM.md`
+- `docs/ui/UX_COPY_VI.md`
+- `docs/ui/references/approved/`
+
+Brand visuals never override evidence/state semantics.

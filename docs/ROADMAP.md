@@ -1,27 +1,54 @@
 # LapSure Roadmap
 
 ## Completed architecture milestones
-Hardware inventory/core health collection; EDID accuracy gate; stress session and event-delta architecture; trusted external-engine gate; telemetry and decision model; functional test center; camera/mic/stereo/Wi-Fi/Bluetooth I/O; physical port/power verification architecture; guided Test Orchestrator; model-aware chassis profiles; MSVC/portable/real-machine validation scaffolding.
+Hardware inventory/core health; EDID; stress/event-delta; trusted engine gate; telemetry/decision model; functional I/O; physical port/power verification; orchestrator; model-aware chassis profiles; MSVC/portable/real-machine validation scaffold.
 
 ## Current — Beta 0.1.1: Evidence Correctness & Executable Regression
-1. Keep MSVC x64 Release at `/W4 /WX` with executable behavioral tests.
-2. Prevent missing, malformed, timed-out or untrusted evidence from producing PASS/BUY.
-3. Validate SMART/VRAM parsers, decision policy, required-port coverage and report contracts with fixtures.
-4. Bound cancellation/process shutdown and make stress journals crash-safe.
-5. Run end-to-end on a real Precision 5560 after the evidence gate is green.
-6. Validate exact chassis profiles and physical-port labels.
-7. Compare inventory/health evidence against BIOS, Dell diagnostics and independent reference tools.
-8. Build a false-positive/false-negative log.
-9. Validate USB portable launch and custom WinPE behavior.
+1. Strict MSVC x64 Release `/W4 /WX`.
+2. Prevent missing/malformed/timed-out/untrusted evidence from PASS/BUY.
+3. Validate provider parsers/decision/report contracts.
+4. Bound cancellation and make stress journal crash-safe.
+5. Real-device E2E after evidence gate.
+6. Validate physical chassis profiles/port labels.
+7. Compare evidence against BIOS/OEM/independent references.
+8. Maintain false-positive/false-negative log.
+9. Validate portable/WinPE behavior.
 
 ## Beta 0.2 — Professional Dashboard
-After Beta 0.1 is stable: component summary cards; clear PASS/WARNING/FAIL/NOT TESTED hierarchy; persistent guided stepper; model-aware chassis visualization; evidence drill-down; report preview/export; improved localization and Vietnamese-first technician copy.
+
+### Scope
+- shared native design system/components;
+- grouped navigation;
+- clear PASS/WARNING/FAIL/NOT TESTED hierarchy;
+- persistent guided stepper/next-best action;
+- model-aware chassis visualization;
+- evidence drill-down;
+- report preview/export;
+- Vietnamese-first UX;
+- screen contracts S01–S23;
+- session history/recovery.
+
+### Acceptance gates
+Beta 0.2 is complete only when:
+- all S01–S23 contracts are resolved by implementation or explicit staged state;
+- state/data/component contracts are centralized;
+- no generic fabricated health score exists;
+- mandatory uncertainty states remain explicit;
+- automatic/manual workflow gates are preserved;
+- required incomplete coverage blocks clean BUY;
+- 1366×768 and 1920×1080 are usable;
+- 100/125/150% DPI is validated;
+- keyboard navigation/focus is validated;
+- approved visual references are audited against actual executable screenshots;
+- strict build/regression/report gates are green where runnable.
+
+Normative UI Definition of Done: `docs/ui/UI_ACCEPTANCE_GATES.md`.
 
 ## Beta 0.3 — Provider & Profile Hardening
-Expand verified Dell model/profile coverage; trusted sensor-provider packaging; trusted VRAM-engine release pinning; deeper storage/adapter validation; controlled benchmark baseline fleet.
+Expand verified profiles, trusted sensor/VRAM providers, deeper storage/adapter validation, controlled benchmark baseline fleet.
 
 ## RC — Portable / WinPE Certification
-One portable package policy; WinPE capability matrix; driver/provider fallback matrix; signed-release strategy; deterministic build/version metadata; regression matrix across supported Windows versions.
+Portable package policy, WinPE capability matrix, driver/provider fallback matrix, signed-release strategy, deterministic metadata, Windows regression matrix.
 
 ## 1.0
-Release criteria are based on reproducible real-machine evidence, not the number of implemented probes.
+Release is based on reproducible real-machine evidence, not probe count.

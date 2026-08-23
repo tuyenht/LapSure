@@ -1,46 +1,18 @@
 # S22 — Lịch sử phiên kiểm định
 
-## Purpose
-Allow buyers/technicians/service centers to reopen completed or interrupted inspection sessions and their reports/evidence.
+`components: [C01,C02,C03,C04,C06,C09,C10,C12]`
 
-## Storage policy
-Implement only against an actual local session/report index. Do not invent cloud history. The initial implementation may index local LapSure report/session directories.
+## User outcome
+Reopen, search and compare prior inspection sessions/reports when persistence exists.
 
-## List/table
-Columns:
-- ngày/giờ
-- mã phiên
-- model
-- service tag/serial when available
-- mode
-- final verdict
-- coverage
-- status: completed/interrupted/incomplete
-- report availability
+## Objects
+Search/filter; device/model/serial; timestamp; decision; coverage; report availability; compare/reopen.
 
-## Filters
-- search model/service tag/session ID
-- date range
-- verdict
-- completed/incomplete/interrupted
+## Data
+Persisted session/report index only when implemented. If persistence is not yet implemented, render an explicit staged/empty state rather than sample sessions.
 
-## Detail preview
-- device identity
-- recommendation
-- warnings/critical fails
-- coverage/confidence
-- report/evidence paths
-- last activity
-
-## Actions
-- `Mở phiên`
-- `Mở báo cáo`
-- `Mở thư mục bằng chứng`
-- `So sánh với phiên hiện tại` only after a real comparison model exists
-- `Xóa khỏi lịch sử` requires confirmation and must distinguish index removal from deleting evidence files.
-
-## Empty state
-Explain where LapSure stores reports and offer `Bắt đầu phiên kiểm định mới`.
+## Invariant
+Historical decisions do not become current evidence for a new session without explicit comparison/context.
 
 ## Acceptance
-No session appears unless backed by real local report/journal metadata.
+No fake history rows; missing report files are explicit; reopening preserves original evidence provenance.

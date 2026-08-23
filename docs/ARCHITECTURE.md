@@ -1,48 +1,65 @@
 # LapSure Architecture
 
 ## Design goal
-One native diagnostic core should run on normal Windows and, where capabilities exist, on custom x64 WinPE. Optional Windows-only providers enhance evidence without becoming hard dependencies.
+One native diagnostic core should run on normal Windows and, where capabilities exist, custom x64 WinPE. Optional Windows-only providers enhance evidence without becoming hard dependencies.
 
 ## High-level flow
 ```text
-UI / Test Orchestrator
-        |
-        +-- Inventory & Identity
-        +-- Factory / Chassis Profiles
-        +-- Health Providers
-        +-- Stress & Stability
-        +-- Telemetry
-        +-- Functional I/O
-        +-- Port & Power Stimulus Tests
-        |
-   Decision Engine
-        |
-   HTML + JSON Reports
+Providers / Inventory / Functional / Stress / Port stimulus
+                    |
+              Evidence Model
+             (AuditReport etc.)
+                    |
+          Decision + Orchestrator
+                    |
+          Presentation Mapping
+                    |
+      Reusable Native UI Components
+                    |
+              Screens S01–S23
+                    |
+             HTML + JSON Reports
 ```
 
 ## Core modules
-- `inventory` — CPU/RAM/GPU/storage/battery identity
-- `edid` — native panel EDID identity/timing
-- `forensics` — BIOS/mainboard/security/event evidence
-- `engines` / `trust` — external-tool adapters and hash allowlist
-- `stress` / `journal` — controlled stress and interruption evidence
-- `telemetry` / `sensors` — runtime telemetry and optional trusted providers
-- `functional` / `functional_io` — display/input/audio/camera/network workflows
-- `port_power` — physical-port stimulus and USB4/Thunderbolt/AC evidence
-- `chassis_profile` — data-driven model-specific physical-port requirements
-- `orchestrator` — stage progression and next-best action
-- `scoring` — confidence-aware decision model
-- `report` — HTML/JSON evidence output
-- `runtime_validation` — build/provider/runtime acceptance evidence
+- inventory
+- edid
+- forensics
+- engines/trust
+- stress/journal
+- telemetry/sensors
+- functional/functional_io
+- port_power
+- chassis_profile
+- orchestrator
+- scoring
+- report
+- runtime_validation
 
 ## Trust boundary
-External engines are not trusted by path/name alone. `engine_manifest.txt` pins reviewed SHA-256 values. Unavailable or hash-mismatched engines must not execute and must not generate PASS.
+External engines are SHA-256 pinned. Missing/hash-mismatched engines do not execute and cannot generate PASS.
 
 ## WinPE policy
-The core favors Win32/SetupAPI/COM APIs. WinPE images vary by optional packages and drivers; missing support becomes `UNSUPPORTED`/`NOT TESTED`, not hardware failure.
+Missing packages/drivers/capabilities become `UNSUPPORTED`/`NOT TESTED`, not hardware failure.
 
 ## Workflow integrity
-Automatic audit runs separately from interactive operator steps. Interactive results are blocked until the automatic snapshot completes; updates are synchronized and regenerate decision/report.
+Automatic audit is separate from interactive operator steps. Interactive result recording is gated until the required automatic snapshot exists.
 
 ## Evidence model
-Identity, factory expectation, health, functionality, stability, historical evidence, coverage and confidence are kept separate. This avoids conflating “changed component” with “bad component” or “detected” with “verified”.
+Identity, factory expectation, health, functionality, stability, historical evidence, coverage and confidence remain separate.
+
+## Presentation-layer architecture
+
+### Dependency direction
+`Provider → Evidence Model → Decision/Orchestrator → Presentation Mapping → UI`
+
+The UI:
+- MAY read model/evidence and request operations.
+- MAY format/derive explicitly documented values.
+- MUST NOT invent evidence.
+- MUST NOT convert uncertainty to PASS.
+- MUST NOT perform slow provider work inside paint/layout.
+- MUST keep provider/environment failures visible.
+- MUST use shared state/data/component contracts from `docs/ui/`.
+
+Prefer a presentation/view-model mapper that normalizes status wording, availability and unit formatting without mutating underlying diagnostic truth. Screen renderers should depend on shared native components/tokens, not duplicate semantic state logic.

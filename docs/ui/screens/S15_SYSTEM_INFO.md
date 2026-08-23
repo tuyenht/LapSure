@@ -1,40 +1,18 @@
 # S15 — Thông tin Hệ thống
 
-## Purpose
-Provide technician-grade identity, firmware, security, PnP and environment evidence without overwhelming the guided workflow.
+`components: [C01,C02,C03,C04,C08,C09,C12]`
 
-## Sections
-1. **Thiết bị**
-   - manufacturer/model/service tag when exposed
-   - mainboard manufacturer/product/serial
-2. **BIOS / SMBIOS**
-   - vendor/version/release date/SMBIOS
-3. **Hệ điều hành & môi trường**
-   - Windows/WinPE
-   - architecture
-   - relevant runtime capability status
-4. **Bảo mật**
-   - TPM present/ready
-   - Secure Boot known/enabled
-5. **Thiết bị có vấn đề (PnP)**
-   - problem code
-   - device
-   - description
-   - instance ID drill-down
-6. **Runtime / provider integrity**
-   - trusted engines/runtime validation status
-   - explicit missing/untrusted provider information
+## User outcome
+Present system identity, firmware/security, environment and PnP problem evidence.
 
-## UX
-Use summary cards plus expandable technical tables. Provide copy buttons for Service Tag, BIOS version and instance IDs.
+## Objects
+Model/serial; CPU/mainboard; BIOS/SMBIOS; OS/environment; TPM; Secure Boot; PnP problem devices; runtime/provider readiness.
 
-## Semantics
-- BIOS “old” may be advisory only unless an authoritative OEM currency provider is implemented.
-- PnP Code 10/22/28/43 must be represented accurately and interpreted through existing policy; do not hard-code blanket causality such as “Code 43 = reballed/dead GPU”.
-- TPM/Secure Boot state is security evidence, not generic hardware-health score.
+## Data
+`AuditReport`, `MainboardInfo`, `BiosInfo`, `SecurityInfo`, `PnpProblemDevice`, `RuntimeValidationSummary`.
 
-## Actions
-- `Sao chép thông tin`
-- `Xem bằng chứng`
-- `Mở Nhật ký & Sự kiện`
-- OEM lookup only when an explicit trusted/navigation workflow exists.
+## Invariant
+Known/unknown security states stay separate. No PnP problem list is not universal hardware certification. Environment/provider limitations are not hardware failure.
+
+## Acceptance
+Technical details copyable/readable; unknown fields explicit; sources available in evidence drill-down.

@@ -1,5 +1,3 @@
-# Archived UI Concepts
+# Archived Visual Concepts
 
-This folder is reserved for superseded or exploratory LapSure UI concepts.
-
-Archived material is **not implementation authority**. Agents must not copy an archived layout, copy, metric or behavior unless the user explicitly requests that specific concept.
+Superseded visual concepts retained only for historical comparison. They are not implementation authority unless a task explicitly asks to revisit them. Use `../MANIFEST.yaml`, current screen contracts and `../approved/` for active work.

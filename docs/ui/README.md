@@ -1,28 +1,35 @@
-# LapSure UI/UX Specification Pack
+# LapSure UI/UX — Agent-Executable Design Contract
 
-This folder is the implementation-facing UI/UX source of truth for the **Professional Dashboard** evolution of LapSure.
+This directory is the normative UI/UX implementation layer for LapSure.
 
-## Documents
+## Authority order
+1. `docs/COVERAGE_CONTRACT.md`
+2. `docs/PRODUCT_SPEC.md`
+3. `docs/ARCHITECTURE.md`
+4. `docs/USED_LAPTOP_EXPERT_AUDIT.md`
+5. `docs/ui/LAPSURE_UI_MASTER_SPEC.md`
+6. `docs/ui/UI_STATE_MODEL.md`
+7. `docs/ui/DATA_BINDING_CONTRACT.md`
+8. Target `docs/ui/screens/Sxx_*.md`
+9. Referenced `docs/ui/components/Cxx_*.md`
+10. `docs/ui/KNOWN_MOCKUP_DEVIATIONS.md`
+11. `docs/ui/references/approved/*`
 
-- `LAPSURE_UI_MASTER_SPEC.md` — product UX principles, navigation, screen catalog, design system, states and workflow.
-- `ANTIGRAVITY_IMPLEMENTATION_CONTRACT.md` — mandatory implementation and acceptance gates for Google Antigravity 2.0 or other coding agents.
-- `ANTIGRAVITY_PROMPT.md` — ready-to-use execution prompt.
-- `screens/` — detailed contracts for P0 screens that are currently missing or insufficiently implemented.
+Visual references never override evidence semantics.
 
-## Relationship to existing product documents
+## Start here
+- `SCREEN_INDEX.md` — all S01–S23 screens.
+- `DESIGN_SYSTEM.md` — native visual system.
+- `COMPONENT_CATALOG.md` — reusable components.
+- `UI_STATE_MODEL.md` — canonical state semantics.
+- `DATA_BINDING_CONTRACT.md` — source-to-UI mapping.
+- `INTERACTION_PATTERNS.md` — navigation/guided behavior.
+- `UX_COPY_VI.md` — canonical Vietnamese copy.
+- `ACCESSIBILITY_DPI.md` — Windows keyboard/DPI contract.
+- `TRACEABILITY_MATRIX.md` — requirement → screen → data → test.
+- `KNOWN_MOCKUP_DEVIATIONS.md` — intentional visual corrections.
+- `UI_ACCEPTANCE_GATES.md` — Definition of Done.
+- `references/MANIFEST.yaml` — screen/spec/image map.
 
-This pack **does not replace**:
-- `../COVERAGE_CONTRACT.md`
-- `../PRODUCT_SPEC.md`
-- `../ARCHITECTURE.md`
-- `../USED_LAPTOP_EXPERT_AUDIT.md`
-
-Those documents remain authoritative for diagnostic truth. UI mockups and layout requirements may never weaken evidence/coverage policy.
-
-## Current code baseline
-
-The repository already has a native Win32 UI with `MainTab` entries in `include/lap/ui_theme.h` and rendering in `src/main.cpp` / `src/ui_renderer.cpp`. The goal is an incremental professional refactor, not a rewrite of the diagnostic engine.
-
-## Visual references
-
-The approved mockups produced during product design should be used as **visual references**, not as data contracts. If a mockup displays a value that the current data model cannot prove, the implementation must show an explicit unavailable/unknown state rather than fabricate the value.
+## Agent rule
+For a single screen task: read `AGENTS.md`, `SCREEN_INDEX.md`, the target screen contract, linked components, state/data contracts, matching approved visual, then inspect current code/model/providers. Implement, build, test, capture, compare and audit. Do not infer unavailable data from mockups.

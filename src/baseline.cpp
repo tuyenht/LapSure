@@ -13,7 +13,18 @@ namespace lap { namespace {
 std::wstring Lower(std::wstring s){std::transform(s.begin(),s.end(),s.begin(),towlower);return s;}
 struct Baseline{std::wstring cpuContains;double low{-1},high{-1};std::wstring source;};
 std::vector<Baseline> Load(const std::wstring&appDir){
- std::vector<Baseline> out;std::wifstream f(std::filesystem::path(appDir)/L"baselines"/L"cpu_microbench.tsv");std::wstring line;
+ std::vector<Baseline> out;
+ std::error_code ec;
+ auto p=std::filesystem::path(appDir)/L"baselines"/L"cpu_microbench.tsv";
+ if(!std::filesystem::exists(p,ec)){
+  auto cur=std::filesystem::path(appDir);
+  for(int depth=0;depth<5&&cur.has_parent_path();++depth){
+   cur=cur.parent_path();
+   auto alt=cur/L"baselines"/L"cpu_microbench.tsv";
+   if(std::filesystem::exists(alt,ec)){p=alt;break;}
+  }
+ }
+ std::wifstream f(p);std::wstring line;
  while(std::getline(f,line)){if(line.empty()||line[0]==L'#')continue;std::wstringstream ss(line);std::wstring a,b,c,d;
   if(!std::getline(ss,a,L'\t')||!std::getline(ss,b,L'\t')||!std::getline(ss,c,L'\t')||!std::getline(ss,d))continue;
   try{out.push_back({a,std::stod(b),std::stod(c),d});}catch(...){}

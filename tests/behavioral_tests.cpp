@@ -103,6 +103,8 @@ int main() {
     lap::FactoryProfile genericProfile{};
     auto providerReport=lap::CollectInventory(genericProfile,caps,appDir,&cancel);
     lap::CollectWindowsStorageReliability(providerReport,caps,&cancel);
+    lap::CollectVolumeIntegrityAudit(providerReport);
+    lap::CollectBatteryDischargeAudit(providerReport,caps,&cancel);
     lap::CollectPlatformForensics(providerReport,genericProfile,caps,appDir,&cancel);
     lap::CollectFunctionalPresence(providerReport,caps,&cancel);
     lap::CollectPortPowerBaseline(providerReport);

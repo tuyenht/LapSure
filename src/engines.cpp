@@ -119,4 +119,88 @@ void CollectNvidia(AuditReport&r,const FactoryProfile&p,const Capabilities&c,con
  if(r.hardware.gpus.empty())Add(r,L"GPU",L"NVIDIA parse",L"Output present but no valid CSV row parsed",L"",State::Warning,Severity::Major,Dimension::Evidence,pr.output);
 }
 
+
+void CollectVolumeIntegrityAudit(AuditReport& r){
+    wchar_t driveStrings[512]{};
+    DWORD len = GetLogicalDriveStringsW(512, driveStrings);
+    if(len == 0 || len > 512) return;
+    
+    unsigned cleanCount = 0;
+    unsigned dirtyCount = 0;
+    for(const wchar_t* drive = driveStrings; *drive; drive += wcslen(drive) + 1){
+        UINT driveType = GetDriveTypeW(drive);
+        if(driveType != DRIVE_FIXED && driveType != DRIVE_REMOVABLE) continue;
+        
+        wchar_t volName[MAX_PATH]{};
+        wchar_t fsName[MAX_PATH]{};
+        DWORD serial = 0, maxLen = 0, flags = 0;
+        GetVolumeInformationW(drive, volName, MAX_PATH, &serial, &maxLen, &flags, fsName, MAX_PATH);
+        
+        std::wstring volPath = L"\\\\.\\" + std::wstring(drive, 2); // e.g. \\.\C:
+        HANDLE hVol = CreateFileW(volPath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                  nullptr, OPEN_EXISTING, 0, nullptr);
+        bool isDirty = false;
+        if(hVol != INVALID_HANDLE_VALUE){
+            DWORD bytesReturned = 0;
+            DWORD volumeStatus = 0;
+            if(DeviceIoControl(hVol, FSCTL_IS_VOLUME_DIRTY, nullptr, 0,
+                               &volumeStatus, sizeof(volumeStatus), &bytesReturned, nullptr)){
+                isDirty = (volumeStatus & VOLUME_IS_DIRTY) != 0;
+            }
+            CloseHandle(hVol);
+        }
+        
+        std::wstring driveLabel = std::wstring(drive) + (volName[0] ? (std::wstring(L" [") + volName + L"]") : L"") + L" (" + (fsName[0] ? fsName : L"NTFS") + L")";
+        if(isDirty){
+            dirtyCount++;
+            Add(r, L"Hệ thống tệp (Filesystem)", L"Phân vùng " + driveLabel,
+                L"Phát hiện cờ DIRTY (Nguy cơ lỗi tệp / sập nguồn đột ngột - cần chạy chkdsk)",
+                L"Clean (Không có cờ Dirty)", State::Warning, Severity::Major, Dimension::Health,
+                L"Win32 DeviceIoControl FSCTL_IS_VOLUME_DIRTY");
+        } else {
+            cleanCount++;
+        }
+    }
+    
+    if(dirtyCount == 0 && cleanCount > 0){
+        Add(r, L"Hệ thống tệp (Filesystem)", L"Trạng thái phân vùng lưu trữ",
+            L"Tất cả " + std::to_wstring(cleanCount) + L" phân vùng đều SẠCH (Clean, 0 cờ Dirty)",
+            L"0 cờ Dirty", State::Pass, Severity::Info, Dimension::Health,
+            L"Win32 DeviceIoControl FSCTL_IS_VOLUME_DIRTY scan");
+    }
+}
+
+void CollectBatteryDischargeAudit(AuditReport& r, const Capabilities& c, const std::atomic_bool* cancel){
+    if(!c.powershell || !r.hardware.battery.present) return;
+    auto pr = RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"$b=Get-CimInstance -Namespace root/wmi -ClassName BatteryStatus -ErrorAction SilentlyContinue|Select-Object -First 1;if($b){'{0}|{1}|{2}|{3}|{4}' -f $b.DischargeRate,$b.RemainingCapacity,$b.Voltage,$b.Charging,$b.Discharging}\"", 15000, cancel);
+    if(pr.launched && !pr.timedOut && !pr.output.empty()){
+        auto lines = SplitLines(pr.output);
+        if(!lines.empty()){
+            auto q = Split(lines.front(), L'|');
+            if(q.size() >= 5){
+                long long dischargeRateMW = ParseI64(q[0], 0);
+                long long remainingMWh = ParseI64(q[1], 0);
+                long long voltageMV = ParseI64(q[2], 0);
+                bool charging = ContainsI(q[3], L"True");
+                bool discharging = ContainsI(q[4], L"True");
+                
+                std::wstringstream ss;
+                if(discharging && dischargeRateMW > 0){
+                    double watts = (double)dischargeRateMW / 1000.0;
+                    ss << L"Tốc độ xả: " << Fmt1(watts, L" W") << L" (" << dischargeRateMW << L" mW) | Còn lại: " << remainingMWh << L" mWh | Điện áp: " << Fmt1((double)voltageMV/1000.0, L" V");
+                    State st = (watts > 65.0) ? State::Warning : State::Pass;
+                    Add(r, L"Pin / Battery", L"Tốc độ xả pin thời gian thực", ss.str(), L"Công suất xả định mức thông thường < 65W", st, Severity::Minor, Dimension::Health, L"root/wmi:BatteryStatus live telemetry");
+                } else if(charging){
+                    ss << L"Đang nạp sạc AC | Còn lại: " << remainingMWh << L" mWh | Điện áp: " << Fmt1((double)voltageMV/1000.0, L" V");
+                    Add(r, L"Pin / Battery", L"Trạng thái nạp pin", ss.str(), L"Sạc bình thường", State::Pass, Severity::Info, Dimension::Health, L"root/wmi:BatteryStatus live telemetry");
+                } else {
+                    ss << L"Chế độ nguồn AC (Đầy hoặc duy trì) | Điện áp: " << Fmt1((double)voltageMV/1000.0, L" V");
+                    Add(r, L"Pin / Battery", L"Trạng thái nguồn pin", ss.str(), L"", State::Info, Severity::Info, Dimension::Health, L"root/wmi:BatteryStatus live telemetry");
+                }
+            }
+        }
+    }
+}
+
 } // namespace lap
+

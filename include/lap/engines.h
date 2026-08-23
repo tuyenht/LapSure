@@ -9,4 +9,6 @@ bool ParseWindowsStorageReliabilityLine(const std::wstring& line,StorageDevice& 
 void CollectWindowsStorageReliability(AuditReport& report,const Capabilities& caps,const std::atomic_bool* cancel=nullptr);
 void CollectSmartctl(AuditReport& report,const FactoryProfile& profile,const Capabilities& caps,const std::wstring& appDir,const std::atomic_bool* cancel=nullptr);
 void CollectNvidia(AuditReport& report,const FactoryProfile& profile,const Capabilities& caps,const std::wstring& appDir,const std::atomic_bool* cancel=nullptr);
+void CollectVolumeIntegrityAudit(AuditReport& report);
+void CollectBatteryDischargeAudit(AuditReport& report, const Capabilities& caps, const std::atomic_bool* cancel=nullptr);
 }

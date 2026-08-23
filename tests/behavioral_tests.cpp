@@ -107,6 +107,8 @@ int main() {
     Expect(providerParse.launched&&!providerParse.timedOut&&providerParse.exitCode==0,"native provider evidence serializes as valid JSON");
     lap::MemoryModule memoryFixture{};
     Expect(lap::ParseMemoryModuleLine(L"17179869184|5600|5600|Micron|MTC8C1084S1SC48BA1|12345678",memoryFixture)&&memoryFixture.capacityBytes==17179869184ULL&&memoryFixture.deviceLocator.empty(),"RAM parser accepts optional empty locator fields");
+    lap::BatteryInfo batteryFixture{};
+    Expect(lap::ParseBatteryLine(L"54002|42112|225|BYD|2656|DELL KDM9P4C3",batteryFixture)&&batteryFixture.capacityReadable&&batteryFixture.designWh>54.0&&batteryFixture.fullChargeWh>42.1&&batteryFixture.cycleCount==225,"battery report capacity schema parses explicit evidence");
     std::filesystem::remove_all(providerDir,cleanupError);
     return failures == 0 ? 0 : 1;
 }

@@ -29,6 +29,8 @@ check('Generic GPU inventory provider', 'Win32_VideoController' in inv)
 check('Empty DIMM provider is not valid zero modules', 'Module details unavailable' in inv)
 check('Service Tag BIOS fallback', 'Win32_BIOS' in inv and 'SerialNumber' in inv)
 check('Kernel-Power evidence is unexpected restart only', 'Id=41' in fore)
+check('Battery report XML fallback', 'powercfg.exe /batteryreport /xml' in inv and 'LapSureBattery-' in inv)
+check('Battery fallback remains evidence gated', 'if(!bi.capacityReadable)' in inv and 'BatteryState(bi.healthPercent)' in inv)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

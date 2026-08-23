@@ -68,12 +68,14 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
    } else Add(r,L"GPU",L"Adapter inventory",gpu.error.empty()?L"No data":gpu.error,L"",State::NotTested,Severity::Major,Dimension::Identity,L"Win32_VideoController");
 
    auto batt=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"$s=Get-CimInstance -Namespace root/wmi -ClassName BatteryStaticData -ErrorAction SilentlyContinue|Select-Object -First 1;$f=Get-CimInstance -Namespace root/wmi -ClassName BatteryFullChargedCapacity -ErrorAction SilentlyContinue|Select-Object -First 1;$c=Get-CimInstance -Namespace root/wmi -ClassName BatteryCycleCount -ErrorAction SilentlyContinue|Select-Object -First 1;$b=Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue|Select-Object -First 1;if($s -or $f -or $b){'{0}|{1}|{2}|{3}|{4}|{5}' -f $s.DesignedCapacity,$f.FullChargedCapacity,$c.CycleCount,$s.ManufactureName,$s.SerialNumber,$b.Status}\"",20000,cancel);
-   if(batt.launched&&!batt.timedOut&&!batt.output.empty()){
-      BatteryInfo bi=r.hardware.battery; if(ParseBatteryLine(SplitLines(batt.output).front(),bi)){bi.currentChargePercent=r.hardware.battery.currentChargePercent;r.hardware.battery=bi;
-        std::wstringstream x;if(bi.capacityReadable)x<<L"Design "<<F1(bi.designWh)<<L" Wh | Full "<<F1(bi.fullChargeWh)<<L" Wh | Health "<<F1(bi.healthPercent)<<L"% | Wear "<<F1(bi.wearPercent)<<L"%";else x<<L"Capacity unavailable";x<<L" | Cycles "<<(bi.cycleCount<0?L"N/A":std::to_wstring(bi.cycleCount));
-        Add(r,L"Battery",L"Capacity / wear",x.str(),p.batteryDesignWh?L"Factory design "+F1(p.batteryDesignWh)+L" Wh":L"",BatteryState(bi.healthPercent),Severity::Major,Dimension::Health,L"Battery WMI typed capture");
-      }
-   } else Add(r,L"Battery",L"Capacity / wear",L"Not available",p.batteryDesignWh?L"Factory design "+F1(p.batteryDesignWh)+L" Wh":L"",State::NotTested,Severity::Major,Dimension::Health);
+   BatteryInfo bi=r.hardware.battery;bool batteryParsed=false;std::wstring batteryEvidence=L"Battery WMI typed capture";
+   auto battLines=SplitLines(batt.output);if(batt.launched&&!batt.timedOut&&!battLines.empty())batteryParsed=ParseBatteryLine(battLines.front(),bi);
+   if(!bi.capacityReadable){
+      auto powercfg=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"$p=Join-Path $env:TEMP ('LapSureBattery-'+[guid]::NewGuid().ToString('N')+'.xml');try{& powercfg.exe /batteryreport /xml /output $p|Out-Null;[xml]$x=Get-Content -LiteralPath $p -Raw;$b=@($x.BatteryReport.Batteries.Battery)[0];if($b){'{0}|{1}|{2}|{3}|{4}|{5}' -f $b.DesignCapacity,$b.FullChargeCapacity,$b.CycleCount,$b.Manufacturer,$b.SerialNumber,$b.Id}}finally{Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue}\"",25000,cancel);
+      auto lines=SplitLines(powercfg.output);BatteryInfo fallback=r.hardware.battery;if(powercfg.launched&&!powercfg.timedOut&&!lines.empty()&&ParseBatteryLine(lines.front(),fallback)&&fallback.capacityReadable){bi=fallback;batteryParsed=true;batteryEvidence=L"Windows powercfg battery-report XML fallback";}
+   }
+   if(batteryParsed){bi.currentChargePercent=r.hardware.battery.currentChargePercent;r.hardware.battery=bi;std::wstringstream x;if(bi.capacityReadable)x<<L"Design "<<F1(bi.designWh)<<L" Wh | Full "<<F1(bi.fullChargeWh)<<L" Wh | Health "<<F1(bi.healthPercent)<<L"% | Wear "<<F1(bi.wearPercent)<<L"%";else x<<L"Capacity unavailable";x<<L" | Cycles "<<(bi.cycleCount<0?L"N/A":std::to_wstring(bi.cycleCount));Add(r,L"Battery",L"Capacity / wear",x.str(),p.batteryDesignWh?L"Factory design "+F1(p.batteryDesignWh)+L" Wh":L"",BatteryState(bi.healthPercent),Severity::Major,Dimension::Health,batteryEvidence);}
+   else Add(r,L"Battery",L"Capacity / wear",L"Not available",p.batteryDesignWh?L"Factory design "+F1(p.batteryDesignWh)+L" Wh":L"",State::NotTested,Severity::Major,Dimension::Health,L"WMI and powercfg battery-report unavailable");
  }
  return r;
 }

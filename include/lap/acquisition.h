@@ -5,4 +5,6 @@
 
 namespace lap {
 std::vector<FunctionalItemResult> RunPhysicalConditionWizard(HWND owner);
+bool RunSellerClaimWizard(HWND owner,SellerClaim& claim);
+void ApplySellerClaimComparison(AuditReport& report);
 }

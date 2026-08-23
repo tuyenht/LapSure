@@ -12,6 +12,7 @@
 #include "lap/port_power.h"
 #include "lap/runtime_validation.h"
 #include "lap/orchestrator.h"
+#include "lap/acquisition.h"
 #include <filesystem>
 #include <iostream>
 #include <atomic>
@@ -31,6 +32,7 @@ void Expect(bool condition, const char* behavior) {
 lap::AuditReport CompletedAutomaticReport() {
     lap::AuditReport report{};
     report.model=L"Test Laptop";report.serviceTag=L"TEST123";report.hardware.cpuName=L"Test CPU";report.hardware.cpuThreads=8;
+    report.sellerClaim.provided=true;report.sellerClaim.model=L"Test Laptop";report.sellerClaim.cpuContains=L"Test CPU";report.sellerClaim.ramBytes=16ULL*1024*1024*1024;report.sellerClaim.storageBytes=512ULL*1000*1000*1000;
     report.hardware.installedRamBytes=16ULL*1024*1024*1024;lap::MemoryModule module{};module.capacityBytes=report.hardware.installedRamBytes;report.hardware.memoryModules.push_back(module);
     lap::StorageDevice disk{};disk.model=L"Test NVMe";disk.capacityBytes=512ULL*1000*1000*1000;disk.reliabilityReadable=true;disk.reliabilityHealthy=true;report.hardware.storage.push_back(disk);
     lap::GpuInfo gpu{};gpu.name=L"Test GPU";report.hardware.gpus.push_back(gpu);lap::DisplayInfo display{};display.friendlyName=L"Internal panel";report.hardware.displays.push_back(display);
@@ -120,6 +122,8 @@ int main() {
     Expect(lap::ParseBatteryLine(L"54002|42112|225|BYD|2656|DELL KDM9P4C3",batteryFixture)&&batteryFixture.capacityReadable&&batteryFixture.designWh>54.0&&batteryFixture.fullChargeWh>42.1&&batteryFixture.cycleCount==225,"battery report capacity schema parses explicit evidence");
     lap::StorageDevice reliabilityFixture{};
     Expect(lap::ParseWindowsStorageReliabilityLine(L"PM9C1a Samsung 512GB|002538A741BB3C4E|Healthy|OK|45|83|0|-1|-1|-1",reliabilityFixture)&&reliabilityFixture.reliabilityReadable&&reliabilityFixture.reliabilityHealthy&&reliabilityFixture.temperatureC==45&&reliabilityFixture.percentageUsed==0,"Windows native storage reliability schema parses health evidence");
+    lap::AuditReport claimMismatch{};claimMismatch.model=L"Actual Model";claimMismatch.hardware.cpuName=L"Core i5";claimMismatch.hardware.installedRamBytes=8ULL*1024*1024*1024;lap::StorageDevice actualDisk{};actualDisk.capacityBytes=256ULL*1000*1000*1000;claimMismatch.hardware.storage.push_back(actualDisk);claimMismatch.sellerClaim={true,L"Advertised Model",L"Core i7",16ULL*1024*1024*1024,L"",512ULL*1000*1000*1000,0,0,0,0};lap::ApplySellerClaimComparison(claimMismatch);
+    Expect(claimMismatch.findings.size()==4&&lap::BuildAuditDecision(claimMismatch).overall==L"REJECT","seller claim mismatch creates critical evidence and rejects purchase");
     providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
     const auto coverage=lap::BuildCoverageContract(providerReport);
     Expect(coverage.size()>=10&&std::any_of(coverage.begin(),coverage.end(),[](const auto&x){return x.id==L"storage";})&&providerReport.hardware.stress.decision.coverage==L"PARTIAL","coverage contract exposes required domains and gates incomplete evidence");

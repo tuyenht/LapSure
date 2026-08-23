@@ -32,7 +32,7 @@ using namespace lap;
 namespace {
 constexpr UINT WM_AUDIT_DONE=WM_APP+1;
 constexpr UINT WM_AUDIT_STATUS=WM_APP+2;
-AuditReport gReport; std::wstring gDir,gReportPath; HWND gList,gStatus,gBtn,gOpen,gMode,gFuncDisplay,gFuncKeyboard,gFuncTouch,gFuncSpeaker,gFuncUsb,gFuncIo,gPhysical,gPortTest,gNext,gProgress;
+AuditReport gReport; std::wstring gDir,gReportPath; HWND gList,gStatus,gBtn,gOpen,gMode,gFuncDisplay,gFuncKeyboard,gFuncTouch,gFuncSpeaker,gFuncUsb,gFuncIo,gPhysical,gSeller,gPortTest,gNext,gProgress;
 std::thread gWorker; std::atomic_bool gCancel{false},gRunning{false}; std::wstring gSelectedMode=L"Quick"; std::atomic_bool gAuditReady{false}; std::atomic_bool gCloseRequested{false}; std::mutex gReportMutex;
 COLORREF bg=RGB(245,247,250),text=RGB(24,31,42),accent=RGB(44,104,255);
 std::wstring AppDir(){wchar_t p[MAX_PATH]{};GetModuleFileNameW(nullptr,p,MAX_PATH);return std::filesystem::path(p).parent_path().wstring();}
@@ -66,6 +66,7 @@ void SetFunctionalButtonsEnabled(BOOL enabled){
     if(gFuncUsb)EnableWindow(gFuncUsb,enabled);
     if(gFuncIo)EnableWindow(gFuncIo,enabled);
     if(gPhysical)EnableWindow(gPhysical,enabled);
+    if(gSeller)EnableWindow(gSeller,enabled);
     if(gPortTest)EnableWindow(gPortTest,enabled);
 }
 void RebuildDecisionAndReports(){
@@ -112,6 +113,7 @@ bool CanRunManualTest(HWND h){
 }
 void CommitManualResult(const FunctionalItemResult&x){UpsertFunctional(x);RebuildDecisionAndReports();Fill();}
 void CommitManualResults(const std::vector<FunctionalItemResult>&xs){for(auto&x:xs)UpsertFunctional(x);RebuildDecisionAndReports();Fill();}
+void CommitSellerClaim(const SellerClaim&claim){{std::lock_guard<std::mutex>lk(gReportMutex);gReport.sellerClaim=claim;ApplySellerClaimComparison(gReport);}RebuildDecisionAndReports();Fill();}
 void UpsertPortResult(const PortProbeResult&x){auto&ports=gReport.hardware.stress.portPower.ports;for(auto&port:ports)if(port.portLabel==x.portLabel){port=x;return;}ports.push_back(x);}
 void CommitPortResultGuided(const PortProbeResult&x){
  {std::lock_guard<std::mutex> lk(gReportMutex);UpsertPortResult(x);ApplyPortResultToChassisProfile(gReport.hardware.stress.chassisProfile,x);RecalculatePortPowerSummary(gReport.hardware.stress.portPower);}RebuildDecisionAndReports();Fill();
@@ -139,6 +141,7 @@ case WM_CREATE:{
  gFuncIo=CreateWindowW(L"BUTTON",L"Thiết bị tự động",WS_CHILD|WS_VISIBLE,580,116,120,28,h,(HMENU)1206,nullptr,nullptr);EnableWindow(gFuncIo,FALSE);
  gPortTest=CreateWindowW(L"BUTTON",L"Kiểm tra cổng",WS_CHILD|WS_VISIBLE,706,116,120,28,h,(HMENU)1207,nullptr,nullptr);EnableWindow(gPortTest,FALSE);
  gNext=CreateWindowW(L"BUTTON",L"TIẾP TỤC BƯỚC KẾ",WS_CHILD|WS_VISIBLE,836,116,166,28,h,(HMENU)1300,nullptr,nullptr);EnableWindow(gNext,FALSE);
+ gSeller=CreateWindowW(L"BUTTON",L"Cấu hình bán",WS_CHILD|WS_VISIBLE,1008,116,120,28,h,(HMENU)1209,nullptr,nullptr);EnableWindow(gSeller,FALSE);
  gProgress=CreateWindowW(L"STATIC",L"Quy trình: chưa bắt đầu",WS_CHILD|WS_VISIBLE,580,148,422,42,h,(HMENU)1301,nullptr,nullptr);
  gStatus=CreateWindowW(L"STATIC",L"Sẵn sàng",WS_CHILD|WS_VISIBLE,28,145,900,24,h,nullptr,nullptr,nullptr);
  gList=CreateWindowW(WC_LISTVIEWW,L"",WS_CHILD|WS_VISIBLE|LVS_REPORT|LVS_SINGLESEL,28,185,1100,490,h,nullptr,nullptr,nullptr);
@@ -156,6 +159,7 @@ case WM_COMMAND:{
  else if(id==1206){if(CanRunManualTest(h))CommitManualResults(RunFunctionalIoWizard(h));return 0;}
  else if(id==1207){if(CanRunManualTest(h)){wchar_t label[64]=L"USB-C / USB-A port";CommitPortResult(RunPhysicalPortProbe(h,label,&gCancel));}return 0;}
  else if(id==1208){if(CanRunManualTest(h))CommitManualResults(RunPhysicalConditionWizard(h));return 0;}
+ else if(id==1209){if(CanRunManualTest(h)){SellerClaim claim;if(RunSellerClaimWizard(h,claim))CommitSellerClaim(claim);}return 0;}
  else if(id==1300){if(!CanRunManualTest(h))return 0;BuildOrchestrator(gReport,false,true);auto&f=gReport.hardware.stress.functional;
   if(f.manualRequired||f.notTested)CommitManualResults(RunFunctionalIoWizard(h));
   else if(gReport.hardware.stress.portPower.overall!=L"PASS"){std::wstring label=L"USB-C / USB-A port",cap;auto prof=gReport.hardware.stress.chassisProfile;if(!prof.ports.empty()&&!SelectNextChassisPort(h,prof,label,cap))return 0;CommitPortResultGuided(RunPhysicalPortProbe(h,label,&gCancel));}

@@ -166,6 +166,19 @@ struct CoverageDomain {
     std::wstring missingEvidence;
 };
 
+struct SellerClaim {
+    bool provided{false};
+    std::wstring model;
+    std::wstring cpuContains;
+    uint64_t ramBytes{};
+    std::wstring gpuContains;
+    uint64_t storageBytes{};
+    unsigned displayWidth{};
+    unsigned displayHeight{};
+    long long askingPriceVnd{};
+    unsigned warrantyDays{};
+};
+
 struct SensorValue {
     std::wstring name;
     double value{-1};
@@ -377,6 +390,7 @@ struct AuditReport {
     std::wstring profileSource;
     bool factoryExact{false};
     bool genericMode{false};
+    SellerClaim sellerClaim;
     HardwareSnapshot hardware;
     std::vector<Finding> findings;
 };

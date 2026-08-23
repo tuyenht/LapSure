@@ -43,6 +43,9 @@ acq=(ROOT/'src/acquisition.cpp').read_text(encoding='utf-8')
 check('Guided used-laptop physical inspection', all(x in acq for x in ['physical_chassis','physical_hinge','physical_tamper','physical_liquid','physical_battery','physical_charger']))
 check('Physical inspection is purchase-gated', 'physicalCompleted>=6' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8'))
 check('Physical wizard is Vietnamese and in-app', 'Kiểm tra ngoại hình và an toàn' in acq and 'Ngoại hình' in main)
+check('Seller claim form captures core advertised configuration', all(x in acq for x in ['Model người bán ghi','RAM (GB)','Ổ lưu trữ (GB)','Giá bán (VNĐ']) and 'Cấu hình bán' in main)
+check('Seller claim mismatch is critical purchase evidence', 'ApplySellerClaimComparison' in acq and 'Severity::Critical' in acq)
+check('Seller claim is coverage-gated', 'seller_claim' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8') and 'claimComplete' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8'))
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

@@ -28,6 +28,8 @@ void AssessStressStage(StressStageResult&stage){
 std::vector<CoverageDomain> BuildCoverageContract(const AuditReport&r){
     std::vector<CoverageDomain> out;
     auto add=[&](const wchar_t*id,const wchar_t*name,bool complete,const wchar_t*sources,const wchar_t*missing,bool required=true){out.push_back({id,name,complete?L"COMPLETE":L"PARTIAL",required,sources,complete?L"":missing});};
+    const auto&claim=r.sellerClaim;const bool claimComplete=claim.provided&&!claim.model.empty()&&!claim.cpuContains.empty()&&claim.ramBytes>0&&claim.storageBytes>0;
+    add(L"seller_claim",L"Cấu hình người bán cam kết",claimComplete,L"Biểu mẫu người bán + đối chiếu bằng chứng LapSure",L"Thiếu model, CPU, RAM hoặc dung lượng ổ do người bán cam kết");
     add(L"identity",L"Thông tin nhận diện máy",!r.model.empty()&&!r.serviceTag.empty()&&!r.hardware.cpuName.empty(),L"BIOS registry + CIM",L"Thiếu tên máy, Service Tag hoặc thông tin bộ xử lý");
     add(L"memory",L"Bộ nhớ RAM",r.hardware.installedRamBytes>0&&!r.hardware.memoryModules.empty(),L"GlobalMemoryStatusEx + CIM",L"Thiếu dung lượng RAM hoặc thông tin thanh RAM vật lý");
     const bool storage=!r.hardware.storage.empty()&&std::all_of(r.hardware.storage.begin(),r.hardware.storage.end(),[](const auto&d){return !d.model.empty()&&d.capacityBytes>0&&d.reliabilityReadable;});

@@ -2,6 +2,7 @@
 #include "lap/process.h"
 #include "lap/hardware.h"
 #include <windows.h>
+#include <winioctl.h>
 #include <regex>
 #include <sstream>
 #include <vector>

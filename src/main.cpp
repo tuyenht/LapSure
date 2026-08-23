@@ -128,6 +128,7 @@ gRunning=true;gCancel=false;gAuditReady=false;EnableWindow(gOpen,FALSE);SetFunct
 
 static LRESULT CALLBACK WndProc(HWND h,UINT m,WPARAM w,LPARAM l){switch(m){
 case WM_CREATE:{
+ CreateWindowW(L"BUTTON",L"Giới thiệu",WS_CHILD|WS_VISIBLE,1028,24,100,28,h,(HMENU)1210,nullptr,nullptr);
  gMode=CreateWindowW(L"COMBOBOX",L"",WS_CHILD|WS_VISIBLE|CBS_DROPDOWNLIST,28,82,150,160,h,(HMENU)3,nullptr,nullptr);
  SendMessageW(gMode,CB_ADDSTRING,0,(LPARAM)L"Nhanh (khuyên dùng)");SendMessageW(gMode,CB_ADDSTRING,0,(LPARAM)L"Tiêu chuẩn");SendMessageW(gMode,CB_ADDSTRING,0,(LPARAM)L"Chuyên sâu");SendMessageW(gMode,CB_SETCURSEL,0,0);
  gBtn=CreateWindowW(L"BUTTON",L"BẮT ĐẦU KIỂM TRA",WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,200,82,230,48,h,(HMENU)1,nullptr,nullptr);
@@ -159,7 +160,25 @@ case WM_COMMAND:{
  else if(id==1206){if(CanRunManualTest(h))CommitManualResults(RunFunctionalIoWizard(h));return 0;}
  else if(id==1207){if(CanRunManualTest(h)){wchar_t label[64]=L"USB-C / USB-A port";CommitPortResult(RunPhysicalPortProbe(h,label,&gCancel));}return 0;}
  else if(id==1208){if(CanRunManualTest(h))CommitManualResults(RunPhysicalConditionWizard(h));return 0;}
- else if(id==1209){if(CanRunManualTest(h)){SellerClaim claim;if(RunSellerClaimWizard(h,claim))CommitSellerClaim(claim);}return 0;}
+   else if(id==1210){
+    MessageBoxW(h,
+      L"LapSure — Phần mềm Kiểm định & Pháp y Laptop Chuyên nghiệp\n"
+      L"Phiên bản: v0.1.0-Beta (Bản quyền © 2026 LapSure Core Team)\n"
+      L"Trang chủ & Tải về: https://github.com/tuyenht/LapSure\n\n"
+      L"Tính năng cốt lõi:\n"
+      L"• Nhận diện 100% cấu hình phần cứng: CPU, RAM, GPU, Ổ cứng NVMe/SSD, Màn hình, Pin\n"
+      L"• Pháp y chuyên sâu hệ máy Dell: Base36 Express Service Code, 18+ Profiles, Kiểm tra sạc zin\n"
+      L"• Pháp y ThinkPad & Cơ sở dữ liệu Điểm chuẩn Silicon CPU Microbenchmark\n"
+      L"• Quét mã lỗi ẩn Driver PnP Yellow Bang (Code 43, 10, 28) & Cờ lỗi hệ thống tệp Dirty-Bit\n"
+      L"• Đo công suất xả pin tức thời (mW) & cảnh báo hao nguồn\n"
+      L"• Bộ Wizard tương tác: Phím 68 nút, Trackpad 80 ô, Màn hình 6 nền màu, Âm thanh Stereo\n"
+      L"• Tự động đối chiếu thông số người bán (Seller Claim) & 6 điểm kiểm tra ngoại hình vật lý\n"
+      L"• Tự động xuất báo cáo bằng chứng song ngữ HTML hiện đại & JSON máy đọc",
+      L"Giới thiệu — LapSure v0.1.0-Beta",
+      MB_OK|MB_ICONINFORMATION);
+    return 0;
+  }
+  else if(id==1209){if(CanRunManualTest(h)){SellerClaim claim;if(RunSellerClaimWizard(h,claim))CommitSellerClaim(claim);}return 0;}
  else if(id==1300){if(!CanRunManualTest(h))return 0;BuildOrchestrator(gReport,false,true);auto&f=gReport.hardware.stress.functional;
   if(f.manualRequired||f.notTested)CommitManualResults(RunFunctionalIoWizard(h));
   else if(gReport.hardware.stress.portPower.overall!=L"PASS"){std::wstring label=L"USB-C / USB-A port",cap;auto prof=gReport.hardware.stress.chassisProfile;if(!prof.ports.empty()&&!SelectNextChassisPort(h,prof,label,cap))return 0;CommitPortResultGuided(RunPhysicalPortProbe(h,label,&gCancel));}

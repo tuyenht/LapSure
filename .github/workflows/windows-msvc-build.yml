@@ -1,11 +1,13 @@
 name: windows-msvc-build
 on: [push, pull_request]
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Full regression suite
         shell: cmd
@@ -28,7 +30,7 @@ jobs:
         run: .\package_portable.ps1 -BuildDir ".\out\build\msvc-x64-ci\Release" -OutputDir ".\out\portable"
 
       - name: Upload portable package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: LapSure-windows-x64-portable
           path: |

@@ -39,7 +39,7 @@ ProcessResult RunProcessCapture(const std::wstring& commandLine, unsigned timeou
     SECURITY_ATTRIBUTES sa{sizeof(sa),nullptr,TRUE};
     HANDLE readPipe=nullptr,writePipe=nullptr;
     if(!CreatePipe(&readPipe,&writePipe,&sa,0)) { r.error=L"CreatePipe failed"; return r; }
-    SetHandleInformation(readPipe,HANDLE_FLAG_INHERIT,0);
+    if(!SetHandleInformation(readPipe,HANDLE_FLAG_INHERIT,0)){CloseHandle(writePipe);CloseHandle(readPipe);r.error=L"SetHandleInformation failed: "+std::to_wstring(GetLastError());return r;}
 
     STARTUPINFOW si{}; si.cb=sizeof(si); si.dwFlags=STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
     si.hStdOutput=writePipe; si.hStdError=writePipe; si.hStdInput=GetStdHandle(STD_INPUT_HANDLE); si.wShowWindow=SW_HIDE;
@@ -50,7 +50,7 @@ ProcessResult RunProcessCapture(const std::wstring& commandLine, unsigned timeou
     if(job) {
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION ji{};
         ji.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        SetInformationJobObject(job,JobObjectExtendedLimitInformation,&ji,sizeof(ji));
+        if(!SetInformationJobObject(job,JobObjectExtendedLimitInformation,&ji,sizeof(ji))){CloseHandle(job);job=nullptr;}
     }
 
     BOOL ok=CreateProcessW(nullptr,cmd.data(),nullptr,nullptr,TRUE,CREATE_NO_WINDOW|CREATE_SUSPENDED,nullptr,nullptr,&si,&pi);
@@ -64,7 +64,7 @@ ProcessResult RunProcessCapture(const std::wstring& commandLine, unsigned timeou
     r.launched=true;
     bool assignedJob=false;
     if(job) assignedJob=AssignProcessToJobObject(job,pi.hProcess)!=FALSE;
-    ResumeThread(pi.hThread);
+    if(ResumeThread(pi.hThread)==static_cast<DWORD>(-1)){r.error=L"ResumeThread failed: "+std::to_wstring(GetLastError());TerminateProcess(pi.hProcess,0xDEAD);}
 
     std::string bytes;
     std::thread reader([&]{DrainPipe(readPipe,bytes);});
@@ -73,7 +73,7 @@ ProcessResult RunProcessCapture(const std::wstring& commandLine, unsigned timeou
     for(;;) {
         wait=WaitForSingleObject(pi.hProcess,100);
         if(wait==WAIT_OBJECT_0) break;
-        if(wait==WAIT_FAILED){r.error=L"WaitForSingleObject failed: "+std::to_wstring(GetLastError());break;}
+        if(wait==WAIT_FAILED){r.error=L"WaitForSingleObject failed: "+std::to_wstring(GetLastError());r.timedOut=true;break;}
         if(cancel && cancel->load()) { r.cancelled=true; break; }
         auto elapsed=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-started).count();
         if(timeoutMs && elapsed>=timeoutMs) { r.timedOut=true; break; }
@@ -88,7 +88,10 @@ ProcessResult RunProcessCapture(const std::wstring& commandLine, unsigned timeou
 
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
     if(job) CloseHandle(job); // If assigned, KILL_ON_JOB_CLOSE also closes lingering descendants holding pipe handles.
-    if(reader.joinable()) reader.join();
+    if(reader.joinable()) {
+        if(WaitForSingleObject(static_cast<HANDLE>(reader.native_handle()),1000)==WAIT_TIMEOUT)CancelSynchronousIo(static_cast<HANDLE>(reader.native_handle()));
+        reader.join();
+    }
     CloseHandle(readPipe);
 
     r.output=DecodeBytes(bytes);

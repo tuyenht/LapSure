@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <exception>
 #include "lap/inventory.h"
 #include "lap/environment.h"
 #include "lap/engines.h"
@@ -55,7 +56,7 @@ void RebuildDecisionAndReports(){
     SaveJsonReport(gReport,out);
 }
 
-void AuditWorker(HWND h){
+void AuditWorkerCore(HWND h){
   gCancel=false; PostStatus(h,L"Đang nhận diện môi trường và cấu hình máy...");
   auto caps=DetectCapabilities(gDir); auto model=Reg(L"SystemProductName"),tag=Reg(L"SystemSerialNumber");
   auto pl=LoadFactoryProfile(gDir+L"\\profiles",model,tag); FactoryProfile profile=pl.loaded?pl.profile:FactoryProfile{};
@@ -74,6 +75,7 @@ void AuditWorker(HWND h){
   }
   gAuditReady=!gCancel;gRunning=false;PostMessageW(h,WM_AUDIT_DONE,gCancel?1:0,0);
 }
+void AuditWorker(HWND h){try{AuditWorkerCore(h);}catch(const std::exception&){gAuditReady=false;gRunning=false;PostStatus(h,L"Audit failed with a runtime exception; no acceptance verdict was issued.");PostMessageW(h,WM_AUDIT_DONE,1,0);}catch(...){gAuditReady=false;gRunning=false;PostStatus(h,L"Audit failed with an unexpected runtime error; no acceptance verdict was issued.");PostMessageW(h,WM_AUDIT_DONE,1,0);}}
 void UpsertFunctional(const FunctionalItemResult&x){
     std::lock_guard<std::mutex> lk(gReportMutex);
     auto&items=gReport.hardware.stress.functional.items;
@@ -87,11 +89,12 @@ bool CanRunManualTest(HWND h){
 }
 void CommitManualResult(const FunctionalItemResult&x){UpsertFunctional(x);RebuildDecisionAndReports();Fill();}
 void CommitManualResults(const std::vector<FunctionalItemResult>&xs){for(auto&x:xs)UpsertFunctional(x);RebuildDecisionAndReports();Fill();}
+void UpsertPortResult(const PortProbeResult&x){auto&ports=gReport.hardware.stress.portPower.ports;for(auto&port:ports)if(port.portLabel==x.portLabel){port=x;return;}ports.push_back(x);}
 void CommitPortResultGuided(const PortProbeResult&x){
- {std::lock_guard<std::mutex> lk(gReportMutex);gReport.hardware.stress.portPower.ports.push_back(x);ApplyPortResultToChassisProfile(gReport.hardware.stress.chassisProfile,x);RecalculatePortPowerSummary(gReport.hardware.stress.portPower);}RebuildDecisionAndReports();Fill();
+ {std::lock_guard<std::mutex> lk(gReportMutex);UpsertPortResult(x);ApplyPortResultToChassisProfile(gReport.hardware.stress.chassisProfile,x);RecalculatePortPowerSummary(gReport.hardware.stress.portPower);}RebuildDecisionAndReports();Fill();
 }
 void CommitPortResult(const PortProbeResult&x){
-    {std::lock_guard<std::mutex> lk(gReportMutex);gReport.hardware.stress.portPower.ports.push_back(x);RecalculatePortPowerSummary(gReport.hardware.stress.portPower);}RebuildDecisionAndReports();Fill();
+    {std::lock_guard<std::mutex> lk(gReportMutex);UpsertPortResult(x);RecalculatePortPowerSummary(gReport.hardware.stress.portPower);}RebuildDecisionAndReports();Fill();
 }
 void StartAudit(HWND h){if(gRunning){gCancel=true;SetWindowTextW(gStatus,L"Đang yêu cầu dừng kiểm tra...");return;}if(gWorker.joinable())gWorker.join();
 wchar_t modeBuf[32]=L"Quick";int sel=(int)SendMessageW(gMode,CB_GETCURSEL,0,0);if(sel>=0)SendMessageW(gMode,CB_GETLBTEXT,sel,(LPARAM)modeBuf);gSelectedMode=modeBuf;

@@ -11,8 +11,8 @@ bool DetectInterruptedStressJournal(const std::wstring&appDir,std::wstring&evide
     std::wifstream f(StressJournalPath(appDir));if(!f)return false;std::wstringstream s;s<<f.rdbuf();evidence=s.str();return evidence.find(L"status=RUNNING")!=std::wstring::npos;
 }
 bool WriteStressJournal(const std::wstring&appDir,const std::wstring&id,const std::wstring&stage,const std::wstring&status){
-    std::wofstream f(StressJournalPath(appDir),std::ios::trunc);if(!f)return false;
-    SYSTEMTIME t{};GetLocalTime(&t);f<<L"session="<<id<<L"\nstage="<<stage<<L"\nstatus="<<status<<L"\ntime="<<t.wYear<<L"-"<<t.wMonth<<L"-"<<t.wDay<<L" "<<t.wHour<<L":"<<t.wMinute<<L":"<<t.wSecond<<L"\n";return true;
+    const auto target=StressJournalPath(appDir),temp=target+L".tmp";std::wofstream f(temp,std::ios::trunc);if(!f)return false;
+    SYSTEMTIME t{};GetLocalTime(&t);f<<L"session="<<id<<L"\nstage="<<stage<<L"\nstatus="<<status<<L"\ntime="<<t.wYear<<L"-"<<t.wMonth<<L"-"<<t.wDay<<L" "<<t.wHour<<L":"<<t.wMinute<<L":"<<t.wSecond<<L"\n";f.flush();if(!f.good()){f.close();DeleteFileW(temp.c_str());return false;}f.close();if(!MoveFileExW(temp.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)){DeleteFileW(temp.c_str());return false;}return true;
 }
 void CompleteStressJournal(const std::wstring&appDir){std::error_code ec;std::filesystem::remove(StressJournalPath(appDir),ec);}
 }

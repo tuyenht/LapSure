@@ -67,6 +67,7 @@ PortProbeResult RunPhysicalPortProbe(HWND owner,const std::wstring&label,const s
  auto before=Devices();auto bIds=Ids(before);
  MessageBoxW(owner,L"Cắm thiết bị test chuẩn vào cổng đang kiểm tra. Chờ Windows nhận thiết bị rồi bấm OK.",L"Port & Power Verification",MB_OK|MB_ICONINFORMATION);
  for(int i=0;i<25;i++){if(cancel&&cancel->load())break;Sleep(100);}
+ if(cancel&&cancel->load()){r.verdict=L"NOT TESTED";r.evidence=L"Port probe cancelled before evidence collection completed.";return r;}
  auto after=Devices();std::vector<Dev> added;for(auto&x:after)if(!bIds.count(x.id)&&IsUsbLike(x))added.push_back(x);
  r.usb4RouterSeen=CountMatch(after,L"Usb4DeviceRouter")>CountMatch(before,L"Usb4DeviceRouter")||CountMatch(after,L"USB4 Device Router")>CountMatch(before,L"USB4 Device Router");
  r.thunderboltSeen=CountMatch(after,L"Thunderbolt")>CountMatch(before,L"Thunderbolt");

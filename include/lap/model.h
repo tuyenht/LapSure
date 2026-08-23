@@ -113,7 +113,7 @@ struct MainboardInfo { std::wstring manufacturer; std::wstring product; std::wst
 struct BiosInfo { std::wstring vendor; std::wstring version; std::wstring releaseDate; std::wstring smbiosVersion; };
 struct SecurityInfo { bool tpmPresent{false}; bool tpmReady{false}; bool secureBootKnown{false}; bool secureBootEnabled{false}; };
 struct CpuTelemetry { double loadPercent{-1}; unsigned currentClockMHz{}; unsigned maxClockMHz{}; };
-struct EventForensicSummary { long long whea{}; long long disk{}; long long stornvme{}; long long ntfs{}; long long display{}; long long kernelPower{}; long long bugCheck{}; };
+struct EventForensicSummary { long long whea{}; long long disk{}; long long stornvme{}; long long ntfs{}; long long display{}; long long kernelPower{}; long long bugCheck{}; bool querySucceeded{false}; };
 
 enum class TestVerdict { Pass, Warning, Fail, NotTested, Cancelled };
 enum class Confidence { Low, Medium, High };

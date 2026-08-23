@@ -124,6 +124,9 @@ int main() {
     Expect(lap::ParseWindowsStorageReliabilityLine(L"PM9C1a Samsung 512GB|002538A741BB3C4E|Healthy|OK|45|83|0|-1|-1|-1",reliabilityFixture)&&reliabilityFixture.reliabilityReadable&&reliabilityFixture.reliabilityHealthy&&reliabilityFixture.temperatureC==45&&reliabilityFixture.percentageUsed==0,"Windows native storage reliability schema parses health evidence");
     lap::AuditReport claimMismatch{};claimMismatch.model=L"Actual Model";claimMismatch.hardware.cpuName=L"Core i5";claimMismatch.hardware.installedRamBytes=8ULL*1024*1024*1024;lap::StorageDevice actualDisk{};actualDisk.capacityBytes=256ULL*1000*1000*1000;claimMismatch.hardware.storage.push_back(actualDisk);claimMismatch.sellerClaim={true,L"Advertised Model",L"Core i7",16ULL*1024*1024*1024,L"",512ULL*1000*1000*1000,0,0,0,0};lap::ApplySellerClaimComparison(claimMismatch);
     Expect(claimMismatch.findings.size()==4&&lap::BuildAuditDecision(claimMismatch).overall==L"REJECT","seller claim mismatch creates critical evidence and rejects purchase");
+    lap::AuditReport pnpReject = CompletedAutomaticReport();
+    pnpReject.findings.push_back({L"Driver / PnP", L"GPU Video Controller (Mã lỗi 43)", L"Mã lỗi 43: Failed Post Start", L"0", lap::State::Fail, lap::Severity::Critical, L"CM_Get_DevNode_Status Code 43", lap::Dimension::Functional});
+    Expect(lap::BuildAuditDecision(pnpReject).overall == L"REJECT", "critical PnP driver error (Code 43) rejects purchase");
     providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
     const auto coverage=lap::BuildCoverageContract(providerReport);
     Expect(coverage.size()>=10&&std::any_of(coverage.begin(),coverage.end(),[](const auto&x){return x.id==L"storage";})&&providerReport.hardware.stress.decision.coverage==L"PARTIAL","coverage contract exposes required domains and gates incomplete evidence");

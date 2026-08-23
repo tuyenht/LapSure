@@ -365,7 +365,17 @@ struct StressSession {
     RuntimeValidationSummary runtimeValidation;
 };
 
+struct PnpProblemDevice {
+    std::wstring friendlyName;
+    std::wstring deviceDesc;
+    std::wstring instanceId;
+    std::wstring classGuid;
+    unsigned long problemCode{};
+    std::wstring problemDescription;
+};
+
 struct HardwareSnapshot {
+    std::vector<PnpProblemDevice> pnpProblems;
     std::wstring cpuName;
     unsigned cpuCores{};
     unsigned cpuThreads{};

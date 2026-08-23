@@ -50,6 +50,7 @@ check('Seller claim is coverage-gated', 'seller_claim' in (ROOT/'src/scoring.cpp
 check('Keyboard visual matrix implemented', 'LAP_KEY_VISUAL_TEST' in fn and 'kAnsiLayout' in fn)
 check('Display defect classifier implemented', 'LAP_DISPLAY_DEFECT_FORM' in fn and 'Backlight bleed' in fn)
 check('Touchpad click and scroll coverage', 'leftClicked' in fn and 'scrollEvents' in fn)
+check('Native PnP problem code audit', 'CM_Get_DevNode_Status' in fore and 'CM_PROB_FAILED_POST_START' in fore)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

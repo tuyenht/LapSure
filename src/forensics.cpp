@@ -3,10 +3,90 @@
 #include "lap/hardware.h"
 #include "lap/edid.h"
 #include <sstream>
+#include <windows.h>
+#include <setupapi.h>
+#include <cfgmgr32.h>
+
+#pragma comment(lib,"setupapi.lib")
+#pragma comment(lib,"cfgmgr32.lib")
+
 namespace lap { namespace {
 void Add(AuditReport&r,std::wstring g,std::wstring n,std::wstring v,std::wstring e,State st,Severity sv,Dimension d,std::wstring ev=L""){r.findings.push_back({std::move(g),std::move(n),std::move(v),std::move(e),st,sv,std::move(ev),d});}
 std::wstring B(bool v){return v?L"Yes":L"No";}
+
+void CollectPnpProblemAudit(AuditReport& r, const std::atomic_bool* cancel){
+    HDEVINFO set = SetupDiGetClassDevsW(nullptr, nullptr, nullptr, DIGCF_ALLCLASSES);
+    if(set == INVALID_HANDLE_VALUE) return;
+    
+    unsigned problemCount = 0;
+    for(DWORD i = 0;; ++i){
+        if(cancel && cancel->load()) break;
+        SP_DEVINFO_DATA d{}; d.cbSize = sizeof(d);
+        if(!SetupDiEnumDeviceInfo(set, i, &d)){
+            if(GetLastError() == ERROR_NO_MORE_ITEMS) break;
+            continue;
+        }
+        ULONG status = 0, problem = 0;
+        CONFIGRET cr = CM_Get_DevNode_Status(&status, &problem, d.DevInst, 0);
+        if(cr == CR_SUCCESS && ((status & DN_HAS_PROBLEM) || problem != 0)){
+            wchar_t nameBuf[1024]{}; DWORD type = 0, need = 0;
+            std::wstring name;
+            if(SetupDiGetDeviceRegistryPropertyW(set, &d, SPDRP_FRIENDLYNAME, &type, (PBYTE)nameBuf, sizeof(nameBuf), &need) ||
+               SetupDiGetDeviceRegistryPropertyW(set, &d, SPDRP_DEVICEDESC, &type, (PBYTE)nameBuf, sizeof(nameBuf), &need)){
+                name = nameBuf;
+            }
+            if(name.empty()) name = L"Thiết bị PnP không tên";
+
+            wchar_t instBuf[1024]{};
+            if(CM_Get_Device_IDW(d.DevInst, instBuf, 1024, 0) != CR_SUCCESS){
+                instBuf[0] = 0;
+            }
+
+            std::wstring probDesc;
+            Severity sev = Severity::Major;
+            State st = State::Warning;
+            switch(problem){
+                case 10: // CM_PROB_FAILED_START
+                    probDesc = L"Mã lỗi 10 (CM_PROB_FAILED_START): Thiết bị không thể khởi động";
+                    sev = Severity::Critical; st = State::Fail; break;
+                case 14: // CM_PROB_NEED_RESTART
+                    probDesc = L"Mã lỗi 14 (CM_PROB_NEED_RESTART): Cần khởi động lại máy";
+                    sev = Severity::Minor; st = State::Warning; break;
+                case 22: // CM_PROB_DISABLED
+                    probDesc = L"Mã lỗi 22 (CM_PROB_DISABLED): Thiết bị đang bị vô hiệu hóa";
+                    sev = Severity::Minor; st = State::Warning; break;
+                case 28: // CM_PROB_FAILED_INSTALL
+                    probDesc = L"Mã lỗi 28 (CM_PROB_FAILED_INSTALL): Thiếu driver điều khiển";
+                    sev = Severity::Major; st = State::Warning; break;
+                case 29: // CM_PROB_HARDWARE_DISABLED
+                    probDesc = L"Mã lỗi 29 (CM_PROB_HARDWARE_DISABLED): Phần cứng bị tắt trong BIOS";
+                    sev = Severity::Major; st = State::Warning; break;
+                case 43: // CM_PROB_FAILED_POST_START
+                    probDesc = L"Mã lỗi 43 (CM_PROB_FAILED_POST_START): Windows đã dừng thiết bị do sự cố phần cứng/chip (Rất nguy hiểm)";
+                    sev = Severity::Critical; st = State::Fail; break;
+                default:
+                    probDesc = L"Mã lỗi PnP: Code " + std::to_wstring(problem);
+                    sev = Severity::Major; st = State::Warning; break;
+            }
+
+            r.hardware.pnpProblems.push_back({name, name, instBuf, L"", problem, probDesc});
+            Add(r, L"Driver / PnP", name + L" (Mã lỗi " + std::to_wstring(problem) + L")",
+                probDesc, L"Hoạt động bình thường (Code 0)", st, sev, Dimension::Functional,
+                std::wstring(L"SetupAPI CM_Get_DevNode_Status: ") + instBuf);
+            problemCount++;
+        }
+    }
+    SetupDiDestroyDeviceInfoList(set);
+
+    if(problemCount == 0){
+        Add(r, L"Driver / PnP", L"Trạng thái phần cứng PnP",
+            L"Tất cả thiết bị phần cứng hoạt động tốt (0 mã lỗi PnP / Yellow Bang)",
+            L"0 mã lỗi", State::Pass, Severity::Info, Dimension::Functional,
+            L"Native SetupAPI + CM_Get_DevNode_Status full device tree audit");
+    }
 }
+}
+
 void CollectPlatformForensics(AuditReport&r,const FactoryProfile&p,const Capabilities&c,const std::wstring&,const std::atomic_bool* cancel){
  r.hardware.displays=CollectNativeDisplays();
  if(!r.hardware.displays.empty()){
@@ -18,7 +98,9 @@ void CollectPlatformForensics(AuditReport&r,const FactoryProfile&p,const Capabil
    }
  } else Add(r,L"Display",L"EDID panel identity",L"No valid EDID exposed",L"",State::NotTested,Severity::Major,Dimension::Identity,L"Native SetupAPI");
 
- if(!c.powershell){Add(r,L"Platform",L"Windows extended providers",L"PowerShell unavailable; native EDID still completed",L"",State::Unsupported,Severity::Minor,Dimension::Evidence);return;}
+ CollectPnpProblemAudit(r, cancel);
+
+ if(!c.powershell){Add(r,L"Platform",L"Windows extended providers",L"PowerShell unavailable; native EDID and PnP audit still completed",L"",State::Unsupported,Severity::Minor,Dimension::Evidence);return;}
 
  auto mb=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"$b=Get-CimInstance Win32_BaseBoard|Select-Object -First 1;if($b){'{0}|{1}|{2}' -f $b.Manufacturer,$b.Product,$b.SerialNumber}\"",15000,cancel);
  if(mb.launched&&!mb.timedOut&&!mb.output.empty()){MainboardInfo x{};if(ParseMainboardLine(SplitLines(mb.output).front(),x)){r.hardware.mainboard=x;Add(r,L"Mainboard",L"Identity",x.manufacturer+L" | "+x.product+L" | SN "+x.serialNumber,L"",State::Info,Severity::Info,Dimension::Identity,L"Win32_BaseBoard");}}

@@ -30,14 +30,20 @@ void Expect(bool condition, const char* behavior) {
 
 lap::AuditReport CompletedAutomaticReport() {
     lap::AuditReport report{};
+    report.model=L"Test Laptop";report.serviceTag=L"TEST123";report.hardware.cpuName=L"Test CPU";report.hardware.cpuThreads=8;
+    report.hardware.installedRamBytes=16ULL*1024*1024*1024;lap::MemoryModule module{};module.capacityBytes=report.hardware.installedRamBytes;report.hardware.memoryModules.push_back(module);
+    lap::StorageDevice disk{};disk.model=L"Test NVMe";disk.capacityBytes=512ULL*1000*1000*1000;disk.reliabilityReadable=true;disk.reliabilityHealthy=true;report.hardware.storage.push_back(disk);
+    lap::GpuInfo gpu{};gpu.name=L"Test GPU";report.hardware.gpus.push_back(gpu);lap::DisplayInfo display{};display.friendlyName=L"Internal panel";report.hardware.displays.push_back(display);
     lap::StressStageResult cpu{};
     cpu.name = L"CPU sustained load";
     cpu.verdict = lap::TestVerdict::Pass;
+    cpu.telemetrySummary.maxCpuPackageTempC=80;
     lap::StressStageResult ram{};
     ram.name = L"RAM online integrity";
     ram.verdict = lap::TestVerdict::Warning;
     report.hardware.stress.stages = {cpu, ram};
     report.hardware.stress.functional.overall = L"PASS";
+    report.hardware.stress.functional.items.push_back({L"camera",L"Camera",lap::FunctionalStatus::Pass,L"Captured",L"Native sample",lap::Confidence::High,true});
     report.hardware.stress.portPower.overall = L"PASS";
     return report;
 }

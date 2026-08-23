@@ -46,7 +46,7 @@ int RunInventoryOnly(const std::wstring&outputDir){
   auto pl=LoadFactoryProfile(gDir+L"\\profiles",model,tag);FactoryProfile profile=pl.loaded?pl.profile:FactoryProfile{};
   auto report=CollectInventory(profile,caps,gDir,&cancel);report.profileSource=pl.source;report.factoryExact=pl.exact;report.genericMode=!pl.exact;
   CollectNvidia(report,profile,caps,gDir,&cancel);CollectWindowsStorageReliability(report,caps,&cancel);CollectSmartctl(report,profile,caps,gDir,&cancel);
-  CollectPlatformForensics(report,profile,caps,gDir,&cancel);CollectFunctionalPresence(report,caps,&cancel);CollectPortPowerBaseline(report);
+  CollectPlatformForensics(report,profile,caps,gDir,&cancel);CollectFunctionalPresence(report,caps,&cancel);CollectPortPowerBaseline(report);CollectVolumeIntegrityAudit(report);CollectBatteryDischargeAudit(report,caps,&cancel);
   report.hardware.stress.chassisProfile=LoadChassisProfile(gDir,report.model);RunRuntimeValidation(report,caps,gDir);
   report.findings.push_back({L"Validation",L"Inventory-only preflight",L"COMPLETED",L"No stress stages executed",State::Warning,Severity::Info,L"Explicit --inventory-only mode; verdict must remain incomplete.",Dimension::Health});
   report.hardware.stress.decision=BuildAuditDecision(report);BuildOrchestrator(report,false,false);

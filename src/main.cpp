@@ -1354,7 +1354,7 @@ void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) 
     std::wstring sn = rep.hardware.battery.serialNumber.empty() ? L"—" : rep.hardware.battery.serialNumber;
     addBatRow(L"Số Serial Pin", sn, L"CIM / WMI", rep.hardware.battery.serialNumber.empty() ? CanonicalUiState::NotTested : CanonicalUiState::Good, rep.hardware.battery.serialNumber.empty() ? L"Chưa rõ" : L"Tốt");
 
-    std::wstring acStatus = rep.hardware.stress.portPower.acConnected ? L"Đang cắm sạc AC (AC Line Connected)" : L"Đang dùng pin (Discharging On Battery)";
+    std::wstring acStatus = rep.hardware.stress.portPower.power.acConnected ? L"Đang cắm sạc AC (AC Line Connected)" : L"Đang dùng pin (Discharging On Battery)";
     addBatRow(L"Trạng thái nguồn AC", acStatus, L"Win32 Power API", CanonicalUiState::Good, L"Đạt");
 
     std::wstring cycleStr = rep.hardware.battery.cycleCount >= 0 ? (std::to_wstring(rep.hardware.battery.cycleCount) + L" chu kỳ") : L"— (Không cung cấp)";
@@ -1390,14 +1390,14 @@ void RenderStorage(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
         for (const auto& d : rep.hardware.storage) {
             TableRow row;
             row.cells.push_back(d.model.empty() ? L"Ổ đĩa lưu trữ" : d.model);
-            row.cells.push_back(d.busType.empty() ? L"NVMe / SATA" : d.busType);
-            std::wstring capStr = (d.sizeBytes > 0) ? (std::to_wstring(d.sizeBytes / (1000 * 1000 * 1000)) + L" GB") : L"—";
+            row.cells.push_back(d.interfaceType.empty() ? L"NVMe / SATA" : d.interfaceType);
+            std::wstring capStr = (d.capacityBytes > 0) ? (std::to_wstring(d.capacityBytes / (1000 * 1000 * 1000)) + L" GB") : L"—";
             row.cells.push_back(capStr);
             row.cells.push_back(d.serialNumber.empty() ? L"—" : d.serialNumber);
-            if (d.smartStatus.empty()) {
+            if (!d.smartReadable) {
                 row.cells.push_back(L"Chưa đọc được S.M.A.R.T.");
                 row.rowState = CanonicalUiState::NotTested;
-            } else if (d.smartStatus == L"FAIL") {
+            } else if (!d.smartPassed) {
                 row.cells.push_back(L"KHÔNG ĐẠT (Lỗi)");
                 row.rowState = CanonicalUiState::Fail;
             } else {
@@ -1441,7 +1441,7 @@ void RenderMemory(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
             row.cells.push_back(m.bankLabel.empty() ? L"DIMM Slot" : m.bankLabel);
             std::wstring cap = (m.capacityBytes > 0) ? (std::to_wstring(m.capacityBytes / (1024 * 1024 * 1024)) + L" GB") : L"—";
             row.cells.push_back(cap);
-            std::wstring spd = (m.configuredSpeedMhz > 0) ? (std::to_wstring(m.configuredSpeedMhz) + L" MHz") : L"—";
+            std::wstring spd = (m.configuredSpeed > 0) ? (std::to_wstring(m.configuredSpeed) + L" MHz") : L"—";
             row.cells.push_back(spd);
             row.cells.push_back(m.manufacturer.empty() ? L"—" : m.manufacturer);
             row.cells.push_back(m.partNumber.empty() ? L"—" : m.partNumber);

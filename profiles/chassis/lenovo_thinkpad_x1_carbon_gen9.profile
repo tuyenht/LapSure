@@ -1,0 +1,10 @@
+profileId=lenovo_thinkpad_x1_carbon_gen9
+modelContains=X1 Carbon Gen 9
+displayName=Lenovo ThinkPad X1 Carbon Gen 9
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad X1 Carbon Gen 9
+port=left_tb4_top|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / Power Delivery / DP 1.4a|true
+port=left_tb4_bottom|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / Power Delivery / DP 1.4a|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1 (Always On)|true
+port=left_hdmi|Left HDMI 2.0|Left|HDMI|HDMI 2.0 Video Output|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true

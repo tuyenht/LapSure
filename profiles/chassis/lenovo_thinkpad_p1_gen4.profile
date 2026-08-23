@@ -1,0 +1,11 @@
+profileId=lenovo_thinkpad_p1_gen4
+modelContains=ThinkPad P1 Gen 4
+displayName=Lenovo ThinkPad P1 Gen 4
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad P1 Gen 4
+port=left_tb4_top|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / Power Delivery / DP 1.4|true
+port=left_tb4_bottom|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / Power Delivery / DP 1.4|true
+port=left_hdmi|Left HDMI 2.1|Left|HDMI|HDMI 2.1|true
+port=right_usb_a_top|Right USB 3.2 Gen 1 #1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a_bottom|Right USB 3.2 Gen 1 #2 (Always On)|Right|USB-A|USB 3.2 Gen 1 Always On|true
+port=right_sd|Right Full-size SD Card Slot|Right|SD|SD Express 7.0|true

@@ -1,0 +1,10 @@
+profileId=dell_latitude_7420
+modelContains=Latitude 7420
+displayName=Dell Latitude 7420
+validationStatus=draft
+reference=Official Dell Latitude 7420 Setup and Specifications
+port=left_tb4_top|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / USB4 / Power Delivery|true
+port=left_tb4_bottom|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / USB4 / Power Delivery|true
+port=right_usb_a|Right USB 3.2 Gen 1 (PowerShare)|Right|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD card reader|true

@@ -1,0 +1,9 @@
+profileId=dell_xps_15_9500
+modelContains=XPS 15 9500
+displayName=Dell XPS 15 9500
+validationStatus=draft
+reference=Official Dell XPS 15 9500 Setup and Specifications
+port=left_tb3_top|Left Thunderbolt 3 #1|Left|USB-C|Thunderbolt 3 / USB-C / Power Delivery|true
+port=left_tb3_bottom|Left Thunderbolt 3 #2|Left|USB-C|Thunderbolt 3 / USB-C / Power Delivery|true
+port=right_usb_c|Right USB-C 3.2 Gen 2|Right|USB-C|USB 3.2 Gen 2 / DP / Power Delivery|true
+port=right_sd|Right Full-size SD Card Slot|Right|SD|SD card reader v6.0|true

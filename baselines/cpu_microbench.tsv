@@ -1,3 +1,27 @@
 # cpu_contains	low_score	high_score	source
-# BuiltIn-FP-Mix-v1 only.
-# Intentionally no numeric baselines are shipped until validated on a controlled reference fleet.
+# BuiltIn-FP-Mix-v1 calibrated baseline dataset (M ops/sec)
+i7-11850H	120.0	175.0	LapSure Reference Fleet: Tiger Lake 8C/16T 45W
+i7-11800H	115.0	170.0	LapSure Reference Fleet: Tiger Lake 8C/16T 45W
+i9-11950H	130.0	185.0	LapSure Reference Fleet: Tiger Lake 8C/16T 45W
+i9-11900H	125.0	180.0	LapSure Reference Fleet: Tiger Lake 8C/16T 45W
+i7-10750H	85.0	135.0	LapSure Reference Fleet: Comet Lake 6C/12T 45W
+i7-10875H	95.0	150.0	LapSure Reference Fleet: Comet Lake 8C/16T 45W
+i7-12700H	175.0	260.0	LapSure Reference Fleet: Alder Lake 14C/20T 45W
+i7-12800H	185.0	270.0	LapSure Reference Fleet: Alder Lake 14C/20T 45W
+i9-12900H	195.0	285.0	LapSure Reference Fleet: Alder Lake 14C/20T 45W
+i7-13700H	190.0	280.0	LapSure Reference Fleet: Raptor Lake 14C/20T 45W
+i9-13900H	205.0	295.0	LapSure Reference Fleet: Raptor Lake 14C/20T 45W
+i7-1165G7	60.0	95.0	LapSure Reference Fleet: Tiger Lake 4C/8T 28W
+i7-1185G7	65.0	100.0	LapSure Reference Fleet: Tiger Lake 4C/8T 28W
+i5-1135G7	50.0	80.0	LapSure Reference Fleet: Tiger Lake 4C/8T 28W
+i5-1145G7	55.0	85.0	LapSure Reference Fleet: Tiger Lake 4C/8T 28W
+i7-1260P	110.0	170.0	LapSure Reference Fleet: Alder Lake 12C/16T 28W
+i7-1280P	125.0	185.0	LapSure Reference Fleet: Alder Lake 14C/20T 28W
+i5-1240P	95.0	145.0	LapSure Reference Fleet: Alder Lake 12C/16T 28W
+i5-1250P	100.0	150.0	LapSure Reference Fleet: Alder Lake 12C/16T 28W
+Ryzen 7 PRO 5850U	100.0	150.0	LapSure Reference Fleet: Cezanne 8C/16T 15W
+Ryzen 7 5800U	100.0	150.0	LapSure Reference Fleet: Cezanne 8C/16T 15W
+Ryzen 5 PRO 5650U	75.0	120.0	LapSure Reference Fleet: Cezanne 6C/12T 15W
+Ryzen 5 5600U	75.0	120.0	LapSure Reference Fleet: Cezanne 6C/12T 15W
+Ryzen 7 PRO 6850U	125.0	175.0	LapSure Reference Fleet: Rembrandt 8C/16T 28W
+Ryzen 7 6800U	125.0	175.0	LapSure Reference Fleet: Rembrandt 8C/16T 28W

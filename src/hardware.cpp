@@ -26,9 +26,9 @@ double ParseDouble(const std::wstring&s,double fallback){ try{ size_t n=0; auto 
 uint64_t ParseU64(const std::wstring&s,uint64_t fallback){ try{ size_t n=0; auto v=std::stoull(Trim(s),&n); return n? v:fallback;}catch(...){return fallback;} }
 
 bool ParseMemoryModuleLine(const std::wstring& line, MemoryModule& out) {
-    auto p=Split(line,L'|'); if(p.size()<8) return false;
+    auto p=Split(line,L'|'); if(p.size()<6) return false;
     out.capacityBytes=ParseU64(p[0]); out.configuredSpeed=(unsigned)ParseI64(p[1],0); out.ratedSpeed=(unsigned)ParseI64(p[2],0);
-    out.manufacturer=p[3]; out.partNumber=p[4]; out.serialNumber=p[5]; out.deviceLocator=p[6]; out.bankLabel=p[7];
+    out.manufacturer=p[3]; out.partNumber=p[4]; out.serialNumber=p[5];out.deviceLocator=p.size()>6?p[6]:L"";out.bankLabel=p.size()>7?p[7]:L"";
     return out.capacityBytes>0;
 }
 bool ParseDiskInventoryLine(const std::wstring& line, StorageDevice& out) {

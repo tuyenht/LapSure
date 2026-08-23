@@ -105,6 +105,8 @@ int main() {
     const auto providerJson=lap::SaveJsonReport(providerReport,providerDir);
     const auto providerParse=lap::RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-Content -Raw -LiteralPath '"+providerJson+L"' -Encoding UTF8 | ConvertFrom-Json | Out-Null\"",15000,nullptr);
     Expect(providerParse.launched&&!providerParse.timedOut&&providerParse.exitCode==0,"native provider evidence serializes as valid JSON");
+    lap::MemoryModule memoryFixture{};
+    Expect(lap::ParseMemoryModuleLine(L"17179869184|5600|5600|Micron|MTC8C1084S1SC48BA1|12345678",memoryFixture)&&memoryFixture.capacityBytes==17179869184ULL&&memoryFixture.deviceLocator.empty(),"RAM parser accepts optional empty locator fields");
     std::filesystem::remove_all(providerDir,cleanupError);
     return failures == 0 ? 0 : 1;
 }

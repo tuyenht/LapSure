@@ -44,6 +44,9 @@ std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
  f<<L"<div class='card'><b>Audit Decision</b><div class='metric'>"<<Html(r.hardware.stress.decision.overall)<<L"</div><div>Stability: "<<Html(r.hardware.stress.decision.stability)<<L"</div><div>Thermal: "<<Html(r.hardware.stress.decision.thermal)<<L"</div><div>Performance: "<<Html(r.hardware.stress.decision.performance)<<L"</div><div>CPU microbench: "<<F(r.hardware.stress.cpuBenchmark.score)<<L" Mops/s | "<<Html(r.hardware.stress.cpuBenchmark.verdict)<<L"</div><div>Coverage: "<<Html(r.hardware.stress.decision.coverage)<<L" | Confidence: "<<ConfidenceText(r.hardware.stress.decision.confidence)<<L"</div>";
  for(auto&reason:r.hardware.stress.decision.reasons)f<<L"<div>• "<<Html(reason)<<L"</div>";
  f<<L"</div>";
+ f<<L"<div class='card'><b>Coverage Contract</b><div>LapSure reports every required domain explicitly; missing evidence is never inferred.</div>";
+ for(const auto&x:BuildCoverageContract(r))f<<L"<div><b>"<<Html(x.name)<<L"</b> — "<<Html(x.status)<<L" — "<<Html(x.sources)<<(x.missingEvidence.empty()?L"":L" — Missing: "+Html(x.missingEvidence))<<L"</div>";
+ f<<L"</div>";
  f<<L"<div class='card'><b>Stress Session</b><div class='metric'>"<<Html(r.hardware.stress.mode)<<L"</div>";
  for(auto&s:r.hardware.stress.stages){f<<L"<div><b>"<<Html(s.name)<<L"</b> | "<<VerdictText(s.verdict)<<L" | "<<s.elapsedSeconds<<L"s | WHEA+"<<s.newWhea;
    if(s.ram.bytesTested)f<<L" | RAM "<<F((double)s.ram.bytesTested/1073741824.0)<<L" GiB tested | mismatch "<<s.ram.mismatches;
@@ -76,7 +79,8 @@ std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
 }
 std::wstring SaveJsonReport(const AuditReport&r,const std::wstring&dir){
  std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+Ts()+L".json");std::wostringstream f;
- f<<L"{\n\"model\":\""<<Json(r.model)<<L"\",\"serviceTag\":\""<<Json(r.serviceTag)<<L"\",\"environment\":\""<<Json(r.environment)<<L"\",\"factoryExact\":"<<(r.factoryExact?L"true":L"false")<<L",\"genericMode\":"<<(r.genericMode?L"true":L"false")<<L",\n";
+ f<<L"{\n\"model\":\""<<Json(r.model)<<L"\",\"serviceTag\":\""<<Json(r.serviceTag)<<L"\",\"environment\":\""<<Json(r.environment)<<L"\",\"factoryExact\":"<<(r.factoryExact?L"true":L"false")<<L",\"genericMode\":"<<(r.genericMode?L"true":L"false")<<L",\"coverageContract\":[";
+ const auto coverage=BuildCoverageContract(r);for(size_t i=0;i<coverage.size();++i){const auto&x=coverage[i];f<<L"{\"id\":\""<<Json(x.id)<<L"\",\"name\":\""<<Json(x.name)<<L"\",\"status\":\""<<Json(x.status)<<L"\",\"required\":"<<(x.required?L"true":L"false")<<L",\"sources\":\""<<Json(x.sources)<<L"\",\"missingEvidence\":\""<<Json(x.missingEvidence)<<L"\"}"<<(i+1<coverage.size()?L",":L"");}f<<L"],\n";
  f<<L"\"hardware\":{\"cpu\":{\"name\":\""<<Json(r.hardware.cpuName)<<L"\",\"threads\":"<<r.hardware.cpuThreads<<L"},\"ram\":{\"totalBytes\":"<<r.hardware.installedRamBytes<<L",\"modules\":[";
  for(size_t i=0;i<r.hardware.memoryModules.size();++i){auto&m=r.hardware.memoryModules[i];f<<L"{\"capacityBytes\":"<<m.capacityBytes<<L",\"configuredSpeed\":"<<m.configuredSpeed<<L",\"ratedSpeed\":"<<m.ratedSpeed<<L",\"manufacturer\":\""<<Json(m.manufacturer)<<L"\",\"partNumber\":\""<<Json(m.partNumber)<<L"\",\"serial\":\""<<Json(m.serialNumber)<<L"\"}"<<(i+1<r.hardware.memoryModules.size()?L",":L"");}
  f<<L"]},\"battery\":{\"present\":"<<(r.hardware.battery.present?L"true":L"false")<<L",\"designWh\":"<<r.hardware.battery.designWh<<L",\"fullWh\":"<<r.hardware.battery.fullChargeWh<<L",\"healthPercent\":"<<r.hardware.battery.healthPercent<<L",\"wearPercent\":"<<r.hardware.battery.wearPercent<<L",\"cycleCount\":"<<r.hardware.battery.cycleCount<<L"},\"storage\":[";

@@ -34,6 +34,7 @@ check('Battery fallback remains evidence gated', 'if(!bi.capacityReadable)' in i
 check('Windows native storage reliability provider', 'Get-StorageReliabilityCounter' in eng and 'CollectWindowsStorageReliability' in eng)
 check('Native storage runs before smartctl enrichment', 'CollectWindowsStorageReliability(report' in main and main.index('CollectWindowsStorageReliability(report') < main.index('CollectSmartctl(report'))
 check('Native reliability reduces smartctl dependency', 'native reliability evidence remains available' in eng)
+check('Machine-readable coverage contract', 'coverageContract' in rep and 'BuildCoverageContract' in rep)
 
 bad=[n for n,ok in checks if not ok]
 for n,ok in checks: print(('PASS ' if ok else 'FAIL ')+n)

@@ -157,6 +157,15 @@ struct AuditDecision {
     std::vector<std::wstring> reasons;
 };
 
+struct CoverageDomain {
+    std::wstring id;
+    std::wstring name;
+    std::wstring status{L"NOT TESTED"};
+    bool required{true};
+    std::wstring sources;
+    std::wstring missingEvidence;
+};
+
 struct SensorValue {
     std::wstring name;
     double value{-1};

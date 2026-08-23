@@ -25,6 +25,27 @@ void AssessStressStage(StressStageResult&stage){
         if(stage.telemetrySummary.maxGpuTempC>=90 && stage.verdict==TestVerdict::Pass)stage.verdict=TestVerdict::Warning;
     }
 }
+std::vector<CoverageDomain> BuildCoverageContract(const AuditReport&r){
+    std::vector<CoverageDomain> out;
+    auto add=[&](const wchar_t*id,const wchar_t*name,bool complete,const wchar_t*sources,const wchar_t*missing,bool required=true){out.push_back({id,name,complete?L"COMPLETE":L"PARTIAL",required,sources,complete?L"":missing});};
+    add(L"identity",L"System identity",!r.model.empty()&&!r.serviceTag.empty()&&!r.hardware.cpuName.empty(),L"BIOS registry + CIM",L"Model, Service Tag, or CPU identity missing");
+    add(L"memory",L"Memory inventory",r.hardware.installedRamBytes>0&&!r.hardware.memoryModules.empty(),L"GlobalMemoryStatusEx + CIM",L"Installed capacity or physical module evidence missing");
+    const bool storage=!r.hardware.storage.empty()&&std::all_of(r.hardware.storage.begin(),r.hardware.storage.end(),[](const auto&d){return !d.model.empty()&&d.capacityBytes>0&&d.reliabilityReadable;});
+    add(L"storage",L"Storage inventory and health",storage,L"CIM + Windows Storage Reliability; optional SMART enrichment",L"Identity, capacity, or native health evidence missing for one or more disks");
+    const bool battery=!r.hardware.battery.present||(r.hardware.battery.capacityReadable&&r.hardware.battery.healthPercent>=0);
+    add(L"battery",L"Battery",battery,L"CIM + Windows battery report",L"Battery capacity/health evidence missing",r.hardware.battery.present);
+    add(L"graphics",L"Graphics inventory",!r.hardware.gpus.empty(),L"CIM; optional vendor telemetry",L"No graphics adapter evidence");
+    add(L"display",L"Display identity",!r.hardware.displays.empty(),L"Native EDID + display configuration",L"No validated display/EDID evidence");
+    const bool stability=!r.hardware.stress.stages.empty()&&std::all_of(r.hardware.stress.stages.begin(),r.hardware.stress.stages.end(),[](const auto&s){return s.verdict!=TestVerdict::NotTested&&s.verdict!=TestVerdict::Cancelled;});
+    add(L"stability",L"CPU/RAM/GPU stability",stability,L"LapSure stress stages + event deltas",L"One or more required stress stages not completed");
+    bool thermal=false;for(const auto&s:r.hardware.stress.stages)thermal=thermal||s.telemetrySummary.maxCpuPackageTempC>=0||s.telemetrySummary.maxGpuTempC>=0;
+    add(L"thermals",L"Thermals and throttling",thermal,L"Trusted sensor providers sampled during stress",L"No trusted temperature/throttling sample");
+    const bool functional=!r.hardware.stress.functional.items.empty()&&r.hardware.stress.functional.notTested==0&&r.hardware.stress.functional.manualRequired==0;
+    add(L"functional",L"Functional devices",functional,L"Native automated probes + guided operator tests",L"Manual or untested functional items remain");
+    add(L"ports_power",L"Physical ports and power",r.hardware.stress.portPower.overall==L"PASS",L"PnP baseline/delta + physical stimulus",L"Required physical port/power tests remain");
+    add(L"runtime",L"Build and report integrity",r.hardware.stress.runtimeValidation.overall==L"PASS",L"LapSure runtime validation gate",L"Runtime validation did not pass");
+    return out;
+}
 AuditDecision BuildAuditDecision(const AuditReport&r){
     AuditDecision d{};bool any=false,hardStageFail=false,allDeep=true;double maxGpu=-1;
     for(auto&s:r.hardware.stress.stages){
@@ -92,6 +113,8 @@ AuditDecision BuildAuditDecision(const AuditReport&r){
         d.coverage=L"PARTIAL";
         d.reasons.push_back(L"Runtime validation has not completed.");
     }
+    const auto contract=BuildCoverageContract(r);const auto missing=std::count_if(contract.begin(),contract.end(),[](const auto&x){return x.required&&x.status!=L"COMPLETE";});
+    if(missing>0){if(d.overall==L"BUY"||d.overall==L"BUY WITH NOTES")d.overall=L"INCOMPLETE";d.coverage=L"PARTIAL";d.reasons.push_back(std::to_wstring(missing)+L" required coverage domain(s) remain incomplete; see the coverage contract.");}
     return d;
 }
 }

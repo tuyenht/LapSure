@@ -17,3 +17,5 @@ python tests\beta01_build_validation_sanity.py
 if errorlevel 1 exit /b 1
 python tests\repo_integration_sanity.py
 if errorlevel 1 exit /b 1
+python tests\phase_a_ui_sanity.py
+if errorlevel 1 exit /b 1

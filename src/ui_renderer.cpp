@@ -4,14 +4,45 @@
 
 namespace lap {
 
-void UiFonts::Init() {
-    if (hTitle) return;
-    hTitle = CreateFontW(-22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    hSection = CreateFontW(-15, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    hBodyBold = CreateFontW(-13, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    hBody = CreateFontW(-13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    hSmall = CreateFontW(-11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    hMono = CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas");
+int GetDpiForHwnd(HWND hwnd) {
+    if (!hwnd) return 96;
+    HMODULE hUser = GetModuleHandleW(L"user32.dll");
+    if (hUser) {
+        typedef UINT(WINAPI* GetDpiForWindowProc)(HWND);
+        auto pGetDpi = (GetDpiForWindowProc)GetProcAddress(hUser, "GetDpiForWindow");
+        if (pGetDpi) {
+            UINT dpi = pGetDpi(hwnd);
+            if (dpi > 0) return (int)dpi;
+        }
+    }
+    HDC hdc = GetDC(hwnd);
+    int dpi = 96;
+    if (hdc) {
+        dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+        ReleaseDC(hwnd, hdc);
+    }
+    return dpi > 0 ? dpi : 96;
+}
+
+void UiFonts::Init(int dpi) {
+    if (dpi <= 0) dpi = 96;
+    if (hTitle && currentDpi == dpi) return;
+    Cleanup();
+    currentDpi = dpi;
+
+    int szTitle = MulDiv(-22, dpi, 96);
+    int szSection = MulDiv(-16, dpi, 96);
+    int szBodyBold = MulDiv(-13, dpi, 96);
+    int szBody = MulDiv(-13, dpi, 96);
+    int szSmall = MulDiv(-12, dpi, 96);
+    int szMono = MulDiv(-12, dpi, 96);
+
+    hTitle = CreateFontW(szTitle, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    hSection = CreateFontW(szSection, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    hBodyBold = CreateFontW(szBodyBold, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    hBody = CreateFontW(szBody, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    hSmall = CreateFontW(szSmall, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    hMono = CreateFontW(szMono, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas");
 }
 
 void UiFonts::Cleanup() {
@@ -101,6 +132,16 @@ void DrawCircularScoreGauge(HDC dc, int cx, int cy, int radius, int score, const
     SetTextColor(dc, arcClr);
     RECT lr{ cx - radius, cy + 6, cx + radius, cy + 24 };
     DrawTextW(dc, label.c_str(), (int)label.size(), &lr, DT_CENTER | DT_SINGLELINE);
+}
+
+void DrawFocusRing(HDC dc, const RECT& r, int radius) {
+    HPEN hPen = CreatePen(PS_SOLID, 2, UiColors::FocusOutline);
+    HGDIOBJ oldPen = SelectObject(dc, hPen);
+    HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+    RoundRect(dc, r.left - 2, r.top - 2, r.right + 2, r.bottom + 2, radius * 2 + 4, radius * 2 + 4);
+    SelectObject(dc, oldPen);
+    SelectObject(dc, oldBrush);
+    DeleteObject(hPen);
 }
 
 } // namespace lap

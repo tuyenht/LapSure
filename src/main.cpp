@@ -610,7 +610,7 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep) {
     drawChip(L"Đồ họa", L"NVIDIA RTX A2000 4GB", chipX + 190, infoCard.top + 64);
 }
 
-void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& rep) {
+void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& /*rep*/) {
     SelectObject(dc, gFonts.hTitle); SetTextColor(dc, UiColors::TextMain);
     TextOutW(dc, r.left + 24, r.top + 16, L"Kiểm tra Tự động", 16);
     
@@ -733,7 +733,7 @@ void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& rep) {
     TextOutW(dc, tipsCard.left + 12, tipsCard.top + 150, L"• Chạy tác vụ nặng song song", 28);
 }
 
-void RenderFunctional(HDC dc, const RECT& r, const AuditReport& rep) {
+void RenderFunctional(HDC dc, const RECT& r, const AuditReport& /*rep*/) {
     SelectObject(dc, gFonts.hTitle); SetTextColor(dc, UiColors::TextMain);
     TextOutW(dc, r.left + 24, r.top + 16, L"Kiểm tra Chức năng", 19);
     

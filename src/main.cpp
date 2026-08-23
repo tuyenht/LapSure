@@ -1179,28 +1179,30 @@ void RenderFactoryCompare(HDC dc, const RECT& r, const AuditReport& rep, int dpi
 
     std::wstring cpuActual = rep.hardware.cpuName;
     std::wstring factoryCpu = rep.factoryExact ? cpuActual : L"";
-    CanonicalUiState stCpu = (!rep.sellerClaim.cpu.empty() && rep.sellerClaim.cpu != cpuActual) ? CanonicalUiState::Warning : (rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good);
-    std::wstring vCpu = (!rep.sellerClaim.cpu.empty() && rep.sellerClaim.cpu != cpuActual) ? L"LỆCH CPU" : L"Khớp";
-    addCompRow(L"Bộ vi xử lý (CPU)", cpuActual, rep.sellerClaim.cpu, factoryCpu, stCpu, vCpu);
+    CanonicalUiState stCpu = (!rep.sellerClaim.cpuContains.empty() && cpuActual.find(rep.sellerClaim.cpuContains) == std::wstring::npos) ? CanonicalUiState::Warning : (rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good);
+    std::wstring vCpu = (!rep.sellerClaim.cpuContains.empty() && cpuActual.find(rep.sellerClaim.cpuContains) == std::wstring::npos) ? L"LỆCH CPU" : L"Khớp";
+    addCompRow(L"Bộ vi xử lý (CPU)", cpuActual, rep.sellerClaim.cpuContains, factoryCpu, stCpu, vCpu);
 
     int actualRamGb = (rep.hardware.installedRamBytes > 0) ? (int)(rep.hardware.installedRamBytes / (1024*1024*1024)) : 0;
     std::wstring ramActual = actualRamGb > 0 ? (std::to_wstring(actualRamGb) + L" GB") : L"—";
-    std::wstring ramSeller = rep.sellerClaim.ramGb > 0 ? (std::to_wstring(rep.sellerClaim.ramGb) + L" GB") : L"—";
+    int sellerRamGb = (rep.sellerClaim.ramBytes > 0) ? (int)(rep.sellerClaim.ramBytes / (1024*1024*1024)) : 0;
+    std::wstring ramSeller = sellerRamGb > 0 ? (std::to_wstring(sellerRamGb) + L" GB") : L"—";
     std::wstring factoryRam = rep.factoryExact ? ramActual : L"";
-    CanonicalUiState stRam = (rep.sellerClaim.ramGb > 0 && rep.sellerClaim.ramGb != actualRamGb) ? CanonicalUiState::Warning : (rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good);
-    std::wstring vRam = (rep.sellerClaim.ramGb > 0 && rep.sellerClaim.ramGb != actualRamGb) ? L"LỆCH RAM" : L"Khớp";
+    CanonicalUiState stRam = (sellerRamGb > 0 && sellerRamGb != actualRamGb) ? CanonicalUiState::Warning : (rep.factoryExact ? CanonicalUiState::Pass : CanonicalUiState::Good);
+    std::wstring vRam = (sellerRamGb > 0 && sellerRamGb != actualRamGb) ? L"LỆCH RAM" : L"Khớp";
     addCompRow(L"Bộ nhớ (RAM)", ramActual, ramSeller, factoryRam, stRam, vRam);
 
     std::wstring ssdActual = rep.hardware.storage.empty() ? L"—" : rep.hardware.storage.front().model;
-    std::wstring ssdSeller = rep.sellerClaim.ssdGb > 0 ? (std::to_wstring(rep.sellerClaim.ssdGb) + L" GB") : L"—";
+    int sellerStorageGb = (rep.sellerClaim.storageBytes > 0) ? (int)(rep.sellerClaim.storageBytes / (1000*1000*1000)) : 0;
+    std::wstring ssdSeller = sellerStorageGb > 0 ? (std::to_wstring(sellerStorageGb) + L" GB") : L"—";
     std::wstring factorySsd = rep.factoryExact ? ssdActual : L"";
     addCompRow(L"Ổ đĩa lưu trữ", ssdActual, ssdSeller, factorySsd, CanonicalUiState::Good, L"Đã ghi nhận");
 
     std::wstring gpuActual = rep.hardware.gpus.empty() ? L"—" : rep.hardware.gpus.front().name;
     std::wstring factoryGpu = rep.factoryExact ? gpuActual : L"";
-    CanonicalUiState stGpu = (!rep.sellerClaim.gpu.empty() && rep.sellerClaim.gpu != gpuActual) ? CanonicalUiState::Warning : CanonicalUiState::Good;
-    std::wstring vGpu = (!rep.sellerClaim.gpu.empty() && rep.sellerClaim.gpu != gpuActual) ? L"LỆCH GPU" : L"Khớp";
-    addCompRow(L"Card đồ họa (GPU)", gpuActual, rep.sellerClaim.gpu, factoryGpu, stGpu, vGpu);
+    CanonicalUiState stGpu = (!rep.sellerClaim.gpuContains.empty() && gpuActual.find(rep.sellerClaim.gpuContains) == std::wstring::npos) ? CanonicalUiState::Warning : CanonicalUiState::Good;
+    std::wstring vGpu = (!rep.sellerClaim.gpuContains.empty() && gpuActual.find(rep.sellerClaim.gpuContains) == std::wstring::npos) ? L"LỆCH GPU" : L"Khớp";
+    addCompRow(L"Card đồ họa (GPU)", gpuActual, rep.sellerClaim.gpuContains, factoryGpu, stGpu, vGpu);
 
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }

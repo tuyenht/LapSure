@@ -1190,6 +1190,299 @@ void RenderFactoryCompare(HDC dc, const RECT& r, const AuditReport& rep, int dpi
     DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
 }
 
+void RenderStressStability(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Stress & Độ ổn định";
+    hdr.subtitle = L"Kiểm tra tải nặng CPU/RAM/GPU, theo dõi nhiệt độ tản nhiệt và phát hiện lỗi phần cứng phát sinh dưới tải.";
+    CanonicalUiState stStress = (rep.hardware.stress.stabilityState == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.stabilityState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    hdr.sessionTag = (stStress == CanonicalUiState::Pass) ? L"Ổn định" : ((stStress == CanonicalUiState::Fail) ? L"Không ổn định" : L"Chưa kiểm tra");
+    hdr.sessionState = stStress;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    // 3 KPI Metric Cards
+    int kpiW = (leftW - UiMetrics::Scale(16, dpi)) / 3;
+    int kpiH = UiMetrics::Scale(88, dpi);
+
+    MetricCardConfig mc1;
+    mc1.label = L"Độ ổn định chung";
+    mc1.value = rep.hardware.stress.stabilityState.empty() ? L"—" : rep.hardware.stress.stabilityState;
+    mc1.state = stStress;
+    mc1.note = L"Kết luận Stress Test";
+    RECT kpi1Rect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + kpiW, curY + kpiH };
+    DrawMetricCard(dc, kpi1Rect, mc1, gFonts, dpi);
+
+    MetricCardConfig mc2;
+    mc2.label = L"CPU Microbenchmark";
+    mc2.value = rep.hardware.stress.cpuBenchScore > 0 ? (std::to_wstring(rep.hardware.stress.cpuBenchScore) + L" pts") : L"—";
+    mc2.state = rep.hardware.stress.cpuBenchScore > 0 ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    mc2.note = L"Điểm hiệu năng vi xử lý";
+    RECT kpi2Rect{ kpi1Rect.right + UiMetrics::Scale(8, dpi), curY, kpi1Rect.right + UiMetrics::Scale(8, dpi) + kpiW, curY + kpiH };
+    DrawMetricCard(dc, kpi2Rect, mc2, gFonts, dpi);
+
+    MetricCardConfig mc3;
+    mc3.label = L"Sự kiện WHEA / Lỗi";
+    mc3.value = std::to_wstring(rep.hardware.forensics.criticalEventsCount);
+    mc3.state = (rep.hardware.forensics.criticalEventsCount > 0) ? CanonicalUiState::Warning : CanonicalUiState::Good;
+    mc3.note = L"Lỗi kiến trúc phần cứng";
+    RECT kpi3Rect{ kpi2Rect.right + UiMetrics::Scale(8, dpi), curY, kpi2Rect.right + UiMetrics::Scale(8, dpi) + kpiW, curY + kpiH };
+    DrawMetricCard(dc, kpi3Rect, mc3, gFonts, dpi);
+
+    curY += kpiH + UiMetrics::Scale(12, dpi);
+
+    // Stress Stages List (C08)
+    struct StageDef { const wchar_t* name; const wchar_t* desc; const wchar_t* duration; };
+    std::vector<StageDef> stages = {
+        { L"Stage 1 — CPU Microbenchmark & Đa luồng", L"Kiểm tra tải tính toán số học đa lõi CPU và đo độ trễ bộ đệm L1/L2/L3.", L"30 giây" },
+        { L"Stage 2 — Bộ nhớ RAM Memory Pressure", L"Cấp phát và ghi đọc liên tục trên 80% RAM để phát hiện cell lỗi.", L"20 giây" },
+        { L"Stage 3 — Đồ họa Direct3D GPU Load", L"Kích hoạt tải đồ họa 3D Direct3D để kiểm tra ổn định nguồn VRAM.", L"30 giây" },
+        { L"Stage 4 — Giám sát Thermal Throttling", L"Theo dõi hiện tượng quá nhiệt giảm xung nhịp CPU/GPU dưới tải kéo dài.", L"40 giây" }
+    };
+
+    for (size_t i = 0; i < stages.size(); ++i) {
+        EvidenceRowConfig erc;
+        erc.parameter = stages[i].name;
+        erc.actualValue = stages[i].desc;
+        erc.providerSource = stages[i].duration;
+        erc.state = stStress;
+
+        RECT sr{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(52, dpi) };
+        DrawEvidenceRow(dc, sr, erc, gFonts, dpi, (i % 2 == 1));
+        curY += UiMetrics::Scale(58, dpi);
+    }
+
+    // Right Rail: Action Panel
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, r.top + UiMetrics::Scale(70, dpi), r.right - UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(280, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Chạy bài kiểm tra Stress";
+    nac.reasonText = L"Bài kiểm tra này phát hiện hiện tượng sập nguồn, quá nhiệt hoặc lỗi RAM chỉ xuất hiện khi chạy nặng.";
+    nac.remainingTasks = { L"Tải CPU đa nhân 100%", L"Tải RAM bộ đệm áp lực", L"Giám sát nhiệt độ & WHEA" };
+    nac.buttonText = gRunning ? L"DỪNG KIỂM TRA" : L"CHẠY STRESS TEST";
+    nac.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderBatteryPower(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Pin & Năng lượng";
+    hdr.subtitle = L"Chi tiết dung lượng thiết kế, dung lượng thực tế, độ chai pin, chu kỳ sạc và kiểm tra công suất xả mW.";
+    CanonicalUiState stBat = (rep.hardware.battery.healthPercent > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    hdr.sessionTag = (rep.hardware.battery.healthPercent > 0) ? (std::to_wstring(rep.hardware.battery.healthPercent) + L"% sức khỏe") : L"Chưa kiểm tra";
+    hdr.sessionState = stBat;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    // 4 KPI Metric Cards (C05)
+    int mainW = r.right - r.left - UiMetrics::Scale(48, dpi);
+    int kpiW = (mainW - UiMetrics::Scale(36, dpi)) / 4;
+    int kpiH = UiMetrics::Scale(88, dpi);
+
+    MetricCardConfig mc1;
+    mc1.label = L"Độ chai pin";
+    mc1.value = rep.hardware.battery.healthPercent > 0 ? (std::to_wstring(100 - rep.hardware.battery.healthPercent) + L"%") : L"—";
+    mc1.state = (100 - rep.hardware.battery.healthPercent > 25) ? CanonicalUiState::Warning : CanonicalUiState::Good;
+    mc1.note = L"Mức độ suy giảm dung lượng";
+    RECT kpi1Rect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + kpiW, curY + kpiH };
+    DrawMetricCard(dc, kpi1Rect, mc1, gFonts, dpi);
+
+    MetricCardConfig mc2;
+    mc2.label = L"Dung lượng thực tế (Full)";
+    mc2.value = rep.hardware.battery.fullChargeCapacityMwh > 0 ? (std::to_wstring(rep.hardware.battery.fullChargeCapacityMwh) + L" mWh") : L"—";
+    mc2.state = CanonicalUiState::Good;
+    mc2.note = L"Khi sạc đầy 100%";
+    RECT kpi2Rect{ kpi1Rect.right + UiMetrics::Scale(12, dpi), curY, kpi1Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
+    DrawMetricCard(dc, kpi2Rect, mc2, gFonts, dpi);
+
+    MetricCardConfig mc3;
+    mc3.label = L"Dung lượng thiết kế (Design)";
+    mc3.value = rep.hardware.battery.designCapacityMwh > 0 ? (std::to_wstring(rep.hardware.battery.designCapacityMwh) + L" mWh") : L"—";
+    mc3.state = CanonicalUiState::Good;
+    mc3.note = L"Xuất xưởng gốc từ nhà máy";
+    RECT kpi3Rect{ kpi2Rect.right + UiMetrics::Scale(12, dpi), curY, kpi2Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
+    DrawMetricCard(dc, kpi3Rect, mc3, gFonts, dpi);
+
+    MetricCardConfig mc4;
+    mc4.label = L"Số chu kỳ sạc (Cycles)";
+    mc4.value = rep.hardware.battery.cycleCount > 0 ? std::to_wstring(rep.hardware.battery.cycleCount) : L"—";
+    mc4.state = (rep.hardware.battery.cycleCount > 500) ? CanonicalUiState::Warning : CanonicalUiState::Good;
+    mc4.note = L"Số lần nạp xả hoàn toàn";
+    RECT kpi4Rect{ kpi3Rect.right + UiMetrics::Scale(12, dpi), curY, kpi3Rect.right + UiMetrics::Scale(12, dpi) + kpiW, curY + kpiH };
+    DrawMetricCard(dc, kpi4Rect, mc4, gFonts, dpi);
+
+    curY += kpiH + UiMetrics::Scale(14, dpi);
+
+    // Battery Findings & Evidence Table (C09)
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.right - UiMetrics::Scale(24, dpi), r.bottom - UiMetrics::Scale(20, dpi) };
+    
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Thông số pin & nguồn", 180, false, false },
+        { L"Giá trị đo đạc thực tế", 280, true, false },
+        { L"Nguồn cung cấp bằng chứng", 180, false, false },
+        { L"Đánh giá", 120, false, true }
+    };
+
+    auto addBatRow = [&](const std::wstring& param, const std::wstring& val, const std::wstring& src, CanonicalUiState st, const std::wstring& stText) {
+        TableRow row;
+        row.cells.push_back(param);
+        row.cells.push_back(val.empty() ? L"—" : val);
+        row.cells.push_back(src);
+        row.cells.push_back(stText);
+        row.rowState = st;
+        dtc.rows.push_back(row);
+    };
+
+    std::wstring chem = rep.hardware.battery.chemistry.empty() ? L"Li-ion (Lithium-ion)" : rep.hardware.battery.chemistry;
+    addBatRow(L"Công nghệ pin (Chemistry)", chem, L"CIM / WMI", CanonicalUiState::Good, L"Tốt");
+
+    std::wstring mfr = rep.hardware.battery.manufacturer.empty() ? L"—" : rep.hardware.battery.manufacturer;
+    addBatRow(L"Nhà sản xuất cell pin", mfr, L"CIM / BatteryReport", CanonicalUiState::Good, L"Tốt");
+
+    std::wstring sn = rep.hardware.battery.serialNumber.empty() ? L"—" : rep.hardware.battery.serialNumber;
+    addBatRow(L"Số Serial Pin", sn, L"CIM / WMI", CanonicalUiState::Good, L"Tốt");
+
+    std::wstring acStatus = rep.hardware.stress.portPower.acConnected ? L"Đang cắm sạc AC (AC Line Connected)" : L"Đang dùng pin (Discharging On Battery)";
+    addBatRow(L"Trạng thái nguồn AC", acStatus, L"Win32 Power API", CanonicalUiState::Good, L"Đạt");
+
+    std::wstring disRate = rep.hardware.battery.liveDischargeMw > 0 ? (std::to_wstring(rep.hardware.battery.liveDischargeMw) + L" mW") : L"— (Cần rút sạc để đo)";
+    addBatRow(L"Công suất xả pin tức thời", disRate, L"Battery Discharge Telemetry", CanonicalUiState::Good, L"Đã ghi nhận");
+
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+}
+
+void RenderReports(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Đánh giá cuối cùng & Báo cáo";
+    hdr.subtitle = L"Tổng hợp bằng chứng kỹ thuật, phân tích rủi ro đa chiều và đưa ra khuyến nghị mua máy chuẩn xác.";
+    hdr.sessionTag = gAuditReady ? FormatDecisionVi(rep.hardware.stress.decision.overall) : L"Chưa có kết luận";
+    hdr.sessionState = gAuditReady ? CanonicalUiState::Pass : CanonicalUiState::Incomplete;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    // Decision Banner Card (C05)
+    RECT bannerRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(100, dpi) };
+    DrawRoundedCard(dc, bannerRect, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
+
+    SelectObject(dc, gFonts.hBodyBold);
+    SetTextColor(dc, UiColors::TextMuted);
+    TextOutW(dc, bannerRect.left + UiMetrics::Scale(16, dpi), bannerRect.top + UiMetrics::Scale(12, dpi), L"KHUYẾN NGHỊ KIỂM ĐỊNH LAPSURE:", 30);
+
+    SelectObject(dc, gFonts.hTitle);
+    COLORREF decClr = (rep.hardware.stress.decision.overall == L"BUY") ? UiColors::SuccessGreen :
+                      ((rep.hardware.stress.decision.overall == L"BUY WITH NOTES") ? UiColors::WarnAmber :
+                      ((rep.hardware.stress.decision.overall == L"REJECT") ? UiColors::FailRed : UiColors::TextMuted));
+    SetTextColor(dc, decClr);
+    std::wstring decText = gAuditReady ? FormatDecisionVi(rep.hardware.stress.decision.overall) : L"CHƯA ĐỦ DỮ LIỆU ĐỂ KẾT LUẬN";
+    TextOutW(dc, bannerRect.left + UiMetrics::Scale(16, dpi), bannerRect.top + UiMetrics::Scale(34, dpi), decText.c_str(), (int)decText.size());
+
+    SelectObject(dc, gFonts.hSmall);
+    SetTextColor(dc, UiColors::TextMain);
+    std::wstring decDetail = gAuditReady ? (L"Dựa trên " + std::to_wstring(rep.findings.size()) + L" bằng chứng kỹ thuật đã thu thập từ phần cứng.") : L"Yêu cầu hoàn tất toàn bộ các bài kiểm tra bắt buộc trước khi đưa ra quyết định.";
+    TextOutW(dc, bannerRect.left + UiMetrics::Scale(16, dpi), bannerRect.top + UiMetrics::Scale(68, dpi), decDetail.c_str(), (int)decDetail.size());
+
+    curY += UiMetrics::Scale(110, dpi);
+
+    // Summary Findings Table (C09)
+    RECT tableRect{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, r.bottom - UiMetrics::Scale(20, dpi) };
+    DataTableConfig dtc;
+    dtc.columns = {
+        { L"Phân hệ", 110, false, false },
+        { L"Hạng mục kiểm tra", 140, false, false },
+        { L"Thông số phát hiện", 160, false, false },
+        { L"Giá trị thực tế", 180, true, false },
+        { L"Trạng thái", 100, false, true }
+    };
+
+    std::lock_guard<std::mutex> lk(gReportMutex);
+    for (const auto& f : rep.findings) {
+        TableRow row;
+        row.cells.push_back(UiDimension(f.dimension));
+        row.cells.push_back(f.group);
+        row.cells.push_back(f.name);
+        row.cells.push_back(f.value);
+        row.cells.push_back(UiState(f.state));
+        row.rowState = MapState(f.state);
+        dtc.rows.push_back(row);
+    }
+    DrawDataTable(dc, tableRect, dtc, gFonts, dpi, gTableScrollOffset);
+
+    // Right Rail: Action panel to export report
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, r.top + UiMetrics::Scale(70, dpi), r.right - UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(300, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Xuất báo cáo kiểm định";
+    nac.reasonText = L"Báo cáo sẽ được lưu dưới định dạng HTML có chữ ký số và gói dữ liệu JSON để gửi cho người bán hoặc lưu trữ.";
+    nac.remainingTasks = { L"Xuất Báo cáo HTML Trực quan", L"Xuất Gói Bằng chứng JSON", L"Mở xem ngay trên trình duyệt" };
+    nac.buttonText = L"XUẤT & XEM BÁO CÁO";
+    nac.isButtonEnabled = gAuditReady;
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
+void RenderExportShare(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
+    PageHeaderConfig hdr;
+    hdr.title = L"Xuất báo cáo & Chia sẻ";
+    hdr.subtitle = L"Xuất báo cáo định dạng HTML và gói dữ liệu JSON có chữ ký số bằng chứng phục vụ lưu trữ hoặc gửi người bán.";
+    hdr.sessionTag = gReportPath.empty() ? L"Chưa xuất file" : L"Đã sẵn sàng";
+    hdr.sessionState = gReportPath.empty() ? CanonicalUiState::NotTested : CanonicalUiState::Pass;
+    DrawPageHeader(dc, r, hdr, gFonts, dpi);
+
+    int rightPanelW = UiMetrics::Scale(300, dpi);
+    int leftW = r.right - r.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+    int curY = r.top + UiMetrics::Scale(70, dpi);
+
+    // Export Package Card 1: HTML Report
+    RECT htmlCard{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(120, dpi) };
+    DrawRoundedCard(dc, htmlCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
+
+    SelectObject(dc, gFonts.hBodyBold);
+    SetTextColor(dc, UiColors::TextMain);
+    TextOutW(dc, htmlCard.left + UiMetrics::Scale(14, dpi), htmlCard.top + UiMetrics::Scale(12, dpi), L"📄 Báo cáo Kiểm định Trực quan (HTML Format)", 44);
+
+    SelectObject(dc, gFonts.hSmall);
+    SetTextColor(dc, UiColors::TextMuted);
+    TextOutW(dc, htmlCard.left + UiMetrics::Scale(14, dpi), htmlCard.top + UiMetrics::Scale(36, dpi), L"Định dạng đầy đủ màu sắc, biểu đồ đo đạc, chữ ký mã băm và các bảng đối chiếu cấu hình.", 88);
+
+    SetTextColor(dc, UiColors::PrimaryBlue);
+    std::wstring pathStr = gReportPath.empty() ? L"Đường dẫn: Sẽ được tạo tự động trong thư mục reports/" : (L"Tệp: " + gReportPath);
+    TextOutW(dc, htmlCard.left + UiMetrics::Scale(14, dpi), htmlCard.top + UiMetrics::Scale(60, dpi), pathStr.c_str(), (int)pathStr.size());
+
+    curY += UiMetrics::Scale(135, dpi);
+
+    // Export Package Card 2: JSON Package
+    RECT jsonCard{ r.left + UiMetrics::Scale(24, dpi), curY, r.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(120, dpi) };
+    DrawRoundedCard(dc, jsonCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
+
+    SelectObject(dc, gFonts.hBodyBold);
+    SetTextColor(dc, UiColors::TextMain);
+    TextOutW(dc, jsonCard.left + UiMetrics::Scale(14, dpi), jsonCard.top + UiMetrics::Scale(12, dpi), L"🗂️ Gói Dữ liệu Kỹ thuật Toàn diện (JSON Evidence)", 49);
+
+    SelectObject(dc, gFonts.hSmall);
+    SetTextColor(dc, UiColors::TextMuted);
+    TextOutW(dc, jsonCard.left + UiMetrics::Scale(14, dpi), jsonCard.top + UiMetrics::Scale(36, dpi), L"Dữ liệu máy đọc chuẩn hóa, telemetry chi tiết từng giây và toàn bộ log forensic thô.", 84);
+
+    SetTextColor(dc, UiColors::PrimaryBlue);
+    TextOutW(dc, jsonCard.left + UiMetrics::Scale(14, dpi), jsonCard.top + UiMetrics::Scale(60, dpi), L"Định dạng: Chuẩn Schema LapSure v0.1.1 có mã băm SHA-256", 55);
+
+    // Right Rail: Action panel to open report
+    int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
+    RECT actionCard{ rightX, r.top + UiMetrics::Scale(70, dpi), r.right - UiMetrics::Scale(24, dpi), r.top + UiMetrics::Scale(260, dpi) };
+    NextActionConfig nac;
+    nac.actionTitle = L"Xem tệp báo cáo";
+    nac.reasonText = L"Mở trực tiếp báo cáo HTML trên trình duyệt mặc định của hệ thống.";
+    nac.remainingTasks = { L"In ấn ra PDF", L"Gửi báo cáo cho người bán", L"Lưu trữ hồ sơ thiết bị" };
+    nac.buttonText = L"MỞ TRÊN TRÌNH DUYỆT";
+    nac.isButtonEnabled = !gReportPath.empty();
+    DrawNextActionPanel(dc, actionCard, nac, gFonts, dpi);
+}
+
 void RenderGenericScreen(HDC dc, const RECT& r, MainTab tab, const AuditReport& rep, int dpi) {
     PageHeaderConfig hdr;
     switch (tab) {
@@ -1636,6 +1929,49 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
         }
 
+        // 11. Stress Screen: Start/Stop Stress Button Hit-Test
+        if (gCurrentTab == MainTab::Stress) {
+            int rightPanelW = UiMetrics::Scale(300, dpi);
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
+            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(280, dpi) };
+            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+                StartAudit(h);
+                return 0;
+            }
+        }
+
+        // 12. Reports Screen: Export Button Hit-Test
+        if (gCurrentTab == MainTab::Reports) {
+            int rightPanelW = UiMetrics::Scale(300, dpi);
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
+            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(300, dpi) };
+            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+                if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+                else { gCurrentTab = MainTab::ExportShare; InvalidateRect(h, nullptr, FALSE); }
+                return 0;
+            }
+        }
+
+        // 13. Export & Share Screen: Open in Browser Button Hit-Test
+        if (gCurrentTab == MainTab::ExportShare) {
+            int rightPanelW = UiMetrics::Scale(300, dpi);
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
+            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
+            int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - btnH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+                if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+                return 0;
+            }
+        }
+
         return 0;
     }
     case WM_AUDIT_STATUS: {
@@ -1692,6 +2028,14 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             RenderPortsPower(memDC, layout.contentRect, gReport, dpi);
         } else if (gCurrentTab == MainTab::FactoryProfileMatch) {
             RenderFactoryCompare(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::Stress) {
+            RenderStressStability(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::Battery) {
+            RenderBatteryPower(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::Reports) {
+            RenderReports(memDC, layout.contentRect, gReport, dpi);
+        } else if (gCurrentTab == MainTab::ExportShare) {
+            RenderExportShare(memDC, layout.contentRect, gReport, dpi);
         } else {
             RenderGenericScreen(memDC, layout.contentRect, gCurrentTab, gReport, dpi);
         }

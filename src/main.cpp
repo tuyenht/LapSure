@@ -235,6 +235,13 @@ bool CanRunManualTest(HWND h) {
     return true;
 }
 
+CanonicalUiState GetFunctionalItemUiState(const FunctionalTestSummary& f, const std::wstring& id) {
+    for (const auto& it : f.items) {
+        if (it.id == id) return MapFunctionalStatus(it.status);
+    }
+    return CanonicalUiState::NotTested;
+}
+
 void CommitManualResult(const FunctionalItemResult& x) {
     UpsertFunctional(x); RebuildDecisionAndReports(); Fill();
     if (gMainHwnd) InvalidateRect(gMainHwnd, nullptr, FALSE);
@@ -702,16 +709,17 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     auto& f = rep.hardware.stress.functional;
     CanonicalUiState stSystem = (!rep.model.empty()) ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
     CanonicalUiState stRam = (rep.hardware.installedRamBytes > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stStorage = (!rep.hardware.storage.empty()) ? ((rep.hardware.storage.front().smartStatus == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::Good) : CanonicalUiState::NotTested;
+    CanonicalUiState stStorage = (!rep.hardware.storage.empty()) ? ((!rep.hardware.storage.front().smartPassed && rep.hardware.storage.front().smartReadable) ? CanonicalUiState::Fail : CanonicalUiState::Good) : CanonicalUiState::NotTested;
     CanonicalUiState stBattery = (rep.hardware.battery.present && rep.hardware.battery.healthPercent > 0) ? ((rep.hardware.battery.healthPercent < 50) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
     CanonicalUiState stGpu = (!rep.hardware.gpus.empty()) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
-    CanonicalUiState stDisplay = MapFunctionalStatus(f.displayState);
-    CanonicalUiState stKeyboard = MapFunctionalStatus(f.keyboardState);
-    CanonicalUiState stAudio = MapFunctionalStatus(f.audioState);
-    CanonicalUiState stNetwork = (f.wifiState == L"PASS") ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    CanonicalUiState stDisplay = GetFunctionalItemUiState(f, L"display_visual");
+    CanonicalUiState stKeyboard = GetFunctionalItemUiState(f, L"keyboard_matrix");
+    CanonicalUiState stAudio = GetFunctionalItemUiState(f, L"audio_stereo");
+    CanonicalUiState stNetwork = GetFunctionalItemUiState(f, L"wifi_scan");
     CanonicalUiState stPorts = (rep.hardware.stress.portPower.overall == L"PASS") ? CanonicalUiState::Good : ((rep.hardware.stress.portPower.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
-    CanonicalUiState stStress = (rep.hardware.stress.stabilityState == L"PASS") ? CanonicalUiState::Good : ((rep.hardware.stress.stabilityState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
-    CanonicalUiState stEvents = gAuditReady ? ((rep.hardware.forensics.criticalEventsCount > 0) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
+    CanonicalUiState stStress = (rep.hardware.stress.completed) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
+    long long totalCritEvents = rep.hardware.forensics.whea + rep.hardware.forensics.kernelPower + rep.hardware.forensics.bugCheck;
+    CanonicalUiState stEvents = gAuditReady ? ((totalCritEvents > 0) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
 
     struct DomainDef { const wchar_t* icon; const wchar_t* name; const wchar_t* desc; CanonicalUiState state; };
     std::vector<DomainDef> domains = {
@@ -887,10 +895,10 @@ void RenderFunctional(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 
     // C07 Guided Stepper
     auto& f = rep.hardware.stress.functional;
-    CanonicalUiState stDisp = MapFunctionalStatus(f.displayState);
-    CanonicalUiState stKb = MapFunctionalStatus(f.keyboardState);
-    CanonicalUiState stAud = MapFunctionalStatus(f.audioState);
-    CanonicalUiState stCam = MapFunctionalStatus(f.cameraState);
+    CanonicalUiState stDisp = GetFunctionalItemUiState(f, L"display_visual");
+    CanonicalUiState stKb = GetFunctionalItemUiState(f, L"keyboard_matrix");
+    CanonicalUiState stAud = GetFunctionalItemUiState(f, L"audio_stereo");
+    CanonicalUiState stCam = GetFunctionalItemUiState(f, L"camera_capture");
 
     std::vector<StepperStep> steps = {
         { 1, L"Màn hình", L"Điểm chết, màu sắc", stDisp, (stDisp == CanonicalUiState::NotTested) },
@@ -911,7 +919,7 @@ void RenderFunctional(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     int cardH = UiMetrics::Scale(95, dpi);
 
     CanonicalUiState stPorts = (rep.hardware.stress.portPower.overall == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.portPower.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
-    CanonicalUiState stPhys = (rep.hardware.stress.physicalCondition.overall == L"PASS") ? CanonicalUiState::Pass : ((rep.hardware.stress.physicalCondition.overall == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    CanonicalUiState stPhys = GetFunctionalItemUiState(f, L"physical_chassis");
 
     struct FuncModule {
         int cmdId;
@@ -1458,7 +1466,7 @@ void RenderDisplay(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     hdr.title = L"Hiển thị (Màn hình)";
     hdr.subtitle = L"Dữ liệu EDID gốc từ phần cứng tấm nền, độ phân giải native, tần số quét và kết quả kiểm tra điểm chết.";
     auto& f = rep.hardware.stress.functional;
-    CanonicalUiState stDisp = MapFunctionalStatus(f.displayState);
+    CanonicalUiState stDisp = GetFunctionalItemUiState(f, L"display_visual");
     hdr.sessionTag = (stDisp == CanonicalUiState::Pass) ? L"Màn hình đạt" : ((stDisp == CanonicalUiState::Fail) ? L"Có lỗi điểm chết" : L"Chưa kiểm tra");
     hdr.sessionState = stDisp;
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
@@ -1488,10 +1496,10 @@ void RenderDisplay(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     if (!rep.hardware.displays.empty()) {
         const auto& d = rep.hardware.displays.front();
         addRow(L"Tên màn hình (EDID)", d.friendlyName, CanonicalUiState::Good, L"Tốt");
-        addRow(L"Nhà sản xuất tấm nền", d.manufacturerId, CanonicalUiState::Good, L"Tốt");
+        addRow(L"Nhà sản xuất tấm nền", d.manufacturer, CanonicalUiState::Good, L"Tốt");
         std::wstring resStr = (d.nativeWidth > 0 && d.nativeHeight > 0) ? (std::to_wstring(d.nativeWidth) + L" x " + std::to_wstring(d.nativeHeight)) : L"—";
         addRow(L"Độ phân giải Native", resStr, CanonicalUiState::Good, L"Đạt");
-        std::wstring hzStr = (d.refreshRateHz > 0) ? (std::to_wstring(d.refreshRateHz) + L" Hz") : L"—";
+        std::wstring hzStr = (d.refreshHz > 0) ? (std::to_wstring(d.refreshHz) + L" Hz") : L"—";
         addRow(L"Tần số quét", hzStr, CanonicalUiState::Good, L"Đạt");
     } else {
         addRow(L"Dữ liệu EDID", L"Đang quét thông số...", CanonicalUiState::NotTested, L"Chưa rõ");
@@ -1516,8 +1524,8 @@ void RenderAudioCamera(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     hdr.title = L"Âm thanh & Camera";
     hdr.subtitle = L"Kiểm tra thực tế 2 kênh loa Stereo trái/phải, độ nhạy microphone và khả năng thu nhận hình ảnh từ Camera.";
     auto& f = rep.hardware.stress.functional;
-    CanonicalUiState stAud = MapFunctionalStatus(f.audioState);
-    CanonicalUiState stCam = MapFunctionalStatus(f.cameraState);
+    CanonicalUiState stAud = GetFunctionalItemUiState(f, L"audio_stereo");
+    CanonicalUiState stCam = GetFunctionalItemUiState(f, L"camera_capture");
     hdr.sessionTag = (stAud == CanonicalUiState::Pass && stCam == CanonicalUiState::Pass) ? L"Tất cả đạt" : L"Cần kiểm tra";
     hdr.sessionState = (stAud == CanonicalUiState::Pass && stCam == CanonicalUiState::Pass) ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
     DrawPageHeader(dc, r, hdr, gFonts, dpi);
@@ -1568,8 +1576,8 @@ void RenderNetwork(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     hdr.title = L"Mạng & Kết nối";
     hdr.subtitle = L"Kiểm tra bộ điều hợp Wi-Fi WLAN API, cường độ tín hiệu RSSI, chuẩn Bluetooth Radio và cổng mạng LAN.";
     auto& f = rep.hardware.stress.functional;
-    CanonicalUiState stWifi = (f.wifiState == L"PASS") ? CanonicalUiState::Pass : ((f.wifiState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
-    CanonicalUiState stBt = (f.bluetoothState == L"PASS") ? CanonicalUiState::Pass : ((f.bluetoothState == L"FAIL") ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
+    CanonicalUiState stWifi = GetFunctionalItemUiState(f, L"wifi_scan");
+    CanonicalUiState stBt = GetFunctionalItemUiState(f, L"bluetooth_radio");
     hdr.sessionTag = (stWifi == CanonicalUiState::Pass) ? L"Wi-Fi đã xác nhận" : L"Chưa kiểm tra";
     hdr.sessionState = stWifi;
     DrawPageHeader(dc, r, hdr, gFonts, dpi);

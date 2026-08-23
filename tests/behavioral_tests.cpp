@@ -2,6 +2,7 @@
 #include "lap/port_power.h"
 #include "lap/scoring.h"
 #include "lap/stress.h"
+#include "lap/engines.h"
 #include <iostream>
 
 namespace {
@@ -52,5 +53,14 @@ int main() {
     const auto quick = lap::MakeStressPlan(L"Quick");
     const auto deep = lap::MakeStressPlan(L"Deep");
     Expect(quick.gpuSeconds == 30 && deep.gpuSeconds == 600, "stress plans expose mode-specific GPU duration");
+
+    auto vram = lap::ParseMemtestVulkanOutput(L"Standard 5-minute test PASSed\ntotal errors: 0\nwritten: 4.0GB checked: 4.0GB 10.0GB/sec");
+    Expect(vram.standardFiveMinutePassed && vram.errors == 0 && vram.checkedGB == 4.0, "VRAM parser accepts explicit zero-error completed output");
+    vram = lap::ParseMemtestVulkanOutput(L"total errors: 3");
+    Expect(vram.errors == 3 && !vram.standardFiveMinutePassed, "VRAM parser preserves numeric error count");
+
+    lap::StorageDevice storage{};std::wstring parseError;
+    Expect(!lap::ParseSmartctlHealthJson(L"{\"model_name\":\"Disk\"}",storage,parseError), "SMART without health verdict is not readable PASS");
+    Expect(lap::ParseSmartctlHealthJson(L"{\"model_name\":\"Disk\",\"passed\":true,\"critical_warning\":0,\"media_errors\":0}",storage,parseError) && storage.smartPassed, "SMART explicit healthy schema parses");
     return failures == 0 ? 0 : 1;
 }

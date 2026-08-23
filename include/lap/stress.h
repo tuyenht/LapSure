@@ -13,6 +13,7 @@ struct StressPlan {
     unsigned gpuSeconds{30};
 };
 StressPlan MakeStressPlan(const std::wstring& mode);
+GpuVramMetrics ParseMemtestVulkanOutput(const std::wstring& output);
 void RunStressSession(AuditReport& report, const Capabilities& caps, const std::wstring& appDir,
                       const StressPlan& plan, const std::atomic_bool* cancel);
 }

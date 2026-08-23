@@ -29,6 +29,7 @@ if(BUILD_TESTING)
       src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/devpkey_defs.cpp
       src/stress.cpp src/process.cpp src/telemetry.cpp src/sensors.cpp src/trust.cpp
       src/journal.cpp src/baseline.cpp src/hardware.cpp)
+  target_sources(LapSureBehaviorTests PRIVATE src/engines.cpp)
   target_include_directories(LapSureBehaviorTests PRIVATE include)
   target_compile_definitions(LapSureBehaviorTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
   target_link_libraries(LapSureBehaviorTests PRIVATE advapi32 bcrypt cfgmgr32 powrprof setupapi user32)

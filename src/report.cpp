@@ -4,6 +4,7 @@
 #include "lap/port_power.h"
 #include "lap/orchestrator.h"
 #include "lap/runtime_validation.h"
+#include "lap/chassis_profile.h"
 #include <windows.h>
 #include <shlobj.h>
 #include <filesystem>
@@ -19,6 +20,7 @@ std::wstring Ts(){SYSTEMTIME t;GetLocalTime(&t);wchar_t b[64];swprintf_s(b,L"%04
 bool Writable(const std::filesystem::path&p){std::error_code ec;std::filesystem::create_directories(p,ec);if(ec)return false;auto test=p/L".write_test.tmp";std::ofstream f(test,std::ios::binary);if(!f)return false;f<<"ok";f.close();std::filesystem::remove(test,ec);return true;}
 std::wstring F(double x,int n=1){if(x<0)return L"N/A";wchar_t b[64];swprintf_s(b,n==1?L"%.1f":L"%.2f",x);return b;}
 std::wstring GiB(uint64_t b){return F((double)b/(1024.0*1024.0*1024.0),1);}
+bool WriteUtf8File(const std::filesystem::path&p,const std::wstring&text){if(text.size()>static_cast<size_t>(INT_MAX))return false;int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),nullptr,0,nullptr,nullptr);if(n<=0)return false;std::string bytes(static_cast<size_t>(n),'\0');if(WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),bytes.data(),n,nullptr,nullptr)!=n)return false;std::ofstream out(p,std::ios::binary|std::ios::trunc);if(!out)return false;out.write(bytes.data(),static_cast<std::streamsize>(bytes.size()));out.flush();return out.good();}
 }
 std::wstring ResolveReportDirectory(const std::wstring& appDir,bool winPE){
  std::filesystem::path app(appDir);auto local=app/L"reports";
@@ -28,7 +30,7 @@ std::wstring ResolveReportDirectory(const std::wstring& appDir,bool winPE){
  wchar_t temp[MAX_PATH]{};GetTempPathW(MAX_PATH,temp);std::filesystem::path p(temp);p/=L"LapSureReports";Writable(p);return p.wstring();
 }
 std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
- std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+Ts()+L".html");std::wofstream f(p);
+ std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+Ts()+L".html");std::wostringstream f;
  f<<L"<meta charset='utf-8'><style>body{font-family:Segoe UI;margin:28px;color:#20242a;background:#f6f8fb}.hero,.card{background:white;border:1px solid #e0e4ea;border-radius:12px;padding:16px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.metric{font-size:24px;font-weight:700}table{border-collapse:collapse;width:100%;background:white}td,th{border:1px solid #ddd;padding:8px;vertical-align:top}th{background:#eee}pre{white-space:pre-wrap;margin:0}.PASS{background:#dff3e4}.GOOD{background:#eaf4e8}.FAIL{background:#ffd9d9}.WARNING{background:#fff4ce}.CHANGED{background:#e8e4ff}</style>";
  f<<L"<div class='hero'><h1>LapSure v0.1-beta — Laptop Verification & Diagnostics</h1><b>"<<Html(r.model)<<L"</b> | Service Tag "<<Html(r.serviceTag)<<L" | "<<Html(r.environment)<<L"<br>Factory exact: "<<(r.factoryExact?L"Yes":L"No")<<L" | Generic mode: "<<(r.genericMode?L"Yes":L"No")<<L"</div>";
  f<<L"<div class='grid'>";
@@ -70,10 +72,10 @@ std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
  f<<L"</div>";
  f<<L"<h2>Detailed findings</h2><table><tr><th>Dimension</th><th>Group</th><th>Item</th><th>Value</th><th>Expected</th><th>Status</th><th>Severity</th><th>Evidence</th></tr>";
  for(auto&x:r.findings)f<<L"<tr><td>"<<ToString(x.dimension)<<L"</td><td>"<<Html(x.group)<<L"</td><td>"<<Html(x.name)<<L"</td><td><pre>"<<Html(x.value)<<L"</pre></td><td>"<<Html(x.expected)<<L"</td><td class='"<<ToString(x.state)<<L"'>"<<ToString(x.state)<<L"</td><td>"<<ToString(x.severity)<<L"</td><td>"<<Html(x.evidence)<<L"</td></tr>";
- f<<L"</table>";return p.wstring();
+ f<<L"</table>";return WriteUtf8File(p,f.str())?p.wstring():L"";
 }
 std::wstring SaveJsonReport(const AuditReport&r,const std::wstring&dir){
- std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+Ts()+L".json");std::wofstream f(p);
+ std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+Ts()+L".json");std::wostringstream f;
  f<<L"{\n\"model\":\""<<Json(r.model)<<L"\",\"serviceTag\":\""<<Json(r.serviceTag)<<L"\",\"environment\":\""<<Json(r.environment)<<L"\",\"factoryExact\":"<<(r.factoryExact?L"true":L"false")<<L",\"genericMode\":"<<(r.genericMode?L"true":L"false")<<L",\n";
  f<<L"\"hardware\":{\"cpu\":{\"name\":\""<<Json(r.hardware.cpuName)<<L"\",\"threads\":"<<r.hardware.cpuThreads<<L"},\"ram\":{\"totalBytes\":"<<r.hardware.installedRamBytes<<L",\"modules\":[";
  for(size_t i=0;i<r.hardware.memoryModules.size();++i){auto&m=r.hardware.memoryModules[i];f<<L"{\"capacityBytes\":"<<m.capacityBytes<<L",\"configuredSpeed\":"<<m.configuredSpeed<<L",\"ratedSpeed\":"<<m.ratedSpeed<<L",\"manufacturer\":\""<<Json(m.manufacturer)<<L"\",\"partNumber\":\""<<Json(m.partNumber)<<L"\",\"serial\":\""<<Json(m.serialNumber)<<L"\"}"<<(i+1<r.hardware.memoryModules.size()?L",":L"");}
@@ -81,12 +83,12 @@ std::wstring SaveJsonReport(const AuditReport&r,const std::wstring&dir){
  for(size_t i=0;i<r.hardware.storage.size();++i){auto&d=r.hardware.storage[i];f<<L"{\"device\":\""<<Json(d.devicePath)<<L"\",\"model\":\""<<Json(d.model)<<L"\",\"serial\":\""<<Json(d.serialNumber)<<L"\",\"firmware\":\""<<Json(d.firmware)<<L"\",\"capacityBytes\":"<<d.capacityBytes<<L",\"smartReadable\":"<<(d.smartReadable?L"true":L"false")<<L",\"smartPassed\":"<<(d.smartPassed?L"true":L"false")<<L",\"percentageUsed\":"<<d.percentageUsed<<L",\"enduranceRemaining\":"<<d.enduranceRemaining<<L",\"mediaErrors\":"<<d.mediaErrors<<L",\"criticalWarning\":"<<d.criticalWarning<<L",\"powerOnHours\":"<<d.powerOnHours<<L",\"powerCycles\":"<<d.powerCycles<<L",\"unsafeShutdowns\":"<<d.unsafeShutdowns<<L",\"dataReadTB\":"<<d.approxDataReadTB<<L",\"dataWrittenTB\":"<<d.approxDataWrittenTB<<L",\"temperatureC\":"<<d.temperatureC<<L"}"<<(i+1<r.hardware.storage.size()?L",":L"");}
  f<<L"],\"gpus\":[";
  for(size_t i=0;i<r.hardware.gpus.size();++i){auto&g=r.hardware.gpus[i];f<<L"{\"name\":\""<<Json(g.name)<<L"\",\"vramBytes\":"<<g.vramBytes<<L",\"driver\":\""<<Json(g.driver)<<L"\",\"vbios\":\""<<Json(g.vbios)<<L"\",\"temperatureC\":"<<g.temperatureC<<L",\"powerW\":"<<g.powerW<<L"}"<<(i+1<r.hardware.gpus.size()?L",":L"");}
- f<<L"],\"stress\":{\"mode\":\""<<Json(r.hardware.stress.mode)<<L"\",\"completed\":"<<(r.hardware.stress.completed?L"true":L"false")<<L",\"decision\":{\"overall\":\""<<Json(r.hardware.stress.decision.overall)<<L"\",\"stability\":\""<<Json(r.hardware.stress.decision.stability)<<L"\",\"thermal\":\""<<Json(r.hardware.stress.decision.thermal)<<L"\",\"performance\":\""<<Json(r.hardware.stress.decision.performance)<<L"\",\"coverage\":\""<<Json(r.hardware.stress.decision.coverage)<<L"\",\"confidence\":\""<<ConfidenceText(r.hardware.stress.decision.confidence)<<L"\"},\"stages\":[";
+ f<<L"],\"stress\":{\"mode\":\""<<Json(r.hardware.stress.mode)<<L"\",\"completed\":"<<(r.hardware.stress.completed?L"true":L"false")<<L",\"decision\":{\"overall\":\""<<Json(r.hardware.stress.decision.overall)<<L"\",\"stability\":\""<<Json(r.hardware.stress.decision.stability)<<L"\",\"thermal\":\""<<Json(r.hardware.stress.decision.thermal)<<L"\",\"performance\":\""<<Json(r.hardware.stress.decision.performance)<<L"\",\"coverage\":\""<<Json(r.hardware.stress.decision.coverage)<<L"\",\"confidence\":\""<<ConfidenceText(r.hardware.stress.decision.confidence)<<L"\",\"reasons\":[";for(size_t i=0;i<r.hardware.stress.decision.reasons.size();++i)f<<L"\""<<Json(r.hardware.stress.decision.reasons[i])<<L"\""<<(i+1<r.hardware.stress.decision.reasons.size()?L",":L"");f<<L"]},\"stages\":[";
  for(size_t i=0;i<r.hardware.stress.stages.size();++i){auto&s=r.hardware.stress.stages[i];f<<L"{\"name\":\""<<Json(s.name)<<L"\",\"verdict\":\""<<VerdictText(s.verdict)<<L"\",\"elapsedSeconds\":"<<s.elapsedSeconds<<L",\"newWhea\":"<<s.newWhea<<L",\"newDisk\":"<<s.newDisk<<L",\"newNvme\":"<<s.newNvme<<L",\"newDisplay\":"<<s.newDisplay<<L",\"newBugCheck\":"<<s.newBugCheck<<L",\"telemetrySamples\":"<<s.telemetrySummary.sampleCount<<L",\"avgCpuUtil\":"<<s.telemetrySummary.avgCpuUtil<<L",\"maxGpuTempC\":"<<s.telemetrySummary.maxGpuTempC<<L",\"ramMismatches\":"<<s.ram.mismatches<<L",\"vramErrors\":"<<s.gpuVram.errors<<L"}"<<(i+1<r.hardware.stress.stages.size()?L",":L"");}
  f<<L"]},\"functional\":{\"overall\":\""<<Json(r.hardware.stress.functional.overall)<<L"\",\"passed\":"<<r.hardware.stress.functional.passed<<L",\"failed\":"<<r.hardware.stress.functional.failed<<L",\"warning\":"<<r.hardware.stress.functional.warning<<L",\"notTested\":"<<r.hardware.stress.functional.notTested<<L",\"manualRequired\":"<<r.hardware.stress.functional.manualRequired<<L",\"items\":[";
  for(size_t i=0;i<r.hardware.stress.functional.items.size();++i){auto&x=r.hardware.stress.functional.items[i];f<<L"{\"id\":\""<<Json(x.id)<<L"\",\"name\":\""<<Json(x.name)<<L"\",\"status\":\""<<FunctionalStatusText(x.status)<<L"\",\"detail\":\""<<Json(x.detail)<<L"\",\"evidence\":\""<<Json(x.evidence)<<L"\"}"<<(i+1<r.hardware.stress.functional.items.size()?L",":L"");}
- f<<L"]}},\n\"findings\":[\n";
+ f<<L"]},\"portPower\":{\"overall\":\""<<Json(r.hardware.stress.portPower.overall)<<L"\",\"ports\":[";for(size_t i=0;i<r.hardware.stress.portPower.ports.size();++i){auto&x=r.hardware.stress.portPower.ports[i];f<<L"{\"label\":\""<<Json(x.portLabel)<<L"\",\"verdict\":\""<<Json(x.verdict)<<L"\",\"instanceId\":\""<<Json(x.instanceId)<<L"\",\"locationPath\":\""<<Json(x.locationPath)<<L"\"}"<<(i+1<r.hardware.stress.portPower.ports.size()?L",":L"");}f<<L"]},\"runtimeValidation\":{\"overall\":\""<<Json(r.hardware.stress.runtimeValidation.overall)<<L"\",\"failed\":"<<r.hardware.stress.runtimeValidation.failed<<L",\"warning\":"<<r.hardware.stress.runtimeValidation.warning<<L"},\"chassisProfile\":{\"id\":\""<<Json(r.hardware.stress.chassisProfile.profileId)<<L"\",\"requiredRemaining\":"<<RequiredPortsRemaining(r.hardware.stress.chassisProfile)<<L"},\"orchestrator\":{\"overall\":\""<<Json(r.hardware.stress.orchestrator.overall)<<L"\",\"percent\":"<<r.hardware.stress.orchestrator.percent<<L"}}},\n\"findings\":[\n";
  for(size_t i=0;i<r.findings.size();++i){auto&x=r.findings[i];f<<L"{\"dimension\":\""<<ToString(x.dimension)<<L"\",\"group\":\""<<Json(x.group)<<L"\",\"name\":\""<<Json(x.name)<<L"\",\"value\":\""<<Json(x.value)<<L"\",\"expected\":\""<<Json(x.expected)<<L"\",\"state\":\""<<ToString(x.state)<<L"\",\"severity\":\""<<ToString(x.severity)<<L"\",\"evidence\":\""<<Json(x.evidence)<<L"\"}"<<(i+1<r.findings.size()?L",":L"")<<L"\n";}
- f<<L"]}\n";return p.wstring();
+ f<<L"]}\n";return WriteUtf8File(p,f.str())?p.wstring():L"";
 }
 } // namespace lap

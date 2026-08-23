@@ -18,6 +18,7 @@ std::wstring FirstToken(const std::wstring&line){auto p=line.find_first_of(L" \t
 std::wstring JString(const std::wstring&j,const wchar_t* key){std::wregex rx(std::wstring(L"\\\"")+key+L"\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");std::wsmatch m;return std::regex_search(j,m,rx)?m[1].str():L"";}
 long long JInt(const std::wstring&j,const wchar_t* key,long long def=-1){std::wregex rx(std::wstring(L"\\\"")+key+L"\\\"\\s*:\\s*(-?[0-9]+)");std::wsmatch m;return std::regex_search(j,m,rx)?std::stoll(m[1].str()):def;}
 bool JBool(const std::wstring&j,const wchar_t* key,bool def=false){std::wregex rx(std::wstring(L"\\\"")+key+L"\\\"\\s*:\\s*(true|false)");std::wsmatch m;return std::regex_search(j,m,rx)?m[1].str()==L"true":def;}
+bool HasBool(const std::wstring&j,const wchar_t*key){std::wregex rx(std::wstring(L"\\\"")+key+L"\\\"\\s*:\\s*(true|false)");return std::regex_search(j,rx);}
 std::wstring Fmt(long long x,const wchar_t* unit=L""){return x<0?L"N/A":std::to_wstring(x)+(unit?unit:L"");}
 std::wstring Fmt1(double x,const wchar_t* unit=L""){if(x<0)return L"N/A";wchar_t b[64];swprintf_s(b,L"%.1f%s",x,unit);return b;}
 StorageDevice* MatchStorage(AuditReport&r,const std::wstring&model,const std::wstring&serial){
@@ -27,6 +28,15 @@ StorageDevice* MatchStorage(AuditReport&r,const std::wstring&model,const std::ws
  }
  r.hardware.storage.push_back(StorageDevice{});return &r.hardware.storage.back();
 }
+}
+
+bool ParseSmartctlHealthJson(const std::wstring&j,StorageDevice&sd,std::wstring&error){
+ error.clear();if(j.empty()||j.front()!=L'{'||j.back()!=L'}'){error=L"Malformed smartctl JSON object";return false;}
+ if(!HasBool(j,L"passed")){error=L"Missing explicit SMART health verdict";return false;}
+ sd.model=JString(j,L"model_name");sd.serialNumber=JString(j,L"serial_number");sd.firmware=JString(j,L"firmware_version");
+ sd.smartReadable=true;sd.smartPassed=JBool(j,L"passed",false);sd.criticalWarning=JInt(j,L"critical_warning");sd.percentageUsed=JInt(j,L"percentage_used");
+ sd.enduranceRemaining=sd.percentageUsed>=0?std::max<long long>(0,100-sd.percentageUsed):-1;sd.availableSpare=JInt(j,L"available_spare");sd.spareThreshold=JInt(j,L"available_spare_threshold");
+ sd.mediaErrors=JInt(j,L"media_errors");sd.errorLogEntries=JInt(j,L"num_err_log_entries");sd.unsafeShutdowns=JInt(j,L"unsafe_shutdowns");sd.powerOnHours=JInt(j,L"power_on_hours");sd.powerCycles=JInt(j,L"power_cycles");sd.temperatureC=JInt(j,L"temperature");sd.dataUnitsRead=JInt(j,L"data_units_read");sd.dataUnitsWritten=JInt(j,L"data_units_written");sd.approxDataReadTB=NvmeDataUnitsToTB(sd.dataUnitsRead);sd.approxDataWrittenTB=NvmeDataUnitsToTB(sd.dataUnitsWritten);return true;
 }
 
 void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,const std::wstring&dir,const std::atomic_bool* cancel){
@@ -39,10 +49,10 @@ void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,co
  for(const auto&dev:devices){
    auto pr=RunProcessCapture(exe+L" -a -j \""+dev+L"\"",30000,cancel);
    if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"Storage",L"SMART "+dev,L"Could not read",L"Readable SMART",State::Warning,Severity::Critical,Dimension::Health);continue;}
-   auto model=JString(pr.output,L"model_name"),serial=JString(pr.output,L"serial_number"),fw=JString(pr.output,L"firmware_version");
-   auto crit=JInt(pr.output,L"critical_warning"),used=JInt(pr.output,L"percentage_used"),spare=JInt(pr.output,L"available_spare"),spareTh=JInt(pr.output,L"available_spare_threshold");
-   auto media=JInt(pr.output,L"media_errors"),errlog=JInt(pr.output,L"num_err_log_entries"),unsafe=JInt(pr.output,L"unsafe_shutdowns"),hours=JInt(pr.output,L"power_on_hours"),cycles=JInt(pr.output,L"power_cycles");
-   auto temp=JInt(pr.output,L"temperature"),readUnits=JInt(pr.output,L"data_units_read"),writeUnits=JInt(pr.output,L"data_units_written"); bool smart=JBool(pr.output,L"passed",true);
+   StorageDevice parsed{};std::wstring parseError;if(!ParseSmartctlHealthJson(pr.output,parsed,parseError)){Add(r,L"Storage",L"SMART "+dev,parseError,L"Explicit SMART health schema",State::NotTested,Severity::Critical,Dimension::Health,L"smartctl JSON rejected");continue;}
+   auto model=parsed.model,serial=parsed.serialNumber,fw=parsed.firmware;auto crit=parsed.criticalWarning,used=parsed.percentageUsed,spare=parsed.availableSpare,spareTh=parsed.spareThreshold;
+   auto media=parsed.mediaErrors,errlog=parsed.errorLogEntries,unsafe=parsed.unsafeShutdowns,hours=parsed.powerOnHours,cycles=parsed.powerCycles;
+   auto temp=parsed.temperatureC,readUnits=parsed.dataUnitsRead,writeUnits=parsed.dataUnitsWritten;bool smart=parsed.smartPassed;
 
    StorageDevice* sd=MatchStorage(r,model,serial);sd->devicePath=dev;if(!model.empty())sd->model=model;if(!serial.empty())sd->serialNumber=serial;if(!fw.empty())sd->firmware=fw;
    sd->smartReadable=true;sd->smartPassed=smart;sd->criticalWarning=crit;sd->percentageUsed=used;sd->enduranceRemaining=(used>=0?std::max<long long>(0,100-used):-1);sd->availableSpare=spare;sd->spareThreshold=spareTh;

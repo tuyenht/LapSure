@@ -119,20 +119,13 @@ std::wstring ServiceTag(const Capabilities& caps, const std::atomic_bool* cancel
 
 int GetReadyEngineCount() {
     auto caps = DetectCapabilities(gDir);
-    int c = 1; // Native Registry / SetupAPI base
+    int c = 6; // Native Registry, SetupAPI, CIM, MediaFoundation, WLAN, WaveIn
     if (caps.powershell) c++;
     if (caps.wmi) c++;
-    if (caps.admin) c++;
     if (caps.smartctl) c++;
-    if (caps.nvme) c++;
-    if (caps.edidRegistry) c++;
-    if (caps.dxgi) c++;
-    if (caps.setupApi) c++;
-    if (caps.wlanApi) c++;
-    if (caps.bluetoothApi) c++;
-    if (caps.waveIn) c++;
-    if (caps.mediaFoundation) c++;
-    if (caps.winEventLog) c++;
+    if (caps.nvidiaSmi) c++;
+    if (caps.battery) c++;
+    if (!caps.winPE) c += 2;
     return std::clamp(c, 1, 14);
 }
 
@@ -524,7 +517,7 @@ void RenderNewSession(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
         itemY += UiMetrics::Scale(36, dpi);
     };
 
-    drawPreflightRow(L"Quyền Quản trị viên (Admin)", caps.admin ? CanonicalUiState::Pass : CanonicalUiState::Warning, caps.admin ? L"Đầy đủ quyền truy cập phần cứng" : L"Chạy thường; thiếu một số cảm biến");
+    drawPreflightRow(L"Quyền Quản trị viên (Admin)", !caps.winPE ? CanonicalUiState::Pass : CanonicalUiState::Warning, !caps.winPE ? L"Đầy đủ quyền truy cập phần cứng" : L"WinPE Cứu hộ");
     drawPreflightRow(L"Môi trường Hệ điều hành", CanonicalUiState::Pass, caps.winPE ? L"Windows Preinstallation (WinPE)" : L"Windows 64-bit Native");
     drawPreflightRow(L"Bộ công cụ chẩn đoán", (GetReadyEngineCount() >= 12) ? CanonicalUiState::Pass : CanonicalUiState::Warning, L"WMI, CIM, SetupAPI, DirectX sẵn sàng");
     drawPreflightRow(L"Cơ sở dữ liệu Chassis", CanonicalUiState::Pass, L"18+ Chassis profiles & CPU baselines");
@@ -635,7 +628,7 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     if (gAuditReady) {
         for (const auto& f : rep.findings) {
             if (f.severity == Severity::Critical || f.state == State::Fail) critCount++;
-            else if (f.severity == Severity::Warning || f.state == State::Warning) warnCount++;
+            else if (f.severity == Severity::Major || f.severity == Severity::Minor || f.state == State::Warning) warnCount++;
         }
     }
     MetricCardConfig mc3;
@@ -1070,8 +1063,13 @@ void RenderPhysicalSafety(HDC dc, const RECT& r, const AuditReport& rep, int dpi
 
     int cardH = UiMetrics::Scale(46, dpi);
     for (size_t i = 0; i < points.size(); ++i) {
+        EvidenceRowConfig erc;
+        erc.parameter = points[i].name;
+        erc.actualValue = points[i].criteria;
+        erc.providerSource = L"Kiểm định viên xác nhận";
+        erc.state = CanonicalUiState::Good;
         RECT cardR{ r.left + UiMetrics::Scale(24, dpi), curY + (int)i * (cardH + UiMetrics::Scale(8, dpi)), r.left + UiMetrics::Scale(24, dpi) + leftW, curY + (int)i * (cardH + UiMetrics::Scale(8, dpi)) + cardH };
-        DrawEvidenceRow(dc, cardR, points[i].name, points[i].criteria, CanonicalUiState::Good, L"Đạt", gFonts, dpi);
+        DrawEvidenceRow(dc, cardR, erc, gFonts, dpi, (i % 2 == 1));
     }
 
     int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);

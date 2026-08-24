@@ -39,8 +39,10 @@ assert "if (actionFocus != 3) return 0;" in keyboard, "screen-aware secondary CT
 focus2_start = keyboard.index("if (actionFocus == 2)")
 focus2_end = keyboard.index("if (actionFocus != 3)", focus2_start)
 focus2 = keyboard[focus2_start:focus2_end]
-assert "switch (gCurrentTab)" in focus2, "focus-2 activation is not screen-aware"
-assert "StartAudit(h);" in focus2, "supported audit screens lost their start/stop action"
+assert "gCurrentTab == MainTab::Dashboard" in focus2, "focus-2 must belong only to the visible S01 top CTA"
+assert "StartAudit(h);" in focus2, "S01 top-level audit action was lost"
+for hidden in ["MainTab::AutoAudit", "MainTab::NewSession", "MainTab::Stress"]:
+    assert hidden not in focus2, f"focus-2 still activates an invisible top CTA on {hidden}"
 assert "case MainTab::Memory:" in keyboard, "S11 primary action is not keyboard reachable"
 
 # S22/S23 have multiple actions; keyboard focus must not silently choose one.

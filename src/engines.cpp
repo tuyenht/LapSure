@@ -76,7 +76,7 @@ void CollectWindowsStorageReliability(AuditReport&r,const Capabilities&c,const s
 
 void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,const std::wstring&dir,const std::atomic_bool* cancel){
  if(!c.smartctl){const bool native=!r.hardware.storage.empty()&&std::all_of(r.hardware.storage.begin(),r.hardware.storage.end(),[](const auto&d){return d.reliabilityReadable;});Add(r,L"Storage",L"Advanced SMART/NVMe log",L"smartctl unavailable",L"Advanced controller log",State::NotTested,native?Severity::Minor:Severity::Critical,Dimension::Health,native?L"Advanced enrichment unavailable; native reliability evidence remains available":L"No storage-health provider available");return;}
- std::wstring exe=Exists(dir+L"\\tools\\smartctl.exe")?L"\""+dir+L"\\tools\\smartctl.exe\"":L"smartctl.exe";
+ std::wstring exe=L"\""+dir+L"\\tools\\smartctl.exe\"";
  auto scan=RunProcessCapture(exe+L" --scan-open",15000,cancel);
  if(!scan.launched||scan.timedOut||scan.output.empty()){Add(r,L"Storage",L"SMART device scan",scan.error.empty()?L"No devices returned":scan.error,L"Detected storage",State::Warning,Severity::Major,Dimension::Health);return;}
  std::vector<std::wstring> devices;for(auto&line:SplitLines(scan.output)){auto d=FirstToken(line);if(!d.empty()&&d[0]==L'/')devices.push_back(d);}
@@ -105,7 +105,7 @@ void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,co
 
 void CollectNvidia(AuditReport&r,const FactoryProfile&p,const Capabilities&c,const std::wstring&dir,const std::atomic_bool* cancel){
  if(!c.nvidiaSmi){Add(r,L"GPU",L"NVIDIA telemetry",L"nvidia-smi unavailable",L"GPU/VRAM telemetry",State::NotTested,Severity::Major,Dimension::Health);return;}
- std::wstring exe=Exists(dir+L"\\tools\\nvidia-smi.exe")?L"\""+dir+L"\\tools\\nvidia-smi.exe\"":L"nvidia-smi.exe";
+ std::wstring exe=L"\""+dir+L"\\tools\\nvidia-smi.exe\"";
  auto pr=RunProcessCapture(exe+L" --query-gpu=name,serial,uuid,vbios_version,driver_version,memory.total,temperature.gpu,temperature.gpu.tlimit,pstate,power.draw,power.limit,utilization.gpu,utilization.memory --format=csv,noheader,nounits",15000,cancel);
  if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"GPU",L"NVIDIA telemetry",pr.error.empty()?L"No output":pr.error,L"",State::Warning,Severity::Major,Dimension::Health);return;}
  for(const auto&line:SplitLines(pr.output)){

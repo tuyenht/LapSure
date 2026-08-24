@@ -41,3 +41,5 @@ python tests\production_hardening_round3_interactions_sanity.py
 if errorlevel 1 exit /b 1
 python tests\production_hardening_keyboard_dispatch_sanity.py
 if errorlevel 1 exit /b 1
+python tests\production_security_hardening_sanity.py
+if errorlevel 1 exit /b 1

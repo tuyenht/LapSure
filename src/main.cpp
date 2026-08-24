@@ -2628,7 +2628,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     case WM_COMMAND: {
         int id = LOWORD(w);
         if (id == 1) StartAudit(h);
-        else if (id == 2 && !gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+        else if (id == 2) {
+            if (!gReportPath.empty() && IsTrustedSessionArtifactPath(gReportPath)) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+            else if (!gReportPath.empty()) MessageBoxW(h, L"Đường dẫn báo cáo không vượt qua kiểm tra vùng tin cậy.", L"LapSure", MB_OK | MB_ICONERROR);
+            return 0;
+        }
         else if (id == 1201) { if (CanRunManualTest(h)) CommitManualResult(RunDisplayColorWizard(h)); return 0; }
         else if (id == 1202) { if (CanRunManualTest(h)) CommitManualResult(RunKeyboardWizard(h)); return 0; }
         else if (id == 1203) { if (CanRunManualTest(h)) { auto caps = DetectCapabilities(gDir); auto fc = DetectFunctionalCapabilities(caps, &gCancel); CommitManualResult(RunTouchGridWizard(h, fc.touchPresent)); } return 0; }
@@ -2652,7 +2656,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 if (!prof.ports.empty() && !SelectNextChassisPort(h, prof, label, cap)) return 0;
                 CommitPortResultGuided(RunPhysicalPortProbe(h, label, &gCancel));
             }
-            else if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+            else if (!gReportPath.empty() && IsTrustedSessionArtifactPath(gReportPath)) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+            else if (!gReportPath.empty()) MessageBoxW(h, L"Đường dẫn báo cáo không vượt qua kiểm tra vùng tin cậy.", L"LapSure", MB_OK | MB_ICONERROR);
             return 0;
         }
         return 0;

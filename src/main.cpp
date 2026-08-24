@@ -2557,8 +2557,58 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             return 0;
         case VK_RETURN:
         case VK_SPACE:
-            if (gFocusIndex == 2) StartAudit(h);
-            else if (gFocusIndex == 3) PostMessageW(h, WM_COMMAND, 1300, 0);
+            if (gFocusIndex == 2) {
+                StartAudit(h);
+                return 0;
+            }
+            if (gFocusIndex != 3) return 0;
+
+            // Screen-aware primary action dispatch. Keyboard activation must never
+            // execute a generic action that does not match the visible screen CTA.
+            switch (gCurrentTab) {
+            case MainTab::Dashboard:
+            case MainTab::AutoAudit:
+            case MainTab::Functional:
+                PostMessageW(h, WM_COMMAND, 1300, 0);
+                break;
+            case MainTab::NewSession:
+            case MainTab::Stress:
+                StartAudit(h);
+                break;
+            case MainTab::SellerClaim:
+                PostMessageW(h, WM_COMMAND, 1209, 0);
+                break;
+            case MainTab::PhysicalSafety:
+                PostMessageW(h, WM_COMMAND, 1208, 0);
+                break;
+            case MainTab::PortsPower:
+                PostMessageW(h, WM_COMMAND, 1207, 0);
+                break;
+            case MainTab::Display:
+                PostMessageW(h, WM_COMMAND, 1201, 0);
+                break;
+            case MainTab::AudioCamera:
+                PostMessageW(h, WM_COMMAND, 1212, 0);
+                break;
+            case MainTab::Network:
+                PostMessageW(h, WM_COMMAND, 1213, 0);
+                break;
+            case MainTab::Reports:
+                gCurrentTab = MainTab::ExportShare;
+                InvalidateRect(h, nullptr, FALSE);
+                break;
+            case MainTab::ExportShare:
+                if (!gReportPath.empty() && IsTrustedSessionArtifactPath(gReportPath)) {
+                    ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+                } else {
+                    MessageBoxW(h, L"Phiên hiện tại chưa có HTML report tin cậy để mở.", L"LapSure", MB_OK | MB_ICONINFORMATION);
+                }
+                break;
+            default:
+                // Screens with no single primary CTA (or multiple actions such as
+                // history/recovery) require explicit pointer/focus selection.
+                break;
+            }
             return 0;
         }
         break;

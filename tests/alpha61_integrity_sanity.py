@@ -12,7 +12,7 @@ checks=[
 ("Manual tests blocked during audit","if(gRunning)" in main[main.find("bool CanRunManualTest"):main.find("void CommitManualResult")]),
 ("Manual tests require audit snapshot","!gAuditReady" in main),
 ("Manual result rebuilds decision","BuildAuditDecision(gReport)" in main),
-("Manual result rewrites reports","SaveHtmlReport(gReport" in main and "SaveJsonReport(gReport" in main),
+("Manual result rewrites reports transactionally","PersistReportBundle(gReport, out)" in main and "SaveHtmlReport(report, outputDir)" in main and "SaveJsonReport(report, outputDir)" in main),
 ("Functional buttons disabled initially","EnableWindow(gFuncDisplay,FALSE)" in main),
 ("Functional buttons enabled after successful audit","SetFunctionalButtonsEnabled(w?FALSE:TRUE)" in main),
 ("Color wnd proc forwards LPARAM","DefWindowProcW(h,msg,w,l)" in fn),

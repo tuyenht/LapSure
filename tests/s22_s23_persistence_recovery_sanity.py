@@ -27,7 +27,9 @@ assert "struct SessionHistoryEntry" in HISTORY_H
 assert "session_history.tsv" in HISTORY
 assert "MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH" in HISTORY
 assert "GetSessionHistorySnapshot()" in UI
-assert "Không có phiên đã lưu" in UI
+assert "if (history.empty())" in UI
+assert "CanonicalUiState::Empty" in UI
+assert "Không tạo phiên mẫu" in UI
 assert "không có lịch sử cloud" in UI
 assert "DeleteSessionHistoryEntry" in MAIN
 assert "YES: xóa mục lịch sử VÀ các file report/evidence" in MAIN

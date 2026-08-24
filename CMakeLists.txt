@@ -6,9 +6,14 @@ if(MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 add_executable(LapSure WIN32
-    src/main.cpp src/ui_renderer.cpp src/ui_state.cpp src/ui_components.cpp src/ui_screens.cpp src/process.cpp src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/hardware.cpp src/edid.cpp src/inventory.cpp src/engines.cpp src/forensics.cpp src/sensors.cpp src/telemetry.cpp src/trust.cpp src/journal.cpp src/baseline.cpp src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/port_power.cpp src/devpkey_defs.cpp src/chassis_profile.cpp src/port_selector.cpp src/orchestrator.cpp src/runtime_validation.cpp src/scoring.cpp src/stress.cpp src/report.cpp
+    src/main.cpp src/ui_renderer.cpp src/ui_state.cpp src/ui_components.cpp src/ui_screens.cpp src/ui_screens_s01_s04_v2.cpp src/process.cpp src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/hardware.cpp src/edid.cpp src/inventory.cpp src/engines.cpp src/forensics.cpp src/sensors.cpp src/telemetry.cpp src/trust.cpp src/journal.cpp src/baseline.cpp src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/port_power.cpp src/devpkey_defs.cpp src/chassis_profile.cpp src/port_selector.cpp src/orchestrator.cpp src/runtime_validation.cpp src/scoring.cpp src/stress.cpp src/report.cpp
     resources/resource.rc
     app.manifest
+)
+# Keep the legacy S01/S04 implementation compiled only as explicitly named fallback symbols.
+# Runtime callers keep the canonical names, which are implemented by ui_screens_s01_s04_v2.cpp.
+set_source_files_properties(src/ui_screens.cpp PROPERTIES
+  COMPILE_DEFINITIONS "RenderScreenS01_Overview=RenderScreenS01_Overview_Legacy;RenderScreenS04_AutoAudit=RenderScreenS04_AutoAudit_Legacy"
 )
 target_include_directories(LapSure PRIVATE include)
 target_compile_definitions(LapSure PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)

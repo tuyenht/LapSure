@@ -1,15 +1,35 @@
 name: windows-msvc-build
-on: [push, pull_request]
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, ready_for_review, converted_to_draft ]
+    paths-ignore:
+      - 'docs/**'
+      - 'design/**'
+      - '**/*.md'
+  workflow_dispatch:
+
 permissions:
   contents: read
 
+concurrency:
+  group: windows-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: windows-2022
+    timeout-minutes: 30
     env:
       SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify CI cost-control policy
+        shell: cmd
+        run: python tests\ci_cost_control_policy.py
 
       - name: Full regression suite
         shell: cmd
@@ -41,14 +61,17 @@ jobs:
           if ($report.hardware.stress.decision.overall -ne "INCOMPLETE") { throw "Inventory-only verdict must remain INCOMPLETE" }
 
       - name: Package portable distribution
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: powershell
         run: .\package_portable.ps1 -BuildDir ".\out\build\msvc-x64-ci\Release" -OutputDir ".\out\portable"
 
       - name: Verify portable package integrity
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         shell: powershell
         run: .\validation\verify_portable_package.ps1 -ZipPath ".\out\LapSure-windows-x64-portable.zip" -ExpectedCommit "$env:SOURCE_COMMIT"
 
       - name: Upload portable package
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: LapSure-windows-x64-portable

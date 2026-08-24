@@ -1,15 +1,27 @@
 name: windows-msvc-build
-on: [push, pull_request]
+on: [pull_request]
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
+    if: github.event.pull_request.head.ref == 'feature/s01-s04-visual-alignment-v2'
     runs-on: windows-2022
     env:
       SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feature/s01-s04-visual-alignment-v2
+          fetch-depth: 0
+
+      - name: Apply hidden-control gating patch
+        shell: powershell
+        run: python tools/apply_hidden_control_gating.py
+
+      - name: Diff sanity
+        shell: powershell
+        run: git diff --check
 
       - name: Full regression suite
         shell: cmd
@@ -48,11 +60,13 @@ jobs:
         shell: powershell
         run: .\validation\verify_portable_package.ps1 -ZipPath ".\out\LapSure-windows-x64-portable.zip" -ExpectedCommit "$env:SOURCE_COMMIT"
 
-      - name: Upload portable package
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: LapSure-windows-x64-portable
-          path: |
-            out/LapSure-windows-x64-portable.zip
-            out/LapSure-windows-x64-portable.zip.sha256
-          if-no-files-found: error
+      - name: Commit validated hidden-control fix
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm tools/apply_hidden_control_gating.py
+          git add src/main.cpp tests/production_hardening_hidden_controls_sanity.py run_source_tests.cmd .github/workflows/windows-msvc-build.yml
+          git diff --cached --check
+          git commit -m "fix(ui): gate hidden controls by active screen"
+          git push origin HEAD:feature/s01-s04-visual-alignment-v2

@@ -34,6 +34,14 @@ jobs:
           ref: feature/s01-s04-visual-alignment-v2
           fetch-depth: 0
 
+      - name: Normalize temporary patch script quoting
+        shell: pwsh
+        run: |
+          $p = 'tools/apply_s01_s04_semantic_fixes.py'
+          $s = Get-Content -LiteralPath $p -Raw -Encoding UTF8
+          $s = $s.Replace("'''',", '"",')
+          Set-Content -LiteralPath $p -Value $s -Encoding UTF8
+
       - name: Apply deterministic semantic patch
         shell: pwsh
         run: python tools/apply_s01_s04_semantic_fixes.py

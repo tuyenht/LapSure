@@ -207,9 +207,6 @@ void RenderScreenS17_EvidenceLibrary(HDC dc, const RECT& r, const AuditReport& r
 
 static RECT ScreenS18ActionPanelRect(const RECT& r, int dpi) {
     const RECT body = ContentBody(r, dpi);
-    const int gap = UiMetrics::Scale(10, dpi);
-    const int kpiH = UiMetrics::Scale(92, dpi);
-    const int tableTop = body.top + kpiH + UiMetrics::Scale(34, dpi);
     const int sideW = UiMetrics::Scale(320, dpi);
     const int actionH = UiMetrics::Scale(188, dpi);
     return RECT{body.right - sideW, body.bottom - actionH, body.right, body.bottom};

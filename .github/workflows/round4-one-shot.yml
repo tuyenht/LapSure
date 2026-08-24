@@ -2,21 +2,19 @@ name: Round 4 one-shot validation
 
 on:
   pull_request:
-    types: [ready_for_review]
+    types: [synchronize]
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   validate-commit-clean:
-    if: github.event.pull_request.head.ref == 'feature/s01-s04-visual-alignment-v2'
+    if: github.event.pull_request.head.ref == 'feature/s01-s04-visual-alignment-v2' && github.event.pull_request.draft == true
     runs-on: windows-2022
     timeout-minutes: 40
     env:
       RED_BASE: 6dd193e1c813ff71732b887436cb38e49a72bf46
       FEATURE_BRANCH: feature/s01-s04-visual-alignment-v2
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -103,8 +101,6 @@ jobs:
           .\package_portable.ps1 -BuildDir ".\out\build\msvc-x64-ci\Release" -OutputDir ".\out\portable"
           .\validation\verify_portable_package.ps1 -ZipPath ".\out\LapSure-windows-x64-portable.zip" -ExpectedCommit "$env:SOURCE_COMMIT"
 
-      - name: Return PR to Draft and publish validated candidate
+      - name: Publish validated candidate
         shell: powershell
-        run: |
-          gh pr ready 2 --undo --repo tuyenht/LapSure
-          git push origin HEAD:$env:FEATURE_BRANCH
+        run: git push origin HEAD:$env:FEATURE_BRANCH

@@ -1,0 +1,45 @@
+name: Apply Round4A Interaction Hardening
+on:
+  push:
+    branches: [feature/s01-s04-visual-alignment-v2]
+    paths:
+      - tools/apply_round4a_interaction.py
+      - .github/workflows/apply-round4a-interaction.yml
+permissions:
+  contents: write
+jobs:
+  apply-validate-clean:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feature/s01-s04-visual-alignment-v2
+          fetch-depth: 0
+      - name: Apply interaction patch
+        shell: pwsh
+        run: python tools/apply_round4a_interaction.py
+      - name: Diff sanity
+        shell: pwsh
+        run: git diff --check
+      - name: Full source regression suite
+        shell: cmd
+        run: run_source_tests.cmd
+      - name: Configure strict MSVC x64
+        shell: cmd
+        run: cmake --preset msvc-x64-ci
+      - name: Build Release
+        shell: cmd
+        run: cmake --build --preset build-msvc-x64-ci
+      - name: Behavioral tests
+        shell: cmd
+        run: ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
+      - name: Commit validated production change and remove migration scaffolding
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.cpp tests/production_hardening_keyboard_dispatch_sanity.py tests/s11_primary_action_sanity.py run_source_tests.cmd docs/superpowers/specs/2026-08-24-production-hardening-round4-design.md docs/superpowers/plans/2026-08-24-production-hardening-round4.md
+          git rm tools/apply_round4a_interaction.py .github/workflows/apply-round4a-interaction.yml
+          git commit -m "fix(ui): make primary actions screen-aware"
+          git push origin HEAD:feature/s01-s04-visual-alignment-v2

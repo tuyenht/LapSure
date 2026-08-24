@@ -51,11 +51,14 @@ assert "decision.reasons" in UI
 assert "requiredComplete" in UI and "requiredTotal" in UI
 assert "Không phải điểm sức khỏe" in UI
 
-# S19 exposes only actually implemented report backends.
-assert 'L"HTML", L"HỖ TRỢ"' in UI
-assert 'L"JSON", L"HỖ TRỢ"' in UI
+# S19 distinguishes backend support from actual persisted artifact availability.
+assert "GetSessionHistorySnapshot()" in UI
+assert "IsTrustedSessionArtifactPath(htmlPath)" in UI
+assert "IsTrustedSessionArtifactPath(jsonPath)" in UI
+assert 'htmlReady ? L"ĐÃ TẠO" : L"CHƯA TẠO"' in UI
+assert 'jsonReady ? L"ĐÃ TẠO" : L"CHƯA TẠO"' in UI
 assert 'L"PDF / Ký số", L"CHƯA HỖ TRỢ"' in UI
-assert "không tuyên bố có cloud sharing hoặc PDF" in UI
+assert "PDF, ký số và cloud sharing không được giả lập" in UI
 
 # S20 uses live logs and EventLog counts without claiming causality.
 assert "liveLogs" in UI

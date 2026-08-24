@@ -32,10 +32,6 @@ else()
 endif()
 # mf.lib provides MFEnumDeviceSources; uuid.lib provides standard Windows GUID imports.
 target_link_libraries(LapSure PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm winhttp mf mfplat mfreadwrite mfuuid wlanapi bthprops uuid)
-add_custom_command(TARGET LapSure POST_BUILD
-    COMMAND powershell -Command "if (Test-Path '$<TARGET_FILE:LapSure>') { Copy-Item '$<TARGET_FILE:LapSure>' '${CMAKE_SOURCE_DIR}/bin/LapSure.exe' -Force -ErrorAction SilentlyContinue; Copy-Item '$<TARGET_FILE:LapSure>' '${CMAKE_SOURCE_DIR}/LapSure.exe' -Force -ErrorAction SilentlyContinue }"
-    COMMENT "Syncing LapSure.exe to bin/ and root directory"
-)
 install(TARGETS LapSure RUNTIME DESTINATION .)
 
 include(CTest)

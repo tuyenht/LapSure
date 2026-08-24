@@ -7,6 +7,18 @@ on:
     paths:
       - tools/apply_s01_s04_semantic_fixes.py
       - .github/workflows/apply-s01-s04-semantic-fixes.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - tools/apply_s01_s04_semantic_fixes.py
+      - .github/workflows/apply-s01-s04-semantic-fixes.yml
+      - src/ui_screens_s01_s04_v2.cpp
+      - src/ui_shell_dynamic.cpp
+      - src/main.cpp
+      - CMakeLists.txt
+      - src/scoring.cpp
+      - tests/s01_s04_dynamic_binding_sanity.py
 
 permissions:
   contents: write
@@ -47,6 +59,7 @@ jobs:
         run: ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
 
       - name: Commit validated runtime fixes
+        if: github.event_name == 'push'
         shell: pwsh
         run: |
           $changed = git status --porcelain -- src/ui_screens_s01_s04_v2.cpp src/main.cpp CMakeLists.txt

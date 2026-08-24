@@ -77,5 +77,9 @@ for symbol in [
 ]:
     assert f"{symbol}={symbol}_Legacy" in CMAKE, f"legacy route missing for {symbol}"
 
+# One-shot migration scaffolding must never remain in a mergeable branch.
+assert not (ROOT / "tools" / "apply_s02_s09_bindings.py").exists()
+assert not (ROOT / ".github" / "workflows" / "apply-s02-s09-bindings.yml").exists()
+
 assert "/wd" not in CMAKE
 print("S02-S09 evidence-bound renderer sanity: OK")

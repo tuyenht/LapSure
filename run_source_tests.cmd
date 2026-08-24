@@ -27,3 +27,5 @@ python tests\s10_s15_p0_evidence_sanity.py
 if errorlevel 1 exit /b 1
 python tests\s12_s14_evidence_sanity.py
 if errorlevel 1 exit /b 1
+python tests\bluetooth_functional_semantics_sanity.py
+if errorlevel 1 exit /b 1

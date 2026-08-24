@@ -757,20 +757,20 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     DrawRoundedCard(dc, btnProfileDetail, UiMetrics::RadiusSm, UiColors::GrayPillBg, UiColors::GrayPillBorder, 1);
     SetTextColor(dc, UiColors::PrimaryBlue);
     SelectObject(dc, gFonts.hSmall);
-    DrawTextW(dc, L"Xem chi tiết đối chiếu", -1, &btnProfileDetail, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    DrawTextW(dc, L"Xem chi tiết đối chiếu", -1, &btnProfileDetail, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    // 5. Domain Grid (12 Cards - Bound to real domain evidence)
-    int gridY = kpiY + kpiH + UiMetrics::Scale(14, dpi);
-    int gridCols = 4;
-    int gridW = (mainContentW - UiMetrics::Scale((gridCols - 1) * 8, dpi)) / gridCols;
-    int gridH = UiMetrics::Scale(68, dpi);
+    // 5. Domain Grid (12 Cards - 3 Columns x 4 Rows, spacious layout, zero clipping)
+    int gridY = kpiY + kpiH + UiMetrics::Scale(12, dpi);
+    int gridCols = 3;
+    int gridW = (mainContentW - UiMetrics::Scale((gridCols - 1) * 10, dpi)) / gridCols;
+    int gridH = UiMetrics::Scale(64, dpi);
 
     // Dynamic domain evaluation (strictly bound to individual domain evidence)
     auto& f = rep.hardware.stress.functional;
     CanonicalUiState stSystem = (!rep.model.empty()) ? CanonicalUiState::Pass : CanonicalUiState::NotTested;
     CanonicalUiState stRam = (rep.hardware.installedRamBytes > 0) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     CanonicalUiState stStorage = (!rep.hardware.storage.empty()) ? ((!rep.hardware.storage.front().smartPassed && rep.hardware.storage.front().smartReadable) ? CanonicalUiState::Fail : CanonicalUiState::Good) : CanonicalUiState::NotTested;
-    CanonicalUiState stBattery = (rep.hardware.battery.present && rep.hardware.battery.healthPercent > 0) ? ((rep.hardware.battery.healthPercent < 50) ? CanonicalUiState::Warning : CanonicalUiState::Good) : CanonicalUiState::NotTested;
+    CanonicalUiState stBattery = (rep.hardware.battery.present && rep.hardware.battery.healthPercent > 0) ? ((rep.hardware.battery.healthPercent < 50) ? CanonicalUiState::Warning : CanonicalUiState::Good) : (rep.hardware.battery.present ? CanonicalUiState::NotTested : CanonicalUiState::Unsupported);
     CanonicalUiState stGpu = (!rep.hardware.gpus.empty()) ? CanonicalUiState::Good : CanonicalUiState::NotTested;
     CanonicalUiState stDisplay = GetFunctionalItemUiState(f, L"display_visual");
     CanonicalUiState stKeyboard = GetFunctionalItemUiState(f, L"keyboard_matrix");
@@ -800,7 +800,7 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
     for (size_t i = 0; i < domains.size(); ++i) {
         int row = (int)i / gridCols;
         int col = (int)i % gridCols;
-        int gx = r.left + UiMetrics::Scale(24, dpi) + col * (gridW + UiMetrics::Scale(8, dpi));
+        int gx = r.left + UiMetrics::Scale(24, dpi) + col * (gridW + UiMetrics::Scale(10, dpi));
         int gy = gridY + row * (gridH + UiMetrics::Scale(8, dpi));
         RECT gr{ gx, gy, gx + gridW, gy + gridH };
         DrawRoundedCard(dc, gr, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
@@ -809,35 +809,55 @@ void RenderDashboard(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
         std::wstring nameStr = std::wstring(domains[i].icon) + L" " + domains[i].name;
         TextOutW(dc, gr.left + UiMetrics::Scale(12, dpi), gr.top + UiMetrics::Scale(8, dpi), nameStr.c_str(), (int)nameStr.size());
 
-        int bw = UiMetrics::Scale(70, dpi);
-        int bh = UiMetrics::Scale(18, dpi);
+        int bw = UiMetrics::Scale(85, dpi);
+        int bh = UiMetrics::Scale(20, dpi);
         DrawStatusBadge(dc, gr.right - bw - UiMetrics::Scale(10, dpi), gr.top + UiMetrics::Scale(8, dpi), bw, bh, domains[i].state, gFonts);
 
         SelectObject(dc, gFonts.hSmall); SetTextColor(dc, UiColors::TextMuted);
-        TextOutW(dc, gr.left + UiMetrics::Scale(12, dpi), gr.top + UiMetrics::Scale(30, dpi), domains[i].desc, (int)wcslen(domains[i].desc));
+        TextOutW(dc, gr.left + UiMetrics::Scale(12, dpi), gr.top + UiMetrics::Scale(32, dpi), domains[i].desc, (int)wcslen(domains[i].desc));
     }
 
-    // 6. Hardware Specifications Summary Bar
-    int specY = gridY + (gridH + UiMetrics::Scale(8, dpi)) * 3 + UiMetrics::Scale(6, dpi);
-    RECT infoCard{ r.left + UiMetrics::Scale(24, dpi), specY, r.left + UiMetrics::Scale(24, dpi) + mainContentW, r.bottom - UiMetrics::Scale(14, dpi) };
+    // 6. Hardware Specifications Summary Bar (C08 4-Chip Bar)
+    int specY = gridY + (gridH + UiMetrics::Scale(8, dpi)) * 4 + UiMetrics::Scale(4, dpi);
+    RECT infoCard{ r.left + UiMetrics::Scale(24, dpi), specY, r.left + UiMetrics::Scale(24, dpi) + mainContentW, specY + UiMetrics::Scale(82, dpi) };
     DrawRoundedCard(dc, infoCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
     SelectObject(dc, gFonts.hBodyBold); SetTextColor(dc, UiColors::TextMain);
-    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(10, dpi), L"Cấu hình phần cứng nhận diện", 28);
+    TextOutW(dc, infoCard.left + UiMetrics::Scale(14, dpi), infoCard.top + UiMetrics::Scale(8, dpi), L"Cấu hình phần cứng nhận diện", 28);
 
-    int chipX = infoCard.left + UiMetrics::Scale(14, dpi);
-    int chipY = infoCard.top + UiMetrics::Scale(34, dpi);
-    auto drawChip = [&](const std::wstring& k, const std::wstring& v, int cx, int cy) {
-        RECT cr{ cx, cy, cx + UiMetrics::Scale(180, dpi), cy + UiMetrics::Scale(42, dpi) };
+    int chipCount = 4;
+    int chipGap = UiMetrics::Scale(8, dpi);
+    int totalInsideW = (infoCard.right - infoCard.left) - UiMetrics::Scale(28, dpi);
+    int chipW = (totalInsideW - (chipCount - 1) * chipGap) / chipCount;
+    int chipH = UiMetrics::Scale(40, dpi);
+    int chipY = infoCard.top + UiMetrics::Scale(32, dpi);
+
+    auto drawChip = [&](const std::wstring& k, const std::wstring& v, int cx) {
+        RECT cr{ cx, chipY, cx + chipW, chipY + chipH };
         DrawRoundedCard(dc, cr, UiMetrics::RadiusSm, RGB(248, 250, 252), UiColors::CardBorder, 1);
         SelectObject(dc, gFonts.hSmall); SetTextColor(dc, UiColors::TextMuted);
-        TextOutW(dc, cr.left + UiMetrics::Scale(8, dpi), cr.top + UiMetrics::Scale(4, dpi), k.c_str(), (int)k.size());
+        TextOutW(dc, cr.left + UiMetrics::Scale(8, dpi), cr.top + UiMetrics::Scale(3, dpi), k.c_str(), (int)k.size());
         SelectObject(dc, gFonts.hBodyBold); SetTextColor(dc, UiColors::TextMain);
-        TextOutW(dc, cr.left + UiMetrics::Scale(8, dpi), cr.top + UiMetrics::Scale(20, dpi), v.c_str(), (int)v.size());
+        std::wstring shortV = v.empty() ? L"—" : v;
+        if (shortV.size() > 28) shortV = shortV.substr(0, 26) + L"...";
+        TextOutW(dc, cr.left + UiMetrics::Scale(8, dpi), cr.top + UiMetrics::Scale(18, dpi), shortV.c_str(), (int)shortV.size());
     };
-    drawChip(L"CPU", rep.hardware.cpuName, chipX, chipY);
+
+    std::wstring sysModel = rep.model.empty() ? Reg(L"SystemProductName") : rep.model;
+    if (sysModel.empty()) sysModel = L"Laptop Windows x64";
+    std::wstring sysCpu = rep.hardware.cpuName.empty() ? Reg(L"ProcessorNameString") : rep.hardware.cpuName;
+    if (sysCpu.empty()) sysCpu = L"CPU Multi-Core x64";
     std::wstring ramStr = (rep.hardware.installedRamBytes > 0) ? (std::to_wstring(rep.hardware.installedRamBytes / (1024 * 1024 * 1024)) + L" GB") : L"—";
-    drawChip(L"RAM", ramStr, chipX + UiMetrics::Scale(190, dpi), chipY);
+    std::wstring ssdStr = rep.hardware.storage.empty() ? L"NVMe / SSD" : rep.hardware.storage.front().model;
+
+    int curChipX = infoCard.left + UiMetrics::Scale(14, dpi);
+    drawChip(L"🖥️ Model máy", sysModel, curChipX);
+    curChipX += chipW + chipGap;
+    drawChip(L"⚡ Vi xử lý (CPU)", sysCpu, curChipX);
+    curChipX += chipW + chipGap;
+    drawChip(L"🧠 Bộ nhớ (RAM)", ramStr, curChipX);
+    curChipX += chipW + chipGap;
+    drawChip(L"💾 Ổ đĩa lưu trữ", ssdStr, curChipX);
 }
 
 void RenderAutoAudit(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
@@ -2899,10 +2919,35 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     return DefWindowProcW(h, m, w, l);
 }
 
+void InitializeFastIdentity() {
+    std::lock_guard<std::mutex> lk(gReportMutex);
+    if (gReport.model.empty()) {
+        gReport.model = Reg(L"SystemProductName");
+        if (gReport.model.empty()) gReport.model = Reg(L"BaseBoardProduct");
+    }
+    if (gReport.hardware.cpuName.empty()) {
+        HKEY h{};
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &h) == ERROR_SUCCESS) {
+            wchar_t b[512]{}; DWORD sz = sizeof(b), t = 0;
+            if (RegQueryValueExW(h, L"ProcessorNameString", nullptr, &t, (LPBYTE)b, &sz) == ERROR_SUCCESS) {
+                gReport.hardware.cpuName = b;
+            }
+            RegCloseKey(h);
+        }
+    }
+    if (gReport.hardware.installedRamBytes == 0) {
+        MEMORYSTATUSEX ms{ sizeof(ms) };
+        if (GlobalMemoryStatusEx(&ms)) {
+            gReport.hardware.installedRamBytes = ms.ullTotalPhys;
+        }
+    }
+}
+
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int) {
     gDir = AppDir();
+    InitializeFastIdentity();
     int argc = 0;
     auto argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     bool inventoryOnly = false;

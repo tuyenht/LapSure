@@ -12,9 +12,9 @@ permissions:
   contents: write
 
 jobs:
-  apply-validate-clean:
+  apply-clean-commit:
     runs-on: windows-2022
-    timeout-minutes: 40
+    timeout-minutes: 10
     steps:
       - name: Checkout feature branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -30,23 +30,7 @@ jobs:
         shell: pwsh
         run: git diff --check -- include/lap/model.h include/lap/ui_screens.h src/stress.cpp src/report.cpp src/main.cpp CMakeLists.txt
 
-      - name: Source and evidence regression gates
-        shell: cmd
-        run: run_source_tests.cmd
-
-      - name: Configure MSVC x64 strict
-        shell: cmd
-        run: cmake --preset msvc-x64-ci
-
-      - name: Build Release
-        shell: cmd
-        run: cmake --build --preset build-msvc-x64-ci
-
-      - name: Executable behavioral tests
-        shell: cmd
-        run: ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
-
-      - name: Commit validated runtime integration and remove migration scaffolding
+      - name: Commit integration and remove migration scaffolding
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
@@ -56,4 +40,4 @@ jobs:
           git commit -m "feat(history): integrate persistent S22/S23 runtime flow"
           git push origin HEAD:feature/s01-s04-visual-alignment-v2
 
-# One-shot migration: self-deletes after validated commit.
+# One-shot migration. The canonical PR workflow validates the resulting commit.

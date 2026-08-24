@@ -1,0 +1,57 @@
+name: Apply S22-S23 Runtime Integration
+
+on:
+  push:
+    branches:
+      - feature/s01-s04-visual-alignment-v2
+    paths:
+      - tools/apply_s22_s23_integration.py
+      - .github/workflows/apply-s22-s23-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-validate-clean:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feature/s01-s04-visual-alignment-v2
+          fetch-depth: 0
+
+      - name: Apply S22-S23 integration
+        shell: pwsh
+        run: python tools/apply_s22_s23_integration.py
+
+      - name: Diff sanity
+        shell: pwsh
+        run: git diff --check -- include/lap/model.h include/lap/ui_screens.h src/stress.cpp src/report.cpp src/main.cpp CMakeLists.txt
+
+      - name: Source and evidence regression gates
+        shell: cmd
+        run: run_source_tests.cmd
+
+      - name: Configure MSVC x64 strict
+        shell: cmd
+        run: cmake --preset msvc-x64-ci
+
+      - name: Build Release
+        shell: cmd
+        run: cmake --build --preset build-msvc-x64-ci
+
+      - name: Executable behavioral tests
+        shell: cmd
+        run: ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
+
+      - name: Commit validated runtime integration and remove migration scaffolding
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm tools/apply_s22_s23_integration.py .github/workflows/apply-s22-s23-integration.yml
+          git add include/lap/model.h include/lap/ui_screens.h src/stress.cpp src/report.cpp src/main.cpp CMakeLists.txt
+          git commit -m "feat(history): integrate persistent S22/S23 runtime flow"
+          git push origin HEAD:feature/s01-s04-visual-alignment-v2

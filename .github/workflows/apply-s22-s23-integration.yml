@@ -55,3 +55,5 @@ jobs:
           git add include/lap/model.h include/lap/ui_screens.h src/stress.cpp src/report.cpp src/main.cpp CMakeLists.txt
           git commit -m "feat(history): integrate persistent S22/S23 runtime flow"
           git push origin HEAD:feature/s01-s04-visual-alignment-v2
+
+# One-shot migration: self-deletes after validated commit.

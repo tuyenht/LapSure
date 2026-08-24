@@ -1,0 +1,52 @@
+name: Apply S01 S04 Design Patch
+
+on:
+  push:
+    branches:
+      - feature/s01-s04-design-alignment
+    paths:
+      - tools/apply_s01_s04_design_patch.py
+      - .github/workflows/apply-s01-s04-design-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/s01-s04-design-alignment
+          fetch-depth: 0
+
+      - name: Apply renderer patch
+        shell: pwsh
+        run: python tools/apply_s01_s04_design_patch.py
+
+      - name: Diff sanity
+        shell: pwsh
+        run: git diff --check
+
+      - name: Strict MSVC x64 Release build
+        shell: cmd
+        run: build_msvc_ci.cmd
+
+      - name: Source and behavioral regression tests
+        shell: cmd
+        run: run_source_tests.cmd
+
+      - name: Commit validated renderer changes
+        shell: pwsh
+        run: |
+          if (-not (git diff --quiet -- src/main.cpp)) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/main.cpp
+            git commit -m "ui: align S01 overview and S04 auto audit with approved design"
+            git push origin HEAD:feature/s01-s04-design-alignment
+          } else {
+            Write-Host "No renderer changes to commit."
+          }

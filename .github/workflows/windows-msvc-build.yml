@@ -8,7 +8,7 @@ jobs:
     if: github.event.pull_request.head.ref == 'feature/s01-s04-visual-alignment-v2'
     runs-on: windows-2022
     env:
-      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:

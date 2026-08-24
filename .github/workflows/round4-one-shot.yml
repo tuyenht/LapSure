@@ -1,0 +1,110 @@
+name: Round 4 one-shot validation
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  validate-commit-clean:
+    if: github.event.pull_request.head.ref == 'feature/s01-s04-visual-alignment-v2'
+    runs-on: windows-2022
+    timeout-minutes: 40
+    env:
+      RED_BASE: 6dd193e1c813ff71732b887436cb38e49a72bf46
+      FEATURE_BRANCH: feature/s01-s04-visual-alignment-v2
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feature/s01-s04-visual-alignment-v2
+          fetch-depth: 0
+
+      - name: Prove new gates are RED on the test-first baseline
+        shell: powershell
+        run: |
+          git checkout --detach $env:RED_BASE
+          python tests/production_hardening_hidden_controls_sanity.py
+          $hidden = $LASTEXITCODE
+          if ($hidden -eq 0) { throw "Hidden-control regression unexpectedly passed on RED baseline" }
+          python tests/round4_process_trust_sanity.py
+          $process = $LASTEXITCODE
+          if ($process -eq 0) { throw "Process/trust regression unexpectedly passed on RED baseline" }
+          Write-Host "Expected RED confirmed: hidden=$hidden process=$process"
+          git checkout -B $env:FEATURE_BRANCH origin/$env:FEATURE_BRANCH
+
+      - name: Normalize and apply remaining runtime migration
+        shell: powershell
+        run: |
+          python tools/normalize_round4_runtime_script.py
+          python -m py_compile tools/apply_round4_runtime_batch.py
+          python tools/apply_round4_runtime_batch.py
+          git diff --check
+
+      - name: Focused GREEN gates
+        shell: powershell
+        run: |
+          python tests/production_hardening_keyboard_dispatch_sanity.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/production_hardening_hidden_controls_sanity.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/round4_process_trust_sanity.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Create clean candidate commit
+        shell: powershell
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.cpp src/engines.cpp src/stress.cpp
+          git rm .github/workflows/round4-one-shot.yml
+          git rm tools/apply_round4_runtime_batch.py tools/normalize_round4_runtime_script.py tools/apply_hidden_control_gating.py
+          git diff --cached --check
+          git commit -m "security: harden process and trusted engine execution"
+          $sha = git rev-parse HEAD
+          "SOURCE_COMMIT=$sha" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if (git status --porcelain) { throw "Candidate working tree is not clean" }
+
+      - name: Full regression suite on candidate
+        shell: cmd
+        run: run_source_tests.cmd
+
+      - name: Configure MSVC x64 strict
+        shell: cmd
+        run: cmake --preset msvc-x64-ci
+
+      - name: Build Release
+        shell: cmd
+        run: cmake --build --preset build-msvc-x64-ci
+
+      - name: Executable behavioral and security tests
+        shell: cmd
+        run: ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
+
+      - name: Inventory-only provider preflight
+        shell: powershell
+        run: |
+          $out = ".\out\inventory-preflight"
+          $process = Start-Process -FilePath ".\out\build\msvc-x64-ci\Release\LapSure.exe" -ArgumentList @("--inventory-only", "--output", $out) -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Inventory-only preflight exited $($process.ExitCode)" }
+          $json = Get-ChildItem -LiteralPath $out -Filter "*.json" | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (!$json) { throw "Inventory-only JSON report was not created" }
+          $report = Get-Content -LiteralPath $json.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($report.hardware.stress.completed) { throw "Inventory-only preflight incorrectly completed stress" }
+          if ($report.hardware.stress.stages.Count -ne 0) { throw "Inventory-only preflight emitted stress stages" }
+          if ($report.hardware.stress.decision.overall -ne "INCOMPLETE") { throw "Inventory-only verdict must remain INCOMPLETE" }
+
+      - name: Package candidate and verify provenance
+        shell: powershell
+        run: |
+          .\package_portable.ps1 -BuildDir ".\out\build\msvc-x64-ci\Release" -OutputDir ".\out\portable"
+          .\validation\verify_portable_package.ps1 -ZipPath ".\out\LapSure-windows-x64-portable.zip" -ExpectedCommit "$env:SOURCE_COMMIT"
+
+      - name: Return PR to Draft and publish validated candidate
+        shell: powershell
+        run: |
+          gh pr ready 2 --undo --repo tuyenht/LapSure
+          git push origin HEAD:$env:FEATURE_BRANCH

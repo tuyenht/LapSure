@@ -78,7 +78,29 @@ FunctionalItemResult BluetoothProbe(HWND owner){
  return R(L"bluetooth_function",L"Bluetooth functional state",FunctionalStatus::ManualRequired,L"Bluetooth radio is accessible, but a known-good device interaction has not been completed",radioEvidence+L"; RF/pairing/functionality remains unverified",Confidence::Medium,false);
 }
 }
+
+std::vector<FunctionalItemResult> RunAudioCameraWizard(HWND owner){
+ std::vector<FunctionalItemResult> out;
+ MessageBoxW(owner,L"LapSure sẽ kiểm tra camera, microphone và loa stereo bằng stimulus/capture thực.\n\nHãy đóng ứng dụng đang dùng camera/microphone trước khi tiếp tục.",L"Âm thanh & Camera",MB_OK|MB_ICONINFORMATION);
+ out.push_back(CameraFrameProbe());
+ MessageBoxW(owner,L"Hãy nói bình thường vào microphone trong khoảng 2 giây sau khi bấm OK.",L"Microphone test",MB_OK|MB_ICONINFORMATION);
+ out.push_back(MicrophoneCaptureProbe());
+ out.push_back(StereoProbe(owner));
+ return out;
+}
+
+std::vector<FunctionalItemResult> RunNetworkConnectivityWizard(HWND owner){
+ std::vector<FunctionalItemResult> out;
+ MessageBoxW(owner,L"LapSure sẽ kiểm tra trạng thái Wi-Fi và yêu cầu xác minh Bluetooth bằng thiết bị known-good.\n\nWi-Fi association/signal là bằng chứng kết nối; Internet throughput không được dùng làm health score phần cứng.",L"Mạng & Kết nối",MB_OK|MB_ICONINFORMATION);
+ out.push_back(WifiProbe());
+ out.push_back(BluetoothProbe(owner));
+ return out;
+}
+
 std::vector<FunctionalItemResult> RunFunctionalIoWizard(HWND owner){
- std::vector<FunctionalItemResult> out;MessageBoxW(owner,L"Functional I/O sẽ kiểm tra camera, microphone, loa stereo, Wi-Fi và Bluetooth.\n\nHãy đóng ứng dụng đang dùng camera/microphone trước khi tiếp tục.",L"Functional I/O",MB_OK|MB_ICONINFORMATION);out.push_back(CameraFrameProbe());MessageBoxW(owner,L"Hãy nói bình thường vào microphone trong khoảng 2 giây sau khi bấm OK.",L"Microphone test",MB_OK|MB_ICONINFORMATION);out.push_back(MicrophoneCaptureProbe());out.push_back(StereoProbe(owner));out.push_back(WifiProbe());out.push_back(BluetoothProbe(owner));return out;
+ auto out=RunAudioCameraWizard(owner);
+ auto network=RunNetworkConnectivityWizard(owner);
+ out.insert(out.end(),network.begin(),network.end());
+ return out;
 }
 }

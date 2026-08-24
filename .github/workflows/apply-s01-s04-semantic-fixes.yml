@@ -6,12 +6,14 @@ on:
       - feature/s01-s04-visual-alignment-v2
     paths:
       - tools/apply_s01_s04_semantic_fixes.py
+      - tools/apply_s01_s04_compile_truth_fixes.py
       - .github/workflows/apply-s01-s04-semantic-fixes.yml
   pull_request:
     branches:
       - main
     paths:
       - tools/apply_s01_s04_semantic_fixes.py
+      - tools/apply_s01_s04_compile_truth_fixes.py
       - .github/workflows/apply-s01-s04-semantic-fixes.yml
       - src/ui_screens_s01_s04_v2.cpp
       - src/ui_shell_dynamic.cpp
@@ -45,6 +47,10 @@ jobs:
       - name: Apply deterministic semantic patch
         shell: pwsh
         run: python tools/apply_s01_s04_semantic_fixes.py
+
+      - name: Apply strict MSVC and stage-truth patch
+        shell: pwsh
+        run: python tools/apply_s01_s04_compile_truth_fixes.py
 
       - name: Diff sanity for production targets
         shell: pwsh

@@ -7,6 +7,7 @@ on:
     paths:
       - tools/apply_s01_s04_semantic_fixes.py
       - tools/apply_s01_s04_compile_truth_fixes.py
+      - tools/apply_s01_s04_legacy_warning_fix.py
       - .github/workflows/apply-s01-s04-semantic-fixes.yml
   pull_request:
     branches:
@@ -14,9 +15,11 @@ on:
     paths:
       - tools/apply_s01_s04_semantic_fixes.py
       - tools/apply_s01_s04_compile_truth_fixes.py
+      - tools/apply_s01_s04_legacy_warning_fix.py
       - .github/workflows/apply-s01-s04-semantic-fixes.yml
       - src/ui_screens_s01_s04_v2.cpp
       - src/ui_shell_dynamic.cpp
+      - src/ui_screens.cpp
       - src/main.cpp
       - CMakeLists.txt
       - src/scoring.cpp
@@ -52,9 +55,13 @@ jobs:
         shell: pwsh
         run: python tools/apply_s01_s04_compile_truth_fixes.py
 
+      - name: Apply legacy strict-warning cleanup
+        shell: pwsh
+        run: python tools/apply_s01_s04_legacy_warning_fix.py
+
       - name: Diff sanity for production targets
         shell: pwsh
-        run: git diff --check -- src/ui_screens_s01_s04_v2.cpp src/main.cpp CMakeLists.txt
+        run: git diff --check -- src/ui_screens_s01_s04_v2.cpp src/ui_screens.cpp src/main.cpp CMakeLists.txt
 
       - name: Source and evidence regression gates
         shell: cmd
@@ -76,11 +83,11 @@ jobs:
         if: github.event_name == 'push'
         shell: pwsh
         run: |
-          $changed = git status --porcelain -- src/ui_screens_s01_s04_v2.cpp src/main.cpp CMakeLists.txt
+          $changed = git status --porcelain -- src/ui_screens_s01_s04_v2.cpp src/ui_screens.cpp src/main.cpp CMakeLists.txt
           if ($changed) {
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/ui_screens_s01_s04_v2.cpp src/main.cpp CMakeLists.txt
+            git add src/ui_screens_s01_s04_v2.cpp src/ui_screens.cpp src/main.cpp CMakeLists.txt
             git commit -m "ui: harden S01/S04 runtime evidence semantics"
             git push origin HEAD:feature/s01-s04-visual-alignment-v2
           } else {

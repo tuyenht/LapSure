@@ -17,6 +17,7 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
 
 // S02 — Phiên kiểm định mới
 void RenderScreenS02_NewSession(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,
+                                int inspectionPurpose, const std::wstring& selectedMode, bool running,
                                 int focusIndex = 0);
 
 // S03 — Cam kết người bán

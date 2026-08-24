@@ -6,7 +6,6 @@
 #pragma comment(lib,"wbemuuid.lib")
 
 namespace lap {
-static bool Exists(const std::wstring& p){return GetFileAttributesW(p.c_str())!=INVALID_FILE_ATTRIBUTES;}
 static bool CommandExists(const wchar_t* exe){wchar_t buf[MAX_PATH]{};return SearchPathW(nullptr,exe,nullptr,MAX_PATH,buf,nullptr)>0;}
 static bool WmiAvailable(){
  HRESULT hr=CoInitializeEx(nullptr,COINIT_MULTITHREADED); bool uninit=SUCCEEDED(hr);

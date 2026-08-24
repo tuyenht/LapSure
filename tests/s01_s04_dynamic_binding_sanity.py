@@ -3,6 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 UI = (ROOT / "src" / "ui_screens_s01_s04_v2.cpp").read_text(encoding="utf-8")
 CMAKE = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+SCORING = (ROOT / "src" / "scoring.cpp").read_text(encoding="utf-8")
 
 # Values that previously existed only to make mockups look populated.
 FORBIDDEN = [
@@ -60,6 +61,12 @@ assert "score gauge" not in LOWER
 # No synthetic audit-stage duration literals. Only measured stress elapsed is formatted.
 assert "stage.elapsedSeconds" in UI
 assert "FormatDuration" in UI
+
+# Coverage contract: seller claim is useful comparison evidence, but it is not a required
+# hardware/evidence domain in docs/COVERAGE_CONTRACT.md.
+assert 'add(L"seller_claim",L"Cấu hình người bán cam kết",claimComplete' in SCORING
+seller_line = next(line for line in SCORING.splitlines() if 'add(L"seller_claim"' in line)
+assert seller_line.rstrip().endswith(',false);'), "seller claim must remain optional in coverage contract"
 
 # Build must route the canonical S01/S04 symbols to the production renderer file.
 assert "src/ui_screens_s01_s04_v2.cpp" in CMAKE

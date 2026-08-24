@@ -1,5 +1,6 @@
 #include "lap/ui_screens.h"
 #include "lap/scoring.h"
+#include "lap/session_history.h"
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -204,6 +205,32 @@ void RenderScreenS17_EvidenceLibrary(HDC dc, const RECT& r, const AuditReport& r
     DrawDataTable(dc, ContentBody(r, dpi), table, fonts, dpi, 0);
 }
 
+static RECT ScreenS18ActionPanelRect(const RECT& r, int dpi) {
+    const RECT body = ContentBody(r, dpi);
+    const int gap = UiMetrics::Scale(10, dpi);
+    const int kpiH = UiMetrics::Scale(92, dpi);
+    const int tableTop = body.top + kpiH + UiMetrics::Scale(34, dpi);
+    const int sideW = UiMetrics::Scale(320, dpi);
+    const int actionH = UiMetrics::Scale(188, dpi);
+    return RECT{body.right - sideW, body.bottom - actionH, body.right, body.bottom};
+}
+
+static RECT ScreenS19ActionPanelRect(const RECT& r, int dpi) {
+    const RECT body = ContentBody(r, dpi);
+    const int gap = UiMetrics::Scale(12, dpi);
+    const int cardH = UiMetrics::Scale(110, dpi);
+    const int railW = UiMetrics::Scale(310, dpi);
+    return RECT{body.right - railW, body.top + cardH + gap, body.right, body.bottom};
+}
+
+RECT GetScreenS18PrimaryActionRect(const RECT& r, int dpi) {
+    return GetNextActionButtonRect(ScreenS18ActionPanelRect(r, dpi), dpi);
+}
+
+RECT GetScreenS19PrimaryActionRect(const RECT& r, int dpi) {
+    return GetNextActionButtonRect(ScreenS19ActionPanelRect(r, dpi), dpi);
+}
+
 void RenderScreenS18_FinalReport(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,
                                  int focusIndex) {
     (void)focusIndex;
@@ -257,11 +284,13 @@ void RenderScreenS18_FinalReport(HDC dc, const RECT& r, const AuditReport& rep, 
         row.rowState = CoverageState(domain.status);
         table.rows.push_back(std::move(row));
     }
-    const int reasonW = UiMetrics::Scale(300, dpi);
-    RECT tableRect{body.left, tableTop, body.right - reasonW - gap, body.bottom};
+
+    const RECT actionPanel = ScreenS18ActionPanelRect(r, dpi);
+    const int sideW = actionPanel.right - actionPanel.left;
+    RECT tableRect{body.left, tableTop, body.right - sideW - gap, body.bottom};
     DrawDataTable(dc, tableRect, table, fonts, dpi, 0);
 
-    RECT reasonCard{tableRect.right + gap, tableTop, body.right, body.bottom};
+    RECT reasonCard{tableRect.right + gap, tableTop, body.right, actionPanel.top - gap};
     DrawRoundedCard(dc, reasonCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
     DrawSectionTitle(dc, reasonCard.left + 12, reasonCard.top + 12, L"Vì sao có kết luận này?", fonts);
     SelectObject(dc, fonts.hSmall);
@@ -280,6 +309,18 @@ void RenderScreenS18_FinalReport(HDC dc, const RECT& r, const AuditReport& rep, 
             if (y >= reasonCard.bottom - UiMetrics::Scale(20, dpi)) break;
         }
     }
+
+    NextActionConfig action;
+    action.actionTitle = L"Xuất báo cáo";
+    action.reasonText = L"Chuyển sang màn xuất để kiểm tra artifact HTML/JSON thật của phiên hiện tại. Xuất báo cáo không thay đổi kết luận chẩn đoán.";
+    action.remainingTasks = {
+        missingRequired ? L"Báo cáo sẽ giữ trạng thái INCOMPLETE nếu còn thiếu evidence bắt buộc" : L"Coverage bắt buộc đã đầy đủ",
+        decision.warnings ? L"Đọc các cảnh báo trước khi chia sẻ báo cáo" : L"Không có cảnh báo từ decision engine",
+        L"Chỉ HTML/JSON được công bố khi backend đã tạo artifact thật"
+    };
+    action.buttonText = L"XUẤT BÁO CÁO";
+    action.isButtonEnabled = true;
+    DrawNextActionPanel(dc, actionPanel, action, fonts, dpi);
 }
 
 void RenderScreenS19_ExportShare(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,
@@ -287,14 +328,28 @@ void RenderScreenS19_ExportShare(HDC dc, const RECT& r, const AuditReport& rep, 
     (void)selectedFormat; (void)shareFlags; (void)focusIndex;
     PageHeaderConfig hdr;
     hdr.title = L"Xuất báo cáo & Chia sẻ";
-    hdr.subtitle = L"Chỉ công bố định dạng backend hiện hỗ trợ thật; PDF/chữ ký số không được giả lập.";
+    hdr.subtitle = L"Chỉ công bố artifact backend đã tạo thật; PDF, ký số và cloud sharing không được giả lập.";
     DrawPageHeader(dc, r, hdr, fonts, dpi);
+
+    std::wstring htmlPath, jsonPath;
+    if (!rep.hardware.stress.sessionId.empty()) {
+        const auto history = GetSessionHistorySnapshot();
+        const auto it = std::find_if(history.begin(), history.end(), [&](const SessionHistoryEntry& e) {
+            return e.sessionId == rep.hardware.stress.sessionId;
+        });
+        if (it != history.end()) {
+            htmlPath = it->htmlPath;
+            jsonPath = it->jsonPath;
+        }
+    }
+    const bool htmlReady = !htmlPath.empty() && IsTrustedSessionArtifactPath(htmlPath);
+    const bool jsonReady = !jsonPath.empty() && IsTrustedSessionArtifactPath(jsonPath);
 
     RECT body = ContentBody(r, dpi);
     const int gap = UiMetrics::Scale(12, dpi);
     const int cardW = (body.right - body.left - gap * 2) / 3;
-    MetricCardConfig html{L"HTML", L"HỖ TRỢ", L"SaveHtmlReport", L"Báo cáo đọc bằng trình duyệt", CanonicalUiState::Pass, true};
-    MetricCardConfig json{L"JSON", L"HỖ TRỢ", L"SaveJsonReport", L"Dữ liệu có cấu trúc", CanonicalUiState::Pass, true};
+    MetricCardConfig html{L"HTML", htmlReady ? L"ĐÃ TẠO" : L"CHƯA TẠO", L"SaveHtmlReport", htmlReady ? L"Artifact tin cậy của phiên hiện tại" : L"Backend hỗ trợ nhưng chưa có artifact", htmlReady ? CanonicalUiState::Info : CanonicalUiState::NotTested, true};
+    MetricCardConfig json{L"JSON", jsonReady ? L"ĐÃ TẠO" : L"CHƯA TẠO", L"SaveJsonReport", jsonReady ? L"Artifact tin cậy của phiên hiện tại" : L"Backend hỗ trợ nhưng chưa có artifact", jsonReady ? CanonicalUiState::Info : CanonicalUiState::NotTested, true};
     MetricCardConfig pdf{L"PDF / Ký số", L"CHƯA HỖ TRỢ", L"Không có backend", L"Không hiển thị như tính năng hoạt động", CanonicalUiState::Unsupported, true};
     RECT a{body.left, body.top, body.left + cardW, body.top + UiMetrics::Scale(110, dpi)};
     RECT b{a.right + gap, body.top, a.right + gap + cardW, a.bottom};
@@ -303,7 +358,8 @@ void RenderScreenS19_ExportShare(HDC dc, const RECT& r, const AuditReport& rep, 
     DrawMetricCard(dc, b, json, fonts, dpi);
     DrawMetricCard(dc, c, pdf, fonts, dpi);
 
-    RECT info{body.left, a.bottom + gap, body.right, body.bottom};
+    const RECT actionPanel = ScreenS19ActionPanelRect(r, dpi);
+    RECT info{body.left, a.bottom + gap, actionPanel.left - gap, body.bottom};
     DrawRoundedCard(dc, info, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
     DrawSectionTitle(dc, info.left + 14, info.top + 14, L"Trạng thái báo cáo hiện tại", fonts);
     SelectObject(dc, fonts.hBody);
@@ -314,9 +370,25 @@ void RenderScreenS19_ExportShare(HDC dc, const RECT& r, const AuditReport& rep, 
     TextOutW(dc, info.left + 14, info.top + 70, modelLine.c_str(), static_cast<int>(modelLine.size()));
     SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, UiColors::TextMuted);
-    std::wstring note = L"Nút mở báo cáo chỉ hoạt động khi backend đã tạo file HTML thật. JSON được lưu cùng phiên; LapSure không tuyên bố có cloud sharing hoặc PDF khi chưa có implementation.";
+    const std::wstring sessionLine = L"Session ID: " + NonEmpty(rep.hardware.stress.sessionId, L"Chưa có session ID") +
+        L"\nHTML: " + (htmlReady ? htmlPath : L"Chưa có artifact HTML tin cậy") +
+        L"\nJSON: " + (jsonReady ? jsonPath : L"Chưa có artifact JSON tin cậy");
     RECT nr{info.left + 14, info.top + 102, info.right - 14, info.bottom - 14};
-    DrawTextW(dc, note.c_str(), -1, &nr, DT_LEFT | DT_WORDBREAK);
+    DrawTextW(dc, sessionLine.c_str(), -1, &nr, DT_LEFT | DT_WORDBREAK);
+
+    NextActionConfig action;
+    action.actionTitle = L"Mở báo cáo HTML";
+    action.reasonText = htmlReady
+        ? L"Artifact HTML đã tồn tại trong thư mục history tin cậy và có thể mở bằng trình duyệt mặc định."
+        : L"Chưa có HTML artifact tin cậy cho session hiện tại. LapSure không tạo nút mở giả.";
+    action.remainingTasks = {
+        htmlReady ? L"HTML: đã persist" : L"HTML: chưa persist",
+        jsonReady ? L"JSON: đã persist" : L"JSON: chưa persist",
+        L"PDF / ký số / cloud: không hỗ trợ trong build hiện tại"
+    };
+    action.buttonText = htmlReady ? L"MỞ BÁO CÁO" : L"CHƯA CÓ HTML";
+    action.isButtonEnabled = htmlReady;
+    DrawNextActionPanel(dc, actionPanel, action, fonts, dpi);
 }
 
 void RenderScreenS20_LogsEvents(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,

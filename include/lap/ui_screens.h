@@ -93,10 +93,12 @@ void RenderScreenS17_EvidenceLibrary(HDC dc, const RECT& r, const AuditReport& r
                                      int focusIndex = 0);
 
 // S18 — Đánh giá cuối cùng & Báo cáo
+RECT GetScreenS18PrimaryActionRect(const RECT& r, int dpi);
 void RenderScreenS18_FinalReport(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,
                                  int focusIndex = 0);
 
 // S19 — Xuất báo cáo & Chia sẻ
+RECT GetScreenS19PrimaryActionRect(const RECT& r, int dpi);
 void RenderScreenS19_ExportShare(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,
                                  int selectedFormat, int shareFlags, int focusIndex = 0);
 

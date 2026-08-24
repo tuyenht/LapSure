@@ -490,6 +490,8 @@ void AuditWorkerCore(HWND h) {
                 : L"Không thể persist đầy đủ HTML/JSON/history; journal được giữ để phục hồi và không phát hành clean verdict.");
         }
         if (persisted.Complete()) CompleteStressJournal(gDir);
+    } else if (!report.hardware.stress.sessionId.empty()) {
+        DiscardInterruptedStressJournal(gDir);
     }
     {
         std::lock_guard<std::mutex> lk(gReportMutex);
@@ -2916,31 +2918,25 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
         }
 
-        // 12. Reports Screen: Export Button Hit-Test
+        // 12. S18 Final Report: renderer and hit-test share one primary-action rectangle.
         if (gCurrentTab == MainTab::Reports) {
-            int rightPanelW = UiMetrics::Scale(300, dpi);
-            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
-            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(300, dpi) };
-            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
-            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
-                if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
-                else { gCurrentTab = MainTab::ExportShare; InvalidateRect(h, nullptr, FALSE); }
+            const RECT actionButton = GetScreenS18PrimaryActionRect(layout.contentRect, dpi);
+            if (x >= actionButton.left && x <= actionButton.right && y >= actionButton.top && y <= actionButton.bottom) {
+                gCurrentTab = MainTab::ExportShare;
+                InvalidateRect(h, nullptr, FALSE);
                 return 0;
             }
         }
 
-        // 13. Export & Share Screen: Open in Browser Button Hit-Test
+        // 13. S19 Export: open only the real trusted HTML artifact of the current session.
         if (gCurrentTab == MainTab::ExportShare) {
-            int rightPanelW = UiMetrics::Scale(300, dpi);
-            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
-            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
-            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
-                if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+            const RECT actionButton = GetScreenS19PrimaryActionRect(layout.contentRect, dpi);
+            if (x >= actionButton.left && x <= actionButton.right && y >= actionButton.top && y <= actionButton.bottom) {
+                if (!gReportPath.empty() && IsTrustedSessionArtifactPath(gReportPath)) {
+                    ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);
+                } else {
+                    MessageBoxW(h, L"Phiên hiện tại chưa có HTML report tin cậy để mở.", L"LapSure", MB_OK | MB_ICONINFORMATION);
+                }
                 return 0;
             }
         }

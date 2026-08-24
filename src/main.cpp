@@ -2975,7 +2975,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         if (gCurrentTab == MainTab::Dashboard) {
             RenderScreenS01_Overview(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gSelectedMode, gRunning, gAuditReady, gSessionLifecycleState, gAuditCompletedItems, gAuditTotalItems, gFocusIndex);
         } else if (gCurrentTab == MainTab::NewSession) {
-            RenderScreenS02_NewSession(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gFocusIndex);
+            RenderScreenS02_NewSession(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gInspectionPurpose, gSelectedMode, gRunning, gFocusIndex);
         } else if (gCurrentTab == MainTab::AutoAudit) {
             RenderScreenS04_AutoAudit(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gSelectedMode, gRunning, gPaused, gAuditCompletedItems, gAuditTotalItems, gAuditCurrentStage, gAuditElapsedSec, gLiveLogs, gFocusIndex);
         } else if (gCurrentTab == MainTab::Functional) {

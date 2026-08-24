@@ -1,0 +1,10 @@
+profileId=lenovo_ideapad_gaming_3
+modelContains=IdeaPad Gaming 3
+displayName=Lenovo IdeaPad Gaming 3
+validationStatus=draft
+reference=Lenovo PSREF IdeaPad Gaming 3
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Gigabit Ethernet LAN|true
+port=left_hdmi|Left HDMI 2.0|Left|HDMI|HDMI 2.0 Video Output|true
+port=left_usbc|Left USB-C 3.2 Gen 1|Left|USB-C|USB-C 3.2 Gen 1 Data only|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true

@@ -1,0 +1,9 @@
+profileId=dell_xps_13_9380
+modelContains=XPS 13 9380
+displayName=Dell XPS 13 9380
+validationStatus=draft
+reference=Dell XPS 13 9380 Setup and Specifications
+port=left_tb3_1|Left Thunderbolt 3 #1 (PD/DP)|Left|USB-C|Thunderbolt 3 / Power Delivery / DP|true
+port=left_tb3_2|Left Thunderbolt 3 #2 (PD/DP)|Left|USB-C|Thunderbolt 3 / Power Delivery / DP|true
+port=right_usbc|Right USB-C 3.1 Gen 2 (PD/DP)|Right|USB-C|USB-C 3.1 Gen 2 / Power Delivery / DP|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD Card Reader|true

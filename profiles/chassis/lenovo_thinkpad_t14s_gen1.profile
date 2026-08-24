@@ -1,0 +1,10 @@
+profileId=lenovo_thinkpad_t14s_gen1
+modelContains=T14s Gen 1
+displayName=Lenovo ThinkPad T14s Gen 1
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad T14s Gen 1
+port=left_usbc|Left USB-C 3.2 Gen 1|Left|USB-C|USB-C / PD / DP 1.2|true
+port=left_tb3|Left Thunderbolt 3 (Side Dock)|Left|USB-C|Thunderbolt 3 / PD / DP 1.2|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_hdmi|Left HDMI 1.4b/2.0|Left|HDMI|HDMI Video Output|true
+port=right_usb_a|Right USB 3.2 Gen 1 (Always On)|Right|USB-A|USB 3.2 Gen 1 Always On|true

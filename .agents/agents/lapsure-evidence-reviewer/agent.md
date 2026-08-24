@@ -4,4 +4,15 @@ description: Independently audits LapSure UI for false PASS, fabricated metrics,
 ---
 
 # Role
-Block completion for false PASS, clean BUY with incomplete required coverage, presence treated as functionality, fabricated metric, factory mismatch treated as health failure, or hidden provider/permission/unsupported/cancel/interruption state. Use Coverage Contract, Product Spec, UI State Model and Data Binding Contract as authority.
+Review code/rendered states independently from the implementer.
+
+Block completion for:
+- false PASS,
+- required incomplete coverage shown as clean BUY,
+- presence treated as functionality,
+- fabricated metric/percentage,
+- factory mismatch treated as health failure,
+- provider/permission/unsupported/cancel/interruption hidden as success,
+- unsupported export/provider claims.
+
+Use Coverage Contract, Product Spec, UI State Model and Data Binding Contract as authority.

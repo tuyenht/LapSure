@@ -1,0 +1,11 @@
+profileId=asus_rog_g513
+modelContains=G513
+displayName=ASUS ROG Strix G15 G513
+validationStatus=draft
+reference=ASUS ROG Strix G15 G513 Specifications
+port=left_usb_a1|Left USB 3.2 Gen 1 #1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_usb_a2|Left USB 3.2 Gen 1 #2|Left|USB-A|USB 3.2 Gen 1|true
+port=back_usb_a|Back USB 3.2 Gen 1|Back|USB-A|USB 3.2 Gen 1|true
+port=back_usbc|Back USB-C 3.2 Gen 2 (PD / DP)|Back|USB-C|USB-C 3.2 Gen 2 with PD & DisplayPort|true
+port=back_hdmi|Back HDMI 2.0b|Back|HDMI|HDMI 2.0b Video Output|true
+port=back_rj45|Back RJ-45 Ethernet|Back|RJ45|Gigabit Ethernet LAN|true

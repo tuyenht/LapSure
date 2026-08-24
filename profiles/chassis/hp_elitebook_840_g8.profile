@@ -1,0 +1,10 @@
+profileId=hp_elitebook_840_g8
+modelContains=EliteBook 840 G8
+displayName=HP EliteBook 840 G8
+validationStatus=draft
+reference=HP QuickSpecs EliteBook 840 G8
+port=left_usb_a1|Left USB 3.2 Gen 1 (Charging)|Left|USB-A|USB 3.2 Gen 1 Charging|true
+port=left_usb_a2|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_tb4_1|Right Thunderbolt 4 / USB4 #1|Right|USB-C|Thunderbolt 4 / USB4 / Power Delivery / DP 1.4|true
+port=right_tb4_2|Right Thunderbolt 4 / USB4 #2|Right|USB-C|Thunderbolt 4 / USB4 / Power Delivery / DP 1.4|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true

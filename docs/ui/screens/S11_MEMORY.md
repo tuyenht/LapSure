@@ -1,18 +1,68 @@
 # S11 — Bộ nhớ RAM
 
-`components: [C01,C02,C03,C04,C05,C06,C08,C09,C10,C12]`
+```yaml
+screen_id: S11
+status: approved-contract
+visual_reference: none
+components: [C01, C02, C03, C04, C05, C06, C08, C09, C10, C12]
+```
 
-## User outcome
+## 1. User outcome
 Show DIMM inventory and exact coverage of online memory testing.
 
-## Objects
-Installed total; DIMM list; configured/rated speed; manufacturer/part/serial; bytes tested; passes; mismatches; coverage limitation.
+## 2. Primary action
+**Bắt đầu/Chạy lại kiểm tra**
 
-## Data
-`installedRamBytes`, `memoryModules[]`, `RamOnlineMetrics`.
+## 3. Entry / exit
+- Entry: preserve active inspection/session context and applicable orchestrator gates.
+- Exit: navigation must not silently discard evidence or mutate diagnostic truth.
+- If mandatory prerequisite evidence is absent, render the correct LOCKED/INCOMPLETE state and explain the next action.
 
-## Invariant
-A clean online allocated-memory test remains partial coverage and must not be presented as full preboot memory certification.
+## 4. Page anatomy / object inventory
 
-## Acceptance
-Module identity separate from test result; bytes/passes/mismatches visible when real; unsupported/not-run explicit.
+| Object ID | Object | Binding rule |
+|---|---|---|
+| S11-O01 | Installed total | Bind to real data/state; unavailable stays explicit |
+| S11-O02 | DIMM list | Bind to real data/state; unavailable stays explicit |
+| S11-O03 | Configured/rated speed | Bind to real data/state; unavailable stays explicit |
+| S11-O04 | Manufacturer/part/serial | Bind to real data/state; unavailable stays explicit |
+| S11-O05 | Bytes tested | Bind to real data/state; unavailable stays explicit |
+| S11-O06 | Passes | Bind to real data/state; unavailable stays explicit |
+| S11-O07 | Mismatches | Bind to real data/state; unavailable stays explicit |
+| S11-O08 | Coverage limitation | Bind to real data/state; unavailable stays explicit |
+
+## 5. Data sources
+- `installedRamBytes`
+- `memoryModules`
+- `RamOnlineMetrics`
+
+All values must comply with `../DATA_BINDING_CONTRACT.md`.
+
+## 6. States
+Implement applicable states from `../UI_STATE_MODEL.md`, including non-happy states: loading/running, warning, fail, incomplete, not-tested, unsupported/provider-unavailable, permission-denied, cancelled/interrupted and empty.
+
+## 7. Interaction
+- Keep one obvious primary action.
+- Drill-down exposes evidence; it does not change the result.
+- Manual decisions must be stored as operator-confirmed evidence.
+- Long-running work must remain off the UI thread.
+
+## 8. Evidence invariant
+**Clean online RAM test is partial coverage, not full preboot certification.**
+
+## 9. Visual contract
+Primary reference: No approved per-screen image yet; inherit `CONTACT_SHEET.jpg` and Design System.
+
+Follow `../DESIGN_SYSTEM.md` for typography, spacing, color, components and DPI. The image controls hierarchy/layout direction only; `KNOWN_MOCKUP_DEVIATIONS.md` and evidence contracts override illustrative literals.
+
+## 10. Accessibility
+Follow `../ACCESSIBILITY_DPI.md`. Validate keyboard use and 1366×768 / 1920×1080 at 100/125/150% scaling.
+
+## 11. Acceptance criteria
+- All displayed technical values are sourced/derived/operator-confirmed or explicitly unavailable.
+- Canonical Vietnamese state wording is used.
+- Primary CTA is reachable and unambiguous.
+- Applicable non-happy states are implemented.
+- No false PASS path is introduced.
+- Related report/evidence semantics remain unchanged unless explicitly specified and tested.
+- Actual executable screenshot is compared with the approved visual direction before completion.

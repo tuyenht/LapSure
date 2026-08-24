@@ -7,4 +7,4 @@ Recommended activation: **Always On** for source changes.
 - Preserve bounded cancellation, journal and SHA-256 trust policy.
 - No production demo/sample values.
 - Model/provider extensions require real source/evidence and tests.
-- Run repository-supported build/regression gates; unavailable gates are NOT RUN, never falsely PASS.
+- Run repository-supported build and regression gates; unavailable gates are NOT RUN, never falsely PASS.

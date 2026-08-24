@@ -1,0 +1,10 @@
+profileId=lenovo_thinkpad_x13_gen3
+modelContains=X13 Gen 3
+displayName=Lenovo ThinkPad X13 Gen 3
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad X13 Gen 3
+port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / USB4 / PD / DP 1.4|true
+port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / USB4 / PD / DP 1.4|true
+port=left_usb_a|Left USB 3.2 Gen 1 (Always On)|Left|USB-A|USB 3.2 Gen 1 Always On|true
+port=left_hdmi|Left HDMI 2.0b|Left|HDMI|HDMI 2.0b Video Output|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true

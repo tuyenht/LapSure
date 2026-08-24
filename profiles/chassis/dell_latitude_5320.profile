@@ -1,0 +1,11 @@
+profileId=dell_latitude_5320
+modelContains=Latitude 5320
+displayName=Dell Latitude 5320
+validationStatus=draft
+reference=Dell Latitude 5320 Setup and Specifications
+port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / Power Delivery|true
+port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / Power Delivery|true
+port=left_usb_a|Left USB 3.2 Gen 1 (PowerShare)|Left|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD Card Reader|true

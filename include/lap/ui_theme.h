@@ -144,8 +144,15 @@ struct LiveLogEntry {
 // UI Helper drawing functions
 void DrawRoundedCard(HDC dc, const RECT& r, int radius, COLORREF fill, COLORREF border, int borderWidth = 1);
 void DrawBadge(HDC dc, int x, int y, int w, int h, const std::wstring& text, COLORREF textClr, COLORREF bgClr, HFONT font);
-void DrawCircularScoreGauge(HDC dc, int cx, int cy, int radius, int score, const std::wstring& label, HFONT hTitleFont, HFONT hSubFont);
+void DrawCircularScoreGauge(HDC dc, int cx, int cy, int radius, int score, const std::wstring& label, HFONT hTitleFont, HFONT hSubFont, int starCount = 5);
 void DrawModernProgressBar(HDC dc, const RECT& r, int percent, COLORREF barClr, COLORREF bgClr);
 void DrawFocusRing(HDC dc, const RECT& r, int radius);
+void DrawToggleSwitch(HDC dc, int x, int y, int w, int h, bool isChecked);
+void DrawStarRating(HDC dc, int x, int y, int starCount, int maxStars = 5);
+void DrawLineChart(HDC dc, const RECT& r, const std::vector<float>& s1, COLORREF c1, const std::wstring& l1, const std::vector<float>& s2, COLORREF c2, const std::wstring& l2, float minVal, float maxVal, const std::wstring& unit, const UiFonts& fonts, int dpi);
+void DrawKeyboardGrid(HDC dc, const RECT& r, const std::vector<int>& keyStates, const UiFonts& fonts, int dpi);
+void DrawTouchpadCanvas(HDC dc, const RECT& r, const std::vector<POINT>& trail, bool completed, const UiFonts& fonts, int dpi);
+void DrawLaptopChassisDiagram(HDC dc, const RECT& r, int activeHotspot, const UiFonts& fonts, int dpi);
+void DrawPortChassisDiagram(HDC dc, const RECT& r, const UiFonts& fonts, int dpi);
 
 } // namespace lap

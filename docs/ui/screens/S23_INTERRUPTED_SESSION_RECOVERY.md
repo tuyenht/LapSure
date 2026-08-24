@@ -1,18 +1,66 @@
 # S23 — Khôi phục phiên bị gián đoạn
 
-`components: [C01,C03,C04,C06,C08,C10,C11,C12]`
+```yaml
+screen_id: S23
+status: approved-contract
+visual_reference: none
+components: [C01, C03, C04, C06, C08, C10, C11, C12]
+```
 
-## User outcome
+## 1. User outcome
 Handle journal-backed interrupted tests safely without converting partial work into PASS.
 
-## Objects
-Detected interrupted session; completed/invalid/incomplete work; journal path/evidence; resume/restart/close options; safety explanation.
+## 2. Primary action
+**Khôi phục/Đóng phiên**
 
-## Data
-`StressSession.previousInterruptedSessionDetected`, `journalPath`, journal evidence.
+## 3. Entry / exit
+- Entry: preserve active inspection/session context and applicable orchestrator gates.
+- Exit: navigation must not silently discard evidence or mutate diagnostic truth.
+- If mandatory prerequisite evidence is absent, render the correct LOCKED/INCOMPLETE state and explain the next action.
 
-## Invariant
-Interrupted work never silently becomes PASS. Closing/discarding recovery context requires explicit confirmation and must preserve evidence according to policy.
+## 4. Page anatomy / object inventory
 
-## Acceptance
-Shown context matches journal; next action clear; recovered/restarted outcome remains evidence-correct and reportable.
+| Object ID | Object | Binding rule |
+|---|---|---|
+| S23-O01 | Detected interrupted session | Bind to real data/state; unavailable stays explicit |
+| S23-O02 | What completed | Bind to real data/state; unavailable stays explicit |
+| S23-O03 | What is invalid/incomplete | Bind to real data/state; unavailable stays explicit |
+| S23-O04 | Journal path/evidence | Bind to real data/state; unavailable stays explicit |
+| S23-O05 | Resume/restart/close options | Bind to real data/state; unavailable stays explicit |
+| S23-O06 | Safety explanation | Bind to real data/state; unavailable stays explicit |
+
+## 5. Data sources
+- `StressSession.previousInterruptedSessionDetected`
+- `journalPath`
+- `Journal evidence`
+
+All values must comply with `../DATA_BINDING_CONTRACT.md`.
+
+## 6. States
+Implement applicable states from `../UI_STATE_MODEL.md`, including non-happy states: loading/running, warning, fail, incomplete, not-tested, unsupported/provider-unavailable, permission-denied, cancelled/interrupted and empty.
+
+## 7. Interaction
+- Keep one obvious primary action.
+- Drill-down exposes evidence; it does not change the result.
+- Manual decisions must be stored as operator-confirmed evidence.
+- Long-running work must remain off the UI thread.
+
+## 8. Evidence invariant
+**Interrupted journal evidence can never silently become PASS.**
+
+## 9. Visual contract
+Primary reference: No approved per-screen image yet; inherit `CONTACT_SHEET.jpg` and Design System.
+
+Follow `../DESIGN_SYSTEM.md` for typography, spacing, color, components and DPI. The image controls hierarchy/layout direction only; `KNOWN_MOCKUP_DEVIATIONS.md` and evidence contracts override illustrative literals.
+
+## 10. Accessibility
+Follow `../ACCESSIBILITY_DPI.md`. Validate keyboard use and 1366×768 / 1920×1080 at 100/125/150% scaling.
+
+## 11. Acceptance criteria
+- All displayed technical values are sourced/derived/operator-confirmed or explicitly unavailable.
+- Canonical Vietnamese state wording is used.
+- Primary CTA is reachable and unambiguous.
+- Applicable non-happy states are implemented.
+- No false PASS path is introduced.
+- Related report/evidence semantics remain unchanged unless explicitly specified and tested.
+- Actual executable screenshot is compared with the approved visual direction before completion.

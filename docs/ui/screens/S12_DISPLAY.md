@@ -1,19 +1,67 @@
 # S12 — Hiển thị
 
-`components: [C01,C02,C03,C04,C08,C10,C11,C12]`  
-`visual: ../references/approved/S12_DISPLAY.jpg`
+```yaml
+screen_id: S12
+status: approved-contract
+visual_reference: S12_DISPLAY.jpg
+components: [C01, C02, C03, C04, C08, C10, C11, C12]
+```
 
-## User outcome
-Combine EDID/current-mode evidence with guided human visual-defect inspection.
+## 1. User outcome
+Combine EDID/current mode evidence with guided visual defect inspection.
 
-## Objects
-Panel identity; native vs current resolution; refresh; touch; six-color full-screen workflow; defect categories/severity; operator confirmation.
+## 2. Primary action
+**Màu tiếp theo/Xác nhận**
 
-## Data
-`DisplayInfo`, display functional result, operator defect evidence.
+## 3. Entry / exit
+- Entry: preserve active inspection/session context and applicable orchestrator gates.
+- Exit: navigation must not silently discard evidence or mutate diagnostic truth.
+- If mandatory prerequisite evidence is absent, render the correct LOCKED/INCOMPLETE state and explain the next action.
 
-## Invariant
-EDID/panel presence does not replace dead-pixel/bleed/line/color visual verification.
+## 4. Page anatomy / object inventory
 
-## Acceptance
-Full-screen test exits safely with Esc; recorded result persists; native/current mode clearly distinguished.
+| Object ID | Object | Binding rule |
+|---|---|---|
+| S12-O01 | Panel identity | Bind to real data/state; unavailable stays explicit |
+| S12-O02 | Native vs current resolution | Bind to real data/state; unavailable stays explicit |
+| S12-O03 | Refresh | Bind to real data/state; unavailable stays explicit |
+| S12-O04 | Touch | Bind to real data/state; unavailable stays explicit |
+| S12-O05 | Six-color full-screen workflow | Bind to real data/state; unavailable stays explicit |
+| S12-O06 | Defect categories/severity | Bind to real data/state; unavailable stays explicit |
+| S12-O07 | Operator evidence | Bind to real data/state; unavailable stays explicit |
+
+## 5. Data sources
+- `DisplayInfo`
+- `Functional display result`
+- `Operator defect evidence`
+
+All values must comply with `../DATA_BINDING_CONTRACT.md`.
+
+## 6. States
+Implement applicable states from `../UI_STATE_MODEL.md`, including non-happy states: loading/running, warning, fail, incomplete, not-tested, unsupported/provider-unavailable, permission-denied, cancelled/interrupted and empty.
+
+## 7. Interaction
+- Keep one obvious primary action.
+- Drill-down exposes evidence; it does not change the result.
+- Manual decisions must be stored as operator-confirmed evidence.
+- Long-running work must remain off the UI thread.
+
+## 8. Evidence invariant
+**EDID/presence does not replace human visual defect inspection.**
+
+## 9. Visual contract
+Primary reference: `../references/approved/S12_DISPLAY.jpg`
+
+Follow `../DESIGN_SYSTEM.md` for typography, spacing, color, components and DPI. The image controls hierarchy/layout direction only; `KNOWN_MOCKUP_DEVIATIONS.md` and evidence contracts override illustrative literals.
+
+## 10. Accessibility
+Follow `../ACCESSIBILITY_DPI.md`. Validate keyboard use and 1366×768 / 1920×1080 at 100/125/150% scaling.
+
+## 11. Acceptance criteria
+- All displayed technical values are sourced/derived/operator-confirmed or explicitly unavailable.
+- Canonical Vietnamese state wording is used.
+- Primary CTA is reachable and unambiguous.
+- Applicable non-happy states are implemented.
+- No false PASS path is introduced.
+- Related report/evidence semantics remain unchanged unless explicitly specified and tested.
+- Actual executable screenshot is compared with the approved visual direction before completion.

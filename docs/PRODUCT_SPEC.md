@@ -22,13 +22,16 @@ The product prefers `UNKNOWN`, `NOT TESTED` or `INCOMPLETE` over an unsupported 
 Quick / Standard / Deep.
 
 ## 4. Diagnostic domains
-System identity; CPU; Memory; Storage; Battery & power; GPU/VRAM; Display; Functional I/O; Physical ports. Detailed provider/evidence semantics remain governed by `COVERAGE_CONTRACT.md` and implementation modules.
+System identity; CPU; Memory; Storage; Battery & power; GPU/VRAM; Display; Functional I/O; Physical ports.
+
+Detailed provider/evidence semantics remain governed by `COVERAGE_CONTRACT.md` and implementation modules.
 
 ## 5. Factory & chassis profiles
 Factory profiles and chassis profiles are distinct. Chassis/profile confidence and validation status must be disclosed; draft/generic data is not production certification.
 
 ## 6. Decision model
-High-level states: `BUY`, `BUY WITH NOTES`, `INCOMPLETE`, `REJECT`. Stability, thermal, performance, factory/profile, functional, port/power, coverage and confidence remain separate dimensions.
+High-level states: `BUY`, `BUY WITH NOTES`, `INCOMPLETE`, `REJECT`.
+Stability, thermal, performance, factory/profile, functional, port/power, coverage and confidence remain separate dimensions.
 
 ## 7. Guided Test Orchestrator
 1. Automatic Hardware Audit
@@ -51,7 +54,9 @@ No silent runtime downloads; SHA-256 allowlist for external engines; bounded out
 Strict MSVC x64 Release and behavioral tests; no evidence gap can create BUY/PASS; report contracts validate; portable launch; real-laptop end-to-end; physically verified chassis profiles; false-positive/negative corrections.
 
 ## 12. Presentation & UX Contract
-LapSure exposes this evidence model through the **Professional Dashboard**. The normative UI/UX implementation layer is `docs/ui/`.
+LapSure exposes this evidence model through the **Professional Dashboard**.
+
+The normative UI/UX implementation layer is `docs/ui/`.
 
 It must preserve:
 - evidence-before-verdict semantics;

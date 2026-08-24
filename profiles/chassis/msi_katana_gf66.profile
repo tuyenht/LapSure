@@ -1,0 +1,11 @@
+profileId=msi_katana_gf66
+modelContains=Katana GF66
+displayName=MSI Katana GF66
+validationStatus=draft
+reference=MSI Katana GF66 Specifications
+port=left_usb_a1|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_usb_a2|Left USB 2.0|Left|USB-A|USB 2.0|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true
+port=right_usbc|Right USB-C 3.2 Gen 1|Right|USB-C|USB-C 3.2 Gen 1 (Data only)|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true

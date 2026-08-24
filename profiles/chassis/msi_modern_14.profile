@@ -1,0 +1,10 @@
+profileId=msi_modern_14
+modelContains=Modern 14
+displayName=MSI Modern 14
+validationStatus=draft
+reference=MSI Modern 14 Specifications
+port=left_hdmi|Left HDMI|Left|HDMI|HDMI (4K @ 30Hz / 60Hz)|true
+port=left_usbc|Left USB-C 3.2 Gen 2 (PD)|Left|USB-C|USB-C 3.2 Gen 2 with Power Delivery|true
+port=left_microsd|Left MicroSD Card Reader|Left|MicroSD|MicroSD Card Reader|true
+port=right_usb_a1|Right USB 3.2 Gen 2 #1|Right|USB-A|USB 3.2 Gen 2|true
+port=right_usb_a2|Right USB 3.2 Gen 2 #2|Right|USB-A|USB 3.2 Gen 2|true

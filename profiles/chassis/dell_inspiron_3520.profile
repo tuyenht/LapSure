@@ -1,0 +1,10 @@
+profileId=dell_inspiron_3520
+modelContains=Inspiron 3520
+displayName=Dell Inspiron 15 3520
+validationStatus=draft
+reference=Dell Inspiron 15 3520 Setup and Specifications
+port=left_hdmi|Left HDMI 1.4|Left|HDMI|HDMI 1.4 Video Output|true
+port=left_usb_a1|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_usbc|Left USB-C 3.2 Gen 1|Left|USB-C|USB-C 3.2 Gen 1 Data only|true
+port=right_usb_a|Right USB 2.0|Right|USB-A|USB 2.0|true
+port=right_sd|Right SD Card Slot|Right|SD|SD Card Reader|true

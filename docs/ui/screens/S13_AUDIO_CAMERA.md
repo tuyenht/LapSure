@@ -1,18 +1,66 @@
 # S13 — Âm thanh & Camera
 
-`components: [C01,C02,C03,C04,C08,C10,C11,C12]`
+```yaml
+screen_id: S13
+status: approved-contract
+visual_reference: none
+components: [C01, C02, C03, C04, C08, C10, C11, C12]
+```
 
-## User outcome
-Verify camera sample, microphone capture and stereo L/R through actual stimulus.
+## 1. User outcome
+Verify camera sample, microphone capture and stereo L/R with actual stimulus.
 
-## Objects
-Camera preview/sample status; mic capture/waveform; stereo left/right stimulus; operator quality confirmation; source/confidence.
+## 2. Primary action
+**Chạy bài tiếp theo**
 
-## Data
-`FunctionalItemResult`, Media Foundation evidence, WaveIn/PCM evidence, operator confirmation.
+## 3. Entry / exit
+- Entry: preserve active inspection/session context and applicable orchestrator gates.
+- Exit: navigation must not silently discard evidence or mutate diagnostic truth.
+- If mandatory prerequisite evidence is absent, render the correct LOCKED/INCOMPLETE state and explain the next action.
 
-## Invariant
-Camera/mic device presence is not PASS. Camera requires actual usable frame/sample evidence; mic requires actual capture evidence; stereo L/R requires stimulus + operator confirmation.
+## 4. Page anatomy / object inventory
 
-## Acceptance
-No false PASS from enumeration; clear privacy/permission failure states; manual quality judgment labeled.
+| Object ID | Object | Binding rule |
+|---|---|---|
+| S13-O01 | Camera preview/sample status | Bind to real data/state; unavailable stays explicit |
+| S13-O02 | Microphone capture/waveform | Bind to real data/state; unavailable stays explicit |
+| S13-O03 | Stereo left/right stimulus | Bind to real data/state; unavailable stays explicit |
+| S13-O04 | Operator quality confirmation | Bind to real data/state; unavailable stays explicit |
+| S13-O05 | Evidence source/confidence | Bind to real data/state; unavailable stays explicit |
+
+## 5. Data sources
+- `FunctionalItemResult`
+- `Media Foundation evidence`
+- `WaveIn/PCM evidence`
+- `Operator confirmation`
+
+All values must comply with `../DATA_BINDING_CONTRACT.md`.
+
+## 6. States
+Implement applicable states from `../UI_STATE_MODEL.md`, including non-happy states: loading/running, warning, fail, incomplete, not-tested, unsupported/provider-unavailable, permission-denied, cancelled/interrupted and empty.
+
+## 7. Interaction
+- Keep one obvious primary action.
+- Drill-down exposes evidence; it does not change the result.
+- Manual decisions must be stored as operator-confirmed evidence.
+- Long-running work must remain off the UI thread.
+
+## 8. Evidence invariant
+**Camera/mic/stereo PASS requires actual sample/capture/stimulus evidence.**
+
+## 9. Visual contract
+Primary reference: No approved per-screen image yet; inherit `CONTACT_SHEET.jpg` and Design System.
+
+Follow `../DESIGN_SYSTEM.md` for typography, spacing, color, components and DPI. The image controls hierarchy/layout direction only; `KNOWN_MOCKUP_DEVIATIONS.md` and evidence contracts override illustrative literals.
+
+## 10. Accessibility
+Follow `../ACCESSIBILITY_DPI.md`. Validate keyboard use and 1366×768 / 1920×1080 at 100/125/150% scaling.
+
+## 11. Acceptance criteria
+- All displayed technical values are sourced/derived/operator-confirmed or explicitly unavailable.
+- Canonical Vietnamese state wording is used.
+- Primary CTA is reachable and unambiguous.
+- Applicable non-happy states are implemented.
+- No false PASS path is introduced.
+- Related report/evidence semantics remain unchanged unless explicitly specified and tested.
+- Actual executable screenshot is compared with the approved visual direction before completion.

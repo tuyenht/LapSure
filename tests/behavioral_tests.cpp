@@ -14,6 +14,8 @@
 #include "lap/runtime_validation.h"
 #include "lap/orchestrator.h"
 #include "lap/acquisition.h"
+#include "lap/cloud_lookup.h"
+#include "lap/profile.h"
 #include <filesystem>
 #include <iostream>
 #include <atomic>
@@ -134,6 +136,42 @@ int main() {
     Expect(benchCheck.expectedLow == 120.0 && benchCheck.expectedHigh == 175.0, "calibrated Silicon baseline matched for i7-11850H");
     auto dellChassis = lap::LoadChassisProfile(appDir, L"Dell Inspiron 15 3520");
     Expect(!dellChassis.profileId.empty() && dellChassis.ports.size() >= 4, "Dell universal heuristic chassis synthesized for unlisted Dell model");
+    auto lenovoChassis = lap::LoadChassisProfile(appDir, L"Lenovo Unknown Laptop");
+    Expect(!lenovoChassis.profileId.empty() && lenovoChassis.ports.size() >= 4, "Lenovo heuristic chassis synthesized for unlisted Lenovo model");
+    auto hpChassis = lap::LoadChassisProfile(appDir, L"HP Unknown Model");
+    Expect(!hpChassis.profileId.empty() && hpChassis.ports.size() >= 4, "HP heuristic chassis synthesized for unlisted HP model");
+    auto asusChassis = lap::LoadChassisProfile(appDir, L"ASUS Unknown Model");
+    Expect(!asusChassis.profileId.empty() && asusChassis.ports.size() >= 4, "ASUS heuristic chassis synthesized for unlisted ASUS model");
+    auto appleChassis = lap::LoadChassisProfile(appDir, L"Apple MacBook");
+    Expect(!appleChassis.profileId.empty() && !appleChassis.ports.empty(), "Apple heuristic chassis synthesized for Apple model");
+    auto universalChassis = lap::LoadChassisProfile(appDir, L"Custom Whitebook Generic");
+    Expect(!universalChassis.profileId.empty() && universalChassis.ports.size() >= 3, "Universal PC heuristic chassis synthesized for generic PC model");
+
+    lap::FactoryProfile mockProfile{};
+    mockProfile.model = L"Latitude 7420 Cloud";
+    mockProfile.serviceTag = L"CLOUD7420";
+    mockProfile.cpuContains = L"i7-1185G7";
+    mockProfile.ramBytes = 16ULL * 1024 * 1024 * 1024;
+    mockProfile.diskMinBytes = 512ULL * 1000 * 1000 * 1000;
+    auto isoTs = lap::GetCurrentIsoTimestamp();
+    Expect(isoTs.size() == 20 && isoTs.back() == 'Z', "ISO-8601 UTC timestamp generated in standard format");
+
+    auto serializedJson = lap::SerializeFactoryProfileToJson(mockProfile, L"OEM Cloud Mock", isoTs);
+    std::wstring parsedCachedAt;
+    auto parsedProfile = lap::ParseFactoryProfileFromJson(serializedJson, &parsedCachedAt);
+    Expect(parsedProfile.model == mockProfile.model && parsedProfile.serviceTag == mockProfile.serviceTag && parsedProfile.ramBytes == mockProfile.ramBytes && !parsedCachedAt.empty(), "FactoryProfile JSON serialization round-trip with cachedAt metadata succeeds");
+
+    bool cacheSaved = lap::SaveFactoryProfileToLocalCache(appDir, mockProfile, L"Dell");
+    Expect(cacheSaved, "OEM Cloud profile saves to local disk cache directory");
+    auto loadedFromCache = lap::LoadFactoryProfile(appDir + L"\\profiles", mockProfile.model, mockProfile.serviceTag);
+    Expect(loadedFromCache.loaded && loadedFromCache.exact && loadedFromCache.profile.serviceTag == L"CLOUD7420", "LoadFactoryProfile discovers and matches profile in local cache folder");
+
+    auto lookupMissing = lap::LookupFactoryProfileOnline(appDir, L"Unknown", L"Unknown", L"NONEXISTENT999", 500);
+    Expect(!lookupMissing.success && !lookupMissing.error.empty(), "OEM Cloud Lookup with unreachable/missing tag gracefully returns error without crashing");
+
+    auto batchSummary = lap::RunBatchPreCache(appDir, {L"CLOUD7420", L"NONEXISTENT999"}, L"Dell", 500);
+    Expect(batchSummary.total == 2 && batchSummary.fromCache >= 1 && batchSummary.failed >= 1, "RunBatchPreCache handles mixed cached and unreachable tags with accurate accounting");
+
     providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
     const auto coverage=lap::BuildCoverageContract(providerReport);
     Expect(coverage.size()>=10&&std::any_of(coverage.begin(),coverage.end(),[](const auto&x){return x.id==L"storage";})&&providerReport.hardware.stress.decision.coverage==L"PARTIAL","coverage contract exposes required domains and gates incomplete evidence");

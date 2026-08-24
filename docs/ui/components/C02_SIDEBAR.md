@@ -1,5 +1,22 @@
 # C02 — Sidebar
 
-Grouped navigation: Quy trình, Chi tiết thiết bị, Đánh giá & hồ sơ, Utility. Active item uses blue emphasis plus icon/text. Device-detail group may collapse. S23 is contextual, not a permanent primary tab.
+## Purpose
+Reusable native Win32 component. Screen renderers should use the shared implementation rather than duplicate visual/state logic.
 
-Keyboard navigation is required; use consistent native/resource icons with text fallback. Sidebar state must not imply diagnostic result.
+## Anatomy
+- Groups: Quy trình, Chi tiết thiết bị, Đánh giá & hồ sơ, Utility
+- Active item blue + text/icon
+
+## Rules
+- Keyboard reachable
+- Collapsible device-detail group
+- S23 not permanent primary tab
+
+## States
+Support applicable states from `UI_STATE_MODEL.md`. A component that carries diagnostic state must preserve explicit uncertainty.
+
+## Accessibility / DPI
+Follow `ACCESSIBILITY_DPI.md`; use text with icon/color, keyboard focus where interactive, and DPI-aware dimensions.
+
+## Engineering mapping
+Centralize tokens/helpers in shared UI modules. Do not perform slow evidence collection inside rendering.

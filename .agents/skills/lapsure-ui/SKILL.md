@@ -18,6 +18,15 @@ description: Implements and audits LapSure native Win32 Professional Dashboard s
 10. current model/providers/code/tests
 
 ## Method
-Identify Screen ID/outcome → audit real data as direct/derived/operator/unavailable → audit renderer/navigation/threading → implement/reuse shared components → implement applicable non-happy states → audit Vietnamese copy → build/test → launch/capture/compare → independent evidence-semantic audit → report files/tests/deviations/gaps.
+1. Identify Screen ID and user outcome.
+2. Audit real available data; classify direct/derived/operator/unavailable.
+3. Audit current renderer/navigation/threading.
+4. Implement/reuse shared components.
+5. Implement all applicable states, not just happy path.
+6. Audit Vietnamese copy.
+7. Build/test.
+8. Launch/capture and compare visually.
+9. Perform independent evidence-semantic audit.
+10. Report files, tests, deviations and remaining gaps.
 
 Never modify diagnostic semantics merely to make a mockup look complete.

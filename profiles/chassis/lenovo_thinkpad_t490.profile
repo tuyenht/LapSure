@@ -1,0 +1,12 @@
+profileId=lenovo_thinkpad_t490
+modelContains=T490
+displayName=Lenovo ThinkPad T490
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad T490
+port=left_usbc|Left USB-C 3.1 Gen 1|Left|USB-C|USB-C 3.1 Gen 1 / Power Delivery / DP 1.2|true
+port=left_tb3|Left Thunderbolt 3 (Side Dock)|Left|USB-C|Thunderbolt 3 / Power Delivery / DP 1.2|true
+port=left_usb_a|Left USB 3.1 Gen 1|Left|USB-A|USB 3.1 Gen 1|true
+port=left_hdmi|Left HDMI 1.4b|Left|HDMI|HDMI 1.4b Video Output|true
+port=left_microsd|Left MicroSD Card Slot|Left|MicroSD|MicroSD Card Reader|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a|Right USB 3.1 Gen 1 (Always On)|Right|USB-A|USB 3.1 Gen 1 Always On|true

@@ -29,13 +29,23 @@ FactoryProfile Parse(const std::string& j){
 ProfileLoadResult LoadFactoryProfile(const std::wstring& dir,const std::wstring&,const std::wstring& tag){
  ProfileLoadResult out{}; std::filesystem::path root(dir);
  if(!std::filesystem::exists(root)){out.error=L"profiles directory not found";return out;}
- for(auto& e:std::filesystem::directory_iterator(root)){
-  if(!e.is_regular_file()||e.path().extension()!=L".json")continue;
-  auto raw=ReadUtf8(e.path()); auto p=Parse(raw); if(p.model.empty())continue;
-  if(!tag.empty() && !p.serviceTag.empty() && EqI(p.serviceTag,tag)){
-   out.profile=p;out.exact=true;out.loaded=true;out.source=e.path().wstring();return out;
+ 
+ auto scanDir = [&](const std::filesystem::path& pth) -> bool {
+  std::error_code ec;
+  if (!std::filesystem::exists(pth, ec)) return false;
+  for(auto& e:std::filesystem::directory_iterator(pth, ec)){
+   if(ec||!e.is_regular_file()||e.path().extension()!=L".json")continue;
+   auto raw=ReadUtf8(e.path()); auto p=Parse(raw); if(p.model.empty())continue;
+   if(!tag.empty() && !p.serviceTag.empty() && EqI(p.serviceTag,tag)){
+    out.profile=p;out.exact=true;out.loaded=true;out.source=e.path().wstring();return true;
+   }
   }
- }
+  return false;
+ };
+
+ if (scanDir(root)) return out;
+ if (scanDir(root / L"cache")) return out;
+
  out.error=L"No exact Service Tag profile; Generic Audit mode";return out;
 }
 }

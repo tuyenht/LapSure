@@ -14,23 +14,42 @@
 11. Target screen contract
 12. Referenced component contracts
 13. `/docs/ui/KNOWN_MOCKUP_DEVIATIONS.md`
-14. `/docs/ui/references/MANIFEST.yaml`
-15. Matching member from `/docs/ui/references/LapSure_UI_Visual_Reference_Pack.zip` when available
-16. Current code/tests
+14. Matching approved visual
+15. Current code/tests
 
-Extract visual members to a temporary working location if detailed inspection is needed. Do not begin from a screenshot alone.
+Do not begin from the screenshot alone.
 
 ## Pre-change audit
-Identify current renderer/control path, real model/provider fields, reusable components, lifecycle/threading, missing/non-happy states, unsupported mockup literals and files/tests at risk.
+For the target screen identify:
+- existing renderer/control path,
+- real model/provider fields,
+- reusable components,
+- lifecycle/threading,
+- missing/non-happy states,
+- unsupported mockup literals,
+- files/tests at risk.
 
 ## Implementation rules
-Native C++20/Win32; no Electron/Chromium/WebView/Node/Python runtime for UI convenience; no slow diagnostics in render/layout; no fabricated evidence; preserve trust/hash, WinPE graceful degradation, shared state/data/components and report/journal/cancellation behavior.
+- Native C++20/Win32 remains.
+- No Electron/Chromium/WebView/Node/Python runtime for UI convenience.
+- Do not perform slow diagnostics in render/layout.
+- Do not fabricate or mutate evidence.
+- Keep external-engine trust/hash boundary.
+- Preserve WinPE graceful degradation.
+- Use shared state/data/component contracts.
+- Refactor monolithic UI incrementally instead of adding more duplication.
 
 ## Per-screen sequence
-Audit → shared component if missing → implement screen → build → tests → launch/capture → visual review → evidence review → update traceability/deviations if needed.
+Audit → implement shared component if missing → implement screen → build → tests → launch/capture → visual review → evidence review → update traceability/deviations if needed.
 
 ## Completion
-A screen is done only when applicable gates in `UI_ACCEPTANCE_GATES.md` pass. Unavailable Windows/hardware gates are `NOT RUN — environment limitation`.
+A screen is done only when applicable gates in `UI_ACCEPTANCE_GATES.md` pass.
+If a Windows/hardware-only gate cannot run, state `NOT RUN — environment limitation`.
 
 ## Agent separation
-Prefer `lapsure-ui-implementer`, `lapsure-ui-reviewer` and `lapsure-evidence-reviewer`; the authoring agent should not be the only reviewer of its own evidence semantics.
+Prefer:
+- `lapsure-ui-implementer` to write code,
+- `lapsure-ui-reviewer` to audit visual/UX,
+- `lapsure-evidence-reviewer` to audit evidence semantics.
+
+The authoring agent should not be the only reviewer of its own evidence semantics.

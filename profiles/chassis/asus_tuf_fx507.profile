@@ -1,0 +1,11 @@
+profileId=asus_tuf_fx507
+modelContains=FX507
+displayName=ASUS TUF Gaming F15 FX507 (2022/2023)
+validationStatus=draft
+reference=ASUS TUF Gaming F15 FX507 Specifications
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Gigabit Ethernet LAN|true
+port=left_hdmi|Left HDMI 2.0b|Left|HDMI|HDMI 2.0b Video Output|true
+port=left_tb4|Left Thunderbolt 4|Left|USB-C|Thunderbolt 4 / DisplayPort|true
+port=left_usbc|Left USB-C 3.2 Gen 2 (PD / DP / G-Sync)|Left|USB-C|USB-C 3.2 Gen 2 with DP & G-Sync & PD|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true

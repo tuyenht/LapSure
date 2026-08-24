@@ -3,27 +3,27 @@ policy: visual-reference-only
 contact_sheet: CONTACT_SHEET.jpg
 visual_pack: LapSure_UI_Visual_Reference_Pack.zip
 screens:
-  S01: {title: Tổng quan, contract: ../screens/S01_OVERVIEW.md, status: approved, packed_visual: approved/S01_OVERVIEW.jpg}
-  S02: {title: Phiên kiểm định mới, contract: ../screens/S02_NEW_SESSION.md, status: approved, packed_visual: approved/S02_NEW_SESSION.jpg}
-  S03: {title: Cam kết người bán, contract: ../screens/S03_SELLER_CLAIM.md, status: approved, packed_visual: approved/S03_SELLER_CLAIM.jpg}
-  S04: {title: Kiểm tra Tự động, contract: ../screens/S04_AUTO_AUDIT.md, status: approved, packed_visual: approved/S04_AUTO_AUDIT.jpg}
-  S05: {title: Kiểm tra Chức năng, contract: ../screens/S05_FUNCTIONAL.md, status: approved, packed_visual: approved/S05_FUNCTIONAL.jpg}
-  S06: {title: Ngoại hình & An toàn, contract: ../screens/S06_PHYSICAL_SAFETY.md, status: approved, packed_visual: approved/S06_PHYSICAL_SAFETY.jpg}
-  S07: {title: Cổng & Nguồn, contract: ../screens/S07_PORTS_POWER.md, status: approved, packed_visual: approved/S07_PORTS_POWER.jpg}
-  S08: {title: Stress & Ổn định, contract: ../screens/S08_STRESS_STABILITY.md, status: approved, packed_visual: approved/S08_STRESS_STABILITY.jpg}
-  S09: {title: Pin & Năng lượng, contract: ../screens/S09_BATTERY_POWER.md, status: approved, packed_visual: approved/S09_BATTERY_POWER.jpg}
+  S01: {title: Tổng quan, contract: ../screens/S01_OVERVIEW.md, status: approved, visual: approved/S01_OVERVIEW.jpg, packed_visual: approved/S01_OVERVIEW.jpg}
+  S02: {title: Phiên kiểm định mới, contract: ../screens/S02_NEW_SESSION.md, status: approved, visual: approved/S02_NEW_SESSION.jpg, packed_visual: approved/S02_NEW_SESSION.jpg}
+  S03: {title: Cam kết người bán, contract: ../screens/S03_SELLER_CLAIM.md, status: approved, visual: approved/S03_SELLER_CLAIM.jpg, packed_visual: approved/S03_SELLER_CLAIM.jpg}
+  S04: {title: Kiểm tra Tự động, contract: ../screens/S04_AUTO_AUDIT.md, status: approved, visual: approved/S04_AUTO_AUDIT.jpg, packed_visual: approved/S04_AUTO_AUDIT.jpg}
+  S05: {title: Kiểm tra Chức năng, contract: ../screens/S05_FUNCTIONAL.md, status: approved, visual: approved/S05_FUNCTIONAL.jpg, packed_visual: approved/S05_FUNCTIONAL.jpg}
+  S06: {title: Ngoại hình & An toàn, contract: ../screens/S06_PHYSICAL_SAFETY.md, status: approved, visual: approved/S06_PHYSICAL_SAFETY.jpg, packed_visual: approved/S06_PHYSICAL_SAFETY.jpg}
+  S07: {title: Cổng & Nguồn, contract: ../screens/S07_PORTS_POWER.md, status: approved, visual: approved/S07_PORTS_POWER.jpg, packed_visual: approved/S07_PORTS_POWER.jpg}
+  S08: {title: Stress & Ổn định, contract: ../screens/S08_STRESS_STABILITY.md, status: approved, visual: approved/S08_STRESS_STABILITY.jpg, packed_visual: approved/S08_STRESS_STABILITY.jpg}
+  S09: {title: Pin & Năng lượng, contract: ../screens/S09_BATTERY_POWER.md, status: approved, visual: approved/S09_BATTERY_POWER.jpg, packed_visual: approved/S09_BATTERY_POWER.jpg}
   S10: {title: Lưu trữ, contract: ../screens/S10_STORAGE.md, status: contract-only}
   S11: {title: Bộ nhớ RAM, contract: ../screens/S11_MEMORY.md, status: contract-only}
-  S12: {title: Hiển thị, contract: ../screens/S12_DISPLAY.md, status: approved, packed_visual: approved/S12_DISPLAY.jpg}
+  S12: {title: Hiển thị, contract: ../screens/S12_DISPLAY.md, status: approved, visual: approved/S12_DISPLAY.jpg, packed_visual: approved/S12_DISPLAY.jpg}
   S13: {title: Âm thanh & Camera, contract: ../screens/S13_AUDIO_CAMERA.md, status: contract-only}
-  S14: {title: Mạng & Kết nối, contract: ../screens/S14_NETWORK.md, status: approved, packed_visual: approved/S14_NETWORK.jpg}
+  S14: {title: Mạng & Kết nối, contract: ../screens/S14_NETWORK.md, status: approved, visual: approved/S14_NETWORK.jpg, packed_visual: approved/S14_NETWORK.jpg}
   S15: {title: Thông tin Hệ thống, contract: ../screens/S15_SYSTEM_INFO.md, status: contract-only}
-  S16: {title: Hồ sơ & Đối chiếu, contract: ../screens/S16_FACTORY_COMPARE.md, status: approved, packed_visual: approved/S16_FACTORY_COMPARE.jpg}
-  S17: {title: Thư viện bằng chứng, contract: ../screens/S17_EVIDENCE_LIBRARY.md, status: approved, packed_visual: approved/S17_EVIDENCE_LIBRARY.jpg}
-  S18: {title: Đánh giá cuối cùng & Báo cáo, contract: ../screens/S18_FINAL_REPORT.md, status: approved, packed_visual: approved/S18_FINAL_REPORT.jpg}
-  S19: {title: Xuất báo cáo & Chia sẻ, contract: ../screens/S19_EXPORT_SHARE.md, status: approved, packed_visual: approved/S19_EXPORT_SHARE.jpg}
-  S20: {title: Nhật ký & Sự kiện, contract: ../screens/S20_LOGS_EVENTS.md, status: approved, packed_visual: approved/S20_LOGS_EVENTS.jpg}
-  S21: {title: Cài đặt, contract: ../screens/S21_SETTINGS.md, status: approved, packed_visual: approved/S21_SETTINGS.jpg}
+  S16: {title: Hồ sơ & Đối chiếu, contract: ../screens/S16_FACTORY_COMPARE.md, status: approved, visual: approved/S16_FACTORY_COMPARE.jpg, packed_visual: approved/S16_FACTORY_COMPARE.jpg}
+  S17: {title: Thư viện bằng chứng, contract: ../screens/S17_EVIDENCE_LIBRARY.md, status: approved, visual: approved/S17_EVIDENCE_LIBRARY.jpg, packed_visual: approved/S17_EVIDENCE_LIBRARY.jpg}
+  S18: {title: Đánh giá cuối cùng & Báo cáo, contract: ../screens/S18_FINAL_REPORT.md, status: approved, visual: approved/S18_FINAL_REPORT.jpg, packed_visual: approved/S18_FINAL_REPORT.jpg}
+  S19: {title: Xuất báo cáo & Chia sẻ, contract: ../screens/S19_EXPORT_SHARE.md, status: approved, visual: approved/S19_EXPORT_SHARE.jpg, packed_visual: approved/S19_EXPORT_SHARE.jpg}
+  S20: {title: Nhật ký & Sự kiện, contract: ../screens/S20_LOGS_EVENTS.md, status: approved, visual: approved/S20_LOGS_EVENTS.jpg, packed_visual: approved/S20_LOGS_EVENTS.jpg}
+  S21: {title: Cài đặt, contract: ../screens/S21_SETTINGS.md, status: approved, visual: approved/S21_SETTINGS.jpg, packed_visual: approved/S21_SETTINGS.jpg}
   S22: {title: Lịch sử phiên kiểm định, contract: ../screens/S22_SESSION_HISTORY.md, status: contract-only}
   S23: {title: Khôi phục phiên bị gián đoạn, contract: ../screens/S23_INTERRUPTED_SESSION_RECOVERY.md, status: contract-only}
 archive:

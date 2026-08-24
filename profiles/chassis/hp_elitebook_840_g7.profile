@@ -1,0 +1,10 @@
+profileId=hp_elitebook_840_g7
+modelContains=EliteBook 840 G7
+displayName=HP EliteBook 840 G7
+validationStatus=draft
+reference=HP QuickSpecs EliteBook 840 G7
+port=left_usb_a1|Left USB 3.1 Gen 1 (Charging)|Left|USB-A|USB 3.1 Gen 1 Charging|true
+port=left_usb_a2|Left USB 3.1 Gen 1|Left|USB-A|USB 3.1 Gen 1|true
+port=right_tb3_1|Right Thunderbolt 3 / USB-C #1|Right|USB-C|Thunderbolt 3 / Power Delivery / DP 1.2|true
+port=right_tb3_2|Right Thunderbolt 3 / USB-C #2|Right|USB-C|Thunderbolt 3 / Power Delivery / DP 1.2|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true

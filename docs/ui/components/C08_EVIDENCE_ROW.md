@@ -1,3 +1,25 @@
 # C08 — Evidence Row
 
-Expandable row/card exposing domain/name, actual/expected value when known, status, source/provider and detailed evidence. Missing evidence remains visible. Operator-confirmed evidence is labeled. Drill-down never changes result.
+## Purpose
+Reusable native Win32 component. Screen renderers should use the shared implementation rather than duplicate visual/state logic.
+
+## Anatomy
+- Domain/name
+- Actual/expected
+- Status
+- Source
+- Expandable detail
+
+## Rules
+- Expose missing evidence
+- Raw detail secondary
+- Operator-confirmed tagged
+
+## States
+Support applicable states from `UI_STATE_MODEL.md`. A component that carries diagnostic state must preserve explicit uncertainty.
+
+## Accessibility / DPI
+Follow `ACCESSIBILITY_DPI.md`; use text with icon/color, keyboard focus where interactive, and DPI-aware dimensions.
+
+## Engineering mapping
+Centralize tokens/helpers in shared UI modules. Do not perform slow evidence collection inside rendering.

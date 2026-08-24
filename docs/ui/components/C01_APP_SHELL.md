@@ -1,13 +1,23 @@
 # C01 — App Shell
 
 ## Purpose
-Shared native Win32 window/content/sidebar/status architecture.
+Reusable native Win32 component. Screen renderers should use the shared implementation rather than duplicate visual/state logic.
 
 ## Anatomy
-Dark navy grouped sidebar; light main content surface; optional contextual status strip; session context preserved across navigation.
+- Dark navy grouped sidebar
+- Light content surface
+- Optional contextual status strip
 
 ## Rules
-DPI-aware layout; no diagnostic work inside paint/layout; primary content can scroll; do not lose active session when navigating.
+- DPI-aware layout
+- Preserve session context
+- No diagnostic work in paint
 
-## States/accessibility
-Follow `UI_STATE_MODEL.md` and `ACCESSIBILITY_DPI.md`; focusable navigation and color-independent state signals.
+## States
+Support applicable states from `UI_STATE_MODEL.md`. A component that carries diagnostic state must preserve explicit uncertainty.
+
+## Accessibility / DPI
+Follow `ACCESSIBILITY_DPI.md`; use text with icon/color, keyboard focus where interactive, and DPI-aware dimensions.
+
+## Engineering mapping
+Centralize tokens/helpers in shared UI modules. Do not perform slow evidence collection inside rendering.

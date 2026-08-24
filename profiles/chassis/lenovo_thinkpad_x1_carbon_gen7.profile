@@ -1,0 +1,10 @@
+profileId=lenovo_thinkpad_x1_carbon_gen7
+modelContains=X1 Carbon 7th
+displayName=Lenovo ThinkPad X1 Carbon Gen 7
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad X1 Carbon 7th Gen
+port=left_tb3_1|Left Thunderbolt 3 #1|Left|USB-C|Thunderbolt 3 / PD / DP|true
+port=left_tb3_2|Left Thunderbolt 3 #2|Left|USB-C|Thunderbolt 3 / PD / DP|true
+port=left_usb_a|Left USB 3.1 Gen 1|Left|USB-A|USB 3.1 Gen 1|true
+port=left_hdmi|Left HDMI 1.4b|Left|HDMI|HDMI 1.4b Video Output|true
+port=right_usb_a|Right USB 3.1 Gen 1 (Always On)|Right|USB-A|USB 3.1 Gen 1 Always On|true

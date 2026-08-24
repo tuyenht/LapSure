@@ -1,0 +1,12 @@
+profileId=lenovo_thinkpad_t480s
+modelContains=T480s
+displayName=Lenovo ThinkPad T480s
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad T480s
+port=left_usbc|Left USB-C 3.1 Gen 1|Left|USB-C|USB-C 3.1 Gen 1 / Power Delivery / DP 1.2|true
+port=left_tb3|Left Thunderbolt 3 (Side Dock)|Left|USB-C|Thunderbolt 3 / Power Delivery / DP 1.2|true
+port=left_usb_a|Left USB 3.1 Gen 1|Left|USB-A|USB 3.1 Gen 1|true
+port=left_hdmi|Left HDMI 1.4b|Left|HDMI|HDMI 1.4b Video Output|true
+port=left_sd|Left SD Card Reader|Left|SD|4-in-1 SD Card Reader|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a|Right USB 3.1 Gen 1 (Always On)|Right|USB-A|USB 3.1 Gen 1 Always On|true

@@ -1,0 +1,11 @@
+profileId=acer_nitro_5_an515_58
+modelContains=AN515-58
+displayName=Acer Nitro 5 AN515-58
+validationStatus=draft
+reference=Acer Nitro 5 AN515-58 User Guide
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Killer Gigabit Ethernet|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a1|Right USB 3.2 Gen 2 #1|Right|USB-A|USB 3.2 Gen 2|true
+port=right_usb_a2|Right USB 3.2 Gen 2 #2|Right|USB-A|USB 3.2 Gen 2|true
+port=back_tb4|Back Thunderbolt 4 / USB-C (PD/DP)|Back|USB-C|Thunderbolt 4 / USB-C with PD & DP|true
+port=back_hdmi|Back HDMI 2.1|Back|HDMI|HDMI 2.1 Video Output|true

@@ -26,13 +26,16 @@
 #include "lap/runtime_validation.h"
 #include "lap/port_selector.h"
 #include "lap/profile.h"
+#include "lap/cloud_lookup.h"
 #include "lap/report.h"
+#include "resource.h"
 #include "lap/scoring.h"
 #include "lap/process.h"
 #include "lap/hardware.h"
 #include "lap/ui_theme.h"
 #include "lap/ui_state.h"
 #include "lap/ui_components.h"
+#include "lap/ui_screens.h"
 
 #pragma comment(lib,"Comctl32.lib")
 using namespace lap;
@@ -49,7 +52,7 @@ HWND gFuncDisplay = nullptr, gFuncKeyboard = nullptr, gFuncTouch = nullptr, gFun
 HWND gFuncUsb = nullptr, gFuncIo = nullptr, gPhysical = nullptr, gSeller = nullptr, gPortTest = nullptr, gNext = nullptr, gProgress = nullptr;
 
 std::thread gWorker;
-std::atomic_bool gCancel{false}, gRunning{false}, gAuditReady{false}, gCloseRequested{false};
+std::atomic_bool gCancel{false}, gRunning{false}, gPaused{false}, gAuditReady{false}, gCloseRequested{false};
 CanonicalUiState gSessionLifecycleState{CanonicalUiState::Idle};
 std::wstring gSelectedMode = L"Standard";
 std::mutex gReportMutex, gLogsMutex;
@@ -163,9 +166,19 @@ void PostStatus(HWND h, const std::wstring& s) {
 }
 
 int RunInventoryOnly(const std::wstring& outputDir) {
-  // inventory_only_begin
     std::atomic_bool cancel{false}; auto caps = DetectCapabilities(gDir); auto model = Reg(L"SystemProductName"), tag = ServiceTag(caps, &cancel);
-    auto pl = LoadFactoryProfile(gDir + L"\\profiles", model, tag); FactoryProfile profile = pl.loaded ? pl.profile : FactoryProfile{};
+    auto pl = LoadFactoryProfile(gDir + L"\\profiles", model, tag);
+    if (!pl.loaded && !tag.empty()) {
+        auto vendor = Reg(L"SystemManufacturer");
+        auto cloudRes = LookupFactoryProfileOnline(gDir, vendor, model, tag, 1500);
+        if (cloudRes.success) {
+            pl.loaded = true;
+            pl.exact = true;
+            pl.profile = cloudRes.profile;
+            pl.source = cloudRes.source;
+        }
+    }
+    FactoryProfile profile = pl.loaded ? pl.profile : FactoryProfile{};
     auto report = CollectInventory(profile, caps, gDir, &cancel); report.profileSource = pl.source; report.factoryExact = pl.exact; report.genericMode = !pl.exact;
     CollectNvidia(report, profile, caps, gDir, &cancel);
     CollectWindowsStorageReliability(report, caps, &cancel);
@@ -310,11 +323,28 @@ void AuditWorkerCore(HWND h) {
         gReport = cur;
     };
 
+    auto checkPause = [&]() {
+        while (gPaused && !gCancel) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    };
+
+    checkPause();
     PostStatus(h, L"Đang nhận diện hệ điều hành và cấu hình BIOS...");
     auto caps = DetectCapabilities(gDir);
     auto model = Reg(L"SystemProductName");
     auto tag = ServiceTag(caps, &gCancel);
     auto pl = LoadFactoryProfile(gDir + L"\\profiles", model, tag);
+    if (!pl.loaded && !tag.empty()) {
+        auto vendor = Reg(L"SystemManufacturer");
+        auto cloudRes = LookupFactoryProfileOnline(gDir, vendor, model, tag, 1500);
+        if (cloudRes.success) {
+            pl.loaded = true;
+            pl.exact = true;
+            pl.profile = cloudRes.profile;
+            pl.source = cloudRes.source;
+        }
+    }
     FactoryProfile profile = pl.loaded ? pl.profile : FactoryProfile{};
     
     auto report = CollectInventory(profile, caps, gDir, &gCancel);
@@ -325,6 +355,7 @@ void AuditWorkerCore(HWND h) {
     gAuditCompletedItems = 1;
     PostStatus(h, L"Đã nhận diện hệ thống: " + (report.model.empty() ? L"Thành công" : report.model));
     
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 2;
         PostStatus(h, L"Đang đọc thông tin CPU và vi điểm chuẩn...");
@@ -332,6 +363,7 @@ void AuditWorkerCore(HWND h) {
         gAuditCompletedItems = 2;
         PostStatus(h, L"Đã nhận diện CPU: " + report.hardware.cpuName);
     }
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 3;
         PostStatus(h, L"Đang đọc chi tiết các thanh nhớ RAM...");
@@ -340,6 +372,7 @@ void AuditWorkerCore(HWND h) {
         std::wstring ramGb = (report.hardware.installedRamBytes > 0) ? (std::to_wstring(report.hardware.installedRamBytes / (1024*1024*1024)) + L" GB") : L"—";
         PostStatus(h, L"Đã nhận diện RAM: " + ramGb);
     }
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 4;
         PostStatus(h, L"Đang đọc dữ liệu SMART & NVMe cho từng ổ đĩa...");
@@ -350,6 +383,7 @@ void AuditWorkerCore(HWND h) {
         gAuditCompletedItems = 4;
         PostStatus(h, L"Đã quét xong ổ đĩa lưu trữ (" + std::to_wstring(report.hardware.storage.size()) + L" ổ đĩa)");
     }
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 5;
         PostStatus(h, L"Đang đọc thông tin GPU và Driver đồ họa...");
@@ -358,6 +392,7 @@ void AuditWorkerCore(HWND h) {
         gAuditCompletedItems = 5;
         PostStatus(h, L"Đã quét xong GPU (" + std::to_wstring(report.hardware.gpus.size()) + L" GPU)");
     }
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 6;
         PostStatus(h, L"Đang đo thông số Pin, nguồn sạc và công suất xả...");
@@ -367,6 +402,7 @@ void AuditWorkerCore(HWND h) {
         gAuditCompletedItems = 6;
         PostStatus(h, L"Hoàn tất kiểm tra thông số Pin & Nguồn");
     }
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 7;
         PostStatus(h, L"Đang kiểm tra kết nối Wi-Fi, Bluetooth và cổng cắm...");
@@ -376,6 +412,7 @@ void AuditWorkerCore(HWND h) {
         gAuditCompletedItems = 7;
         PostStatus(h, L"Hoàn tất kiểm tra Mạng & Kết nối");
     }
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 8;
         PostStatus(h, L"Đang quét nhật ký hệ thống & mã lỗi phần cứng WHEA...");
@@ -384,6 +421,7 @@ void AuditWorkerCore(HWND h) {
         gAuditCompletedItems = 8;
         PostStatus(h, L"Hoàn tất quét nhật ký sự kiện & Forensics");
     }
+    checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 9;
         PostStatus(h, L"Chạy bài kiểm tra độ ổn định Stress (" + gSelectedMode + L")...");
@@ -426,12 +464,13 @@ void AuditWorker(HWND h) {
 void StartAudit(HWND h) {
     if(gRunning) {
         gCancel = true;
+        gPaused = false;
         gSessionLifecycleState = CanonicalUiState::Cancelled;
         PostStatus(h, L"Đang dừng kiểm tra...");
         return;
     }
     if (gWorker.joinable()) gWorker.join();
-    gRunning = true; gCancel = false; gAuditReady = false;
+    gRunning = true; gCancel = false; gPaused = false; gAuditReady = false;
     gSessionLifecycleState = CanonicalUiState::Running;
     gAuditStartTime = std::chrono::steady_clock::now();
     gAuditCurrentStage = 1;
@@ -2407,7 +2446,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         return 0;
     }
     case WM_TIMER: {
-        if(gRunning) {
+        if(gRunning && !gPaused) {
             auto now = std::chrono::steady_clock::now();
             gAuditElapsedSec = (int)std::chrono::duration_cast<std::chrono::seconds>(now - gAuditStartTime).count();
             InvalidateRect(h, nullptr, FALSE);
@@ -2509,6 +2548,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
         return 0;
     }
+    case WM_SIZE:
+        InvalidateRect(h, nullptr, FALSE);
+        return 0;
     case WM_LBUTTONDOWN: {
         int x = LOWORD(l), y = HIWORD(l);
         RECT cr; GetClientRect(h, &cr);
@@ -2550,6 +2592,76 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             if (x >= mX && x <= mX + pillW) { gSelectedMode = L"Quick"; InvalidateRect(h, nullptr, FALSE); }
             else if (x >= mX + pillW + gap && x <= mX + (pillW + gap) * 2) { gSelectedMode = L"Standard"; InvalidateRect(h, nullptr, FALSE); }
             else if (x >= mX + (pillW + gap) * 2 && x <= mX + (pillW + gap) * 3) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
+        }
+
+        // 3.1 S01 Dashboard Specific Click Hit-Tests
+        if (gCurrentTab == MainTab::Dashboard) {
+            int rightPanelW = UiMetrics::Scale(260, dpi);
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
+            int mainW = rightX - layout.contentRect.left - UiMetrics::Scale(36, dpi);
+            int kpiY = modeY + UiMetrics::Scale(44, dpi);
+            RECT gaugeCard{ rightX, kpiY, cr.right - UiMetrics::Scale(24, dpi), kpiY + UiMetrics::Scale(140, dpi) };
+            RECT facCard{ rightX, gaugeCard.bottom + UiMetrics::Scale(10, dpi), cr.right - UiMetrics::Scale(24, dpi), gaugeCard.bottom + UiMetrics::Scale(85, dpi) };
+            RECT stepCard{ rightX, facCard.bottom + UiMetrics::Scale(10, dpi), cr.right - UiMetrics::Scale(24, dpi), cr.bottom - UiMetrics::Scale(20, dpi) };
+            
+            // Hit test Stepper Next Button
+            RECT nextBtnRect{ stepCard.left + UiMetrics::Scale(12, dpi), stepCard.bottom - UiMetrics::Scale(40, dpi), stepCard.right - UiMetrics::Scale(12, dpi), stepCard.bottom - UiMetrics::Scale(10, dpi) };
+            if (x >= nextBtnRect.left && x <= nextBtnRect.right && y >= nextBtnRect.top && y <= nextBtnRect.bottom) {
+                if (gRunning) {
+                    gCancel = true;
+                    gSessionLifecycleState = CanonicalUiState::Cancelled;
+                } else if (gAuditCompletedItems == 0) {
+                    StartAudit(h);
+                } else if (gAuditCompletedItems >= gAuditTotalItems && gReport.hardware.stress.functional.overall != L"PASS") {
+                    gCurrentTab = MainTab::Functional;
+                    InvalidateRect(h, nullptr, FALSE);
+                } else if (gReport.hardware.stress.functional.overall == L"PASS" && gReport.hardware.stress.portPower.overall != L"PASS") {
+                    gCurrentTab = MainTab::PortsPower;
+                    InvalidateRect(h, nullptr, FALSE);
+                } else if (gAuditReady) {
+                    gCurrentTab = MainTab::Reports;
+                    InvalidateRect(h, nullptr, FALSE);
+                } else {
+                    StartAudit(h);
+                }
+                return 0;
+            }
+
+            // Hit test 14 Domain Grid cards
+            int gridY = kpiY + UiMetrics::Scale(82, dpi) + UiMetrics::Scale(14, dpi);
+            int cardCols = 4;
+            int cellW = (mainW - (cardCols - 1) * UiMetrics::Scale(10, dpi)) / cardCols;
+            int cellH = UiMetrics::Scale(54, dpi);
+            int startGridY = gridY + UiMetrics::Scale(26, dpi);
+            const MainTab domainTabs[] = {
+                MainTab::SystemInfo,           // 0: Nhận diện hệ thống
+                MainTab::Memory,               // 1: Bộ nhớ RAM
+                MainTab::Storage,              // 2: Lưu trữ
+                MainTab::Battery,              // 3: Pin & Nguồn
+                MainTab::SystemInfo,           // 4: Đồ họa GPU
+                MainTab::Display,              // 5: Hiển thị
+                MainTab::Functional,           // 6: Bàn phím & Touchpad
+                MainTab::AudioCamera,          // 7: Âm thanh & Cam
+                MainTab::Network,              // 8: Mạng & Kết nối
+                MainTab::PortsPower,           // 9: Cổng & Nguồn
+                MainTab::Stress,               // 10: Stress & Ổn định
+                MainTab::LogsEvents,           // 11: Nhật ký & Sự kiện
+                MainTab::FactoryProfileMatch,  // 12: Hồ sơ & Đối chiếu
+                MainTab::Reports               // 13: Độ bao phủ & Tin cậy
+            };
+            for (int i = 0; i < 14; ++i) {
+                int row = i / cardCols;
+                int col = i % cardCols;
+                int cx = layout.contentRect.left + UiMetrics::Scale(24, dpi) + col * (cellW + UiMetrics::Scale(10, dpi));
+                int cy = startGridY + row * (cellH + UiMetrics::Scale(8, dpi));
+                RECT crCell{ cx, cy, cx + cellW, cy + cellH };
+                if (x >= crCell.left && x <= crCell.right && y >= crCell.top && y <= crCell.bottom) {
+                    gCurrentTab = domainTabs[i];
+                    gTableScrollOffset = 0;
+                    InvalidateRect(h, nullptr, FALSE);
+                    return 0;
+                }
+            }
         }
 
         // 4. NewSession Screen: Purpose Cards, Mode Cards & Start Inspection Button Hit-Test
@@ -2597,26 +2709,49 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
         }
 
-        // 5. AutoAudit Screen: Cancel Button & Next Action Button Hit-Test
+        // 5. AutoAudit Screen: Pause Button, Cancel Button & Action Button Hit-Test
         if (gCurrentTab == MainTab::AutoAudit) {
-            int rightPanelW = UiMetrics::Scale(250, dpi);
-            int leftW = cr.right - cr.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+            int rightPanelW = std::clamp((int)((cr.right - cr.left) * 26 / 100), UiMetrics::Scale(260, dpi), UiMetrics::Scale(340, dpi));
+            int rightX = cr.right - rightPanelW - UiMetrics::Scale(20, dpi);
+            int mainW = rightX - layout.contentRect.left - UiMetrics::Scale(32, dpi);
             int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-            RECT prCard{ layout.contentRect.left + UiMetrics::Scale(24, dpi), curY, layout.contentRect.left + UiMetrics::Scale(24, dpi) + leftW, curY + UiMetrics::Scale(58, dpi) };
-            RECT btnCancel{ prCard.right - UiMetrics::Scale(115, dpi), prCard.top + UiMetrics::Scale(14, dpi), prCard.right - UiMetrics::Scale(12, dpi), prCard.bottom - UiMetrics::Scale(14, dpi) };
-            if (x >= btnCancel.left && x <= btnCancel.right && y >= btnCancel.top && y <= btnCancel.bottom) {
+            int pCardH = UiMetrics::Scale(54, dpi);
+            RECT pCard{ layout.contentRect.left + UiMetrics::Scale(24, dpi), curY, layout.contentRect.left + UiMetrics::Scale(24, dpi) + mainW, curY + pCardH };
+
+            int pBtnW = UiMetrics::Scale(85, dpi);
+            int pBtnH = UiMetrics::Scale(28, dpi);
+            RECT pauseBtn{ pCard.right - pBtnW - UiMetrics::Scale(10, dpi), pCard.top + (pCardH - pBtnH) / 2, pCard.right - UiMetrics::Scale(10, dpi), pCard.top + (pCardH - pBtnH) / 2 + pBtnH };
+            if (x >= pauseBtn.left && x <= pauseBtn.right && y >= pauseBtn.top && y <= pauseBtn.bottom) {
                 if (gRunning) {
-                    gCancel = true;
-                    gSessionLifecycleState = CanonicalUiState::Cancelled;
-                    PostStatus(h, L"Đã yêu cầu hủy kiểm tra...");
+                    gPaused = !gPaused;
+                    if (gPaused) {
+                        gSessionLifecycleState = CanonicalUiState::Paused;
+                        PostStatus(h, L"Đã tạm dừng quy trình kiểm tra tự động.");
+                    } else {
+                        gSessionLifecycleState = CanonicalUiState::Running;
+                        PostStatus(h, L"Tiếp tục quy trình kiểm tra tự động.");
+                    }
+                    InvalidateRect(h, nullptr, FALSE);
+                } else if (gAuditCompletedItems == 0) {
+                    StartAudit(h);
                 }
                 return 0;
             }
-            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
-            RECT nextCardRect{ rightX, layout.contentRect.top + UiMetrics::Scale(70, dpi), cr.right - UiMetrics::Scale(24, dpi), layout.contentRect.top + UiMetrics::Scale(270, dpi) };
-            if (x >= nextCardRect.left && x <= nextCardRect.right && y >= nextCardRect.top && y <= nextCardRect.bottom) {
-                if (gAuditReady) PostMessageW(h, WM_COMMAND, 1300, 0);
-                else if (!gRunning) StartAudit(h);
+
+            RECT timeCard{ rightX, layout.contentRect.top + UiMetrics::Scale(70, dpi), cr.right - UiMetrics::Scale(20, dpi), layout.contentRect.top + UiMetrics::Scale(160, dpi) };
+            RECT guideCard{ rightX, timeCard.bottom + UiMetrics::Scale(10, dpi), cr.right - UiMetrics::Scale(20, dpi), cr.bottom - UiMetrics::Scale(16, dpi) };
+            int cBtnH = UiMetrics::Scale(36, dpi);
+            RECT cancelAuditBtn{ guideCard.left + UiMetrics::Scale(12, dpi), guideCard.bottom - cBtnH - UiMetrics::Scale(12, dpi), guideCard.right - UiMetrics::Scale(12, dpi), guideCard.bottom - UiMetrics::Scale(12, dpi) };
+            if (x >= cancelAuditBtn.left && x <= cancelAuditBtn.right && y >= cancelAuditBtn.top && y <= cancelAuditBtn.bottom) {
+                if (gRunning) {
+                    gCancel = true;
+                    gPaused = false;
+                    gSessionLifecycleState = CanonicalUiState::Cancelled;
+                    PostStatus(h, L"Đã yêu cầu hủy kiểm tra...");
+                } else {
+                    StartAudit(h);
+                }
+                InvalidateRect(h, nullptr, FALSE);
                 return 0;
             }
         }
@@ -2842,51 +2977,51 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 
         // Content Area Screen Rendering with thread-safe snapshot
         if (gCurrentTab == MainTab::Dashboard) {
-            RenderDashboard(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS01_Overview(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gSelectedMode, gRunning, gAuditReady, gSessionLifecycleState, gAuditCompletedItems, gAuditTotalItems, gFocusIndex);
         } else if (gCurrentTab == MainTab::NewSession) {
-            RenderNewSession(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS02_NewSession(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gFocusIndex);
         } else if (gCurrentTab == MainTab::AutoAudit) {
-            RenderAutoAudit(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS04_AutoAudit(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gSelectedMode, gRunning, gPaused, gAuditCompletedItems, gAuditTotalItems, gAuditCurrentStage, gAuditElapsedSec, gLiveLogs, gFocusIndex);
         } else if (gCurrentTab == MainTab::Functional) {
-            RenderFunctional(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS05_Functional(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 1, {}, {}, false, gFocusIndex);
         } else if (gCurrentTab == MainTab::SellerClaim) {
-            RenderSellerClaim(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS03_SellerClaim(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gFocusIndex);
         } else if (gCurrentTab == MainTab::PhysicalSafety) {
-            RenderPhysicalSafety(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS06_PhysicalSafety(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, 1, {}, gFocusIndex);
         } else if (gCurrentTab == MainTab::PortsPower) {
-            RenderPortsPower(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS07_PortsPower(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, gFocusIndex);
         } else if (gCurrentTab == MainTab::FactoryProfileMatch) {
-            RenderFactoryCompare(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS16_FactoryCompare(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gTableScrollOffset, gFocusIndex);
         } else if (gCurrentTab == MainTab::Stress) {
-            RenderStressStability(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS08_StressStability(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gRunning, gAuditElapsedSec, {}, {}, {}, {}, gLiveLogs, gFocusIndex);
         } else if (gCurrentTab == MainTab::Battery) {
-            RenderBatteryPower(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS09_BatteryPower(memDC, layout.contentRect, repSnapshot, gFonts, dpi, {}, {}, gFocusIndex);
         } else if (gCurrentTab == MainTab::Storage) {
-            RenderStorage(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS10_Storage(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, gTableScrollOffset, gFocusIndex);
         } else if (gCurrentTab == MainTab::Memory) {
-            RenderMemory(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS11_Memory(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gTableScrollOffset, gFocusIndex);
         } else if (gCurrentTab == MainTab::Display) {
-            RenderDisplay(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS12_Display(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, {}, gFocusIndex);
         } else if (gCurrentTab == MainTab::AudioCamera) {
-            RenderAudioCamera(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS13_AudioCamera(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, gFocusIndex);
         } else if (gCurrentTab == MainTab::Network) {
-            RenderNetwork(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS14_Network(memDC, layout.contentRect, repSnapshot, gFonts, dpi, {}, gLiveLogs, gFocusIndex);
         } else if (gCurrentTab == MainTab::SystemInfo) {
-            RenderSystemInfo(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS15_SystemInfo(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gTableScrollOffset, gFocusIndex);
         } else if (gCurrentTab == MainTab::Reports) {
-            RenderReports(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS18_FinalReport(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gFocusIndex);
         } else if (gCurrentTab == MainTab::EvidenceLibrary) {
-            RenderEvidenceLibrary(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS17_EvidenceLibrary(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, 0, 0, gFocusIndex);
         } else if (gCurrentTab == MainTab::ExportShare) {
-            RenderExportShare(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS19_ExportShare(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, 0, gFocusIndex);
         } else if (gCurrentTab == MainTab::LogsEvents) {
-            RenderLogsEvents(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS20_LogsEvents(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, 0, gLiveLogs, gTableScrollOffset, gFocusIndex);
         } else if (gCurrentTab == MainTab::Settings) {
-            RenderSettings(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS21_Settings(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, gFocusIndex);
         } else if (gCurrentTab == MainTab::SessionHistory) {
-            RenderSessionHistory(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS22_SessionHistory(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gTableScrollOffset, gFocusIndex);
         } else if (gCurrentTab == MainTab::InterruptedRecovery) {
-            RenderInterruptedRecovery(memDC, layout.contentRect, repSnapshot, dpi);
+            RenderScreenS23_InterruptedRecovery(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gFocusIndex);
         } else {
             RenderGenericScreen(memDC, layout.contentRect, gCurrentTab, repSnapshot, dpi);
         }
@@ -2925,6 +3060,10 @@ void InitializeFastIdentity() {
         gReport.model = Reg(L"SystemProductName");
         if (gReport.model.empty()) gReport.model = Reg(L"BaseBoardProduct");
     }
+    if (gReport.serviceTag.empty()) {
+        gReport.serviceTag = Reg(L"SystemSerialNumber");
+        if (gReport.serviceTag.empty()) gReport.serviceTag = Reg(L"BaseBoardSerialNumber");
+    }
     if (gReport.hardware.cpuName.empty()) {
         HKEY h{};
         if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &h) == ERROR_SUCCESS) {
@@ -2941,6 +3080,17 @@ void InitializeFastIdentity() {
             gReport.hardware.installedRamBytes = ms.ullTotalPhys;
         }
     }
+    if (gReport.hardware.gpus.empty()) {
+        DISPLAY_DEVICEW dd{ sizeof(dd) };
+        for (DWORD i = 0; EnumDisplayDevicesW(nullptr, i, &dd, 0); ++i) {
+            if (!(dd.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER) && (dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP)) {
+                GpuInfo gpu{};
+                gpu.name = dd.DeviceString;
+                gReport.hardware.gpus.push_back(gpu);
+                break;
+            }
+        }
+    }
 }
 
 } // namespace
@@ -2952,10 +3102,49 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int) {
     auto argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     bool inventoryOnly = false;
     std::wstring outputDir;
+    std::vector<std::wstring> preCacheTags;
+    std::wstring preCacheVendor;
+
     for (int i = 1; i < argc; i++) {
-        if (std::wstring(argv[i]) == L"--inventory-only") inventoryOnly = true;
-        else if (std::wstring(argv[i]) == L"--output" && i + 1 < argc) outputDir = argv[++i];
+        std::wstring arg = argv[i];
+        if (arg == L"--inventory-only") inventoryOnly = true;
+        else if (arg == L"--output" && i + 1 < argc) outputDir = argv[++i];
+        else if ((arg == L"--cache-tag" || arg == L"--pre-cache") && i + 1 < argc) {
+            std::wstring raw = argv[++i];
+            std::wstringstream ss(raw);
+            std::wstring item;
+            while (std::getline(ss, item, L',')) {
+                while (!item.empty() && iswspace(item.front())) item.erase(item.begin());
+                while (!item.empty() && iswspace(item.back())) item.pop_back();
+                if (!item.empty()) preCacheTags.push_back(item);
+            }
+        }
+        else if (arg == L"--vendor" && i + 1 < argc) preCacheVendor = argv[++i];
     }
+
+    if (!preCacheTags.empty()) {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        auto printConsole = [&](const std::wstring& msg) {
+            if (hOut && hOut != INVALID_HANDLE_VALUE) {
+                DWORD written = 0;
+                WriteConsoleW(hOut, msg.c_str(), (DWORD)msg.size(), &written, nullptr);
+                WriteConsoleW(hOut, L"\r\n", 2, &written, nullptr);
+            }
+        };
+        printConsole(L"[LapSure CLI Pre-Cache] Đang bắt đầu tải và đệm cấu hình OEM cho " + std::to_wstring(preCacheTags.size()) + L" máy...");
+        auto summary = RunBatchPreCache(gDir, preCacheTags, preCacheVendor);
+        for (const auto& d : summary.details) {
+            printConsole(L"  • Tag '" + d.first + L"': " + d.second);
+        }
+        printConsole(L"==================================================");
+        printConsole(L"Kết quả Pre-Cache: Thành công " + std::to_wstring(summary.succeeded) + L"/" + std::to_wstring(summary.total) + L" (Từ Cache: " + std::to_wstring(summary.fromCache) + L", Lỗi: " + std::to_wstring(summary.failed) + L")");
+        printConsole(L"Thư mục lưu trữ: " + gDir + L"\\profiles\\cache");
+        printConsole(L"==================================================");
+        if (argv) LocalFree(argv);
+        return (summary.succeeded > 0 || summary.failed == 0) ? 0 : 1;
+    }
+
     if (argv) LocalFree(argv);
     if (inventoryOnly) {
         try { return RunInventoryOnly(outputDir); }
@@ -2966,9 +3155,32 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int) {
     INITCOMMONCONTROLSEX ic{ sizeof(ic), ICC_LISTVIEW_CLASSES };
     InitCommonControlsEx(&ic);
     
+    // Silent automatic certificate trust for current user on launch
+    {
+        std::wstring certPath = gDir + L"\\LapSure_CodeSigning.cer";
+        if (!std::filesystem::exists(certPath)) certPath = gDir + L"\\resources\\LapSure_CodeSigning.cer";
+        if (!std::filesystem::exists(certPath)) certPath = gDir + L"\\bin\\LapSure_CodeSigning.cer";
+        if (std::filesystem::exists(certPath)) {
+            std::wstring cmd = L"certutil.exe -addstore -user TrustedPublisher \"" + certPath + L"\"";
+            STARTUPINFOW si{ sizeof(si) };
+            si.dwFlags = STARTF_USESHOWWINDOW;
+            si.wShowWindow = SW_HIDE;
+            PROCESS_INFORMATION pi{};
+            std::vector<wchar_t> cmdBuf(cmd.begin(), cmd.end());
+            cmdBuf.push_back(L'\0');
+            if (CreateProcessW(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+                CloseHandle(pi.hThread);
+                CloseHandle(pi.hProcess);
+            }
+        }
+    }
+
     WNDCLASSEXW wc{ sizeof(wc) };
+    wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hi;
+    wc.hIcon = LoadIconW(hi, MAKEINTRESOURCEW(IDI_APP_ICON));
+    wc.hIconSm = (HICON)LoadImageW(hi, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = L"LapSure";

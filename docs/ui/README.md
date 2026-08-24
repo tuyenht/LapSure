@@ -3,6 +3,9 @@
 This directory is the normative UI/UX implementation layer for LapSure.
 
 ## Authority order
+
+When requirements conflict, use this precedence:
+
 1. `docs/COVERAGE_CONTRACT.md`
 2. `docs/PRODUCT_SPEC.md`
 3. `docs/ARCHITECTURE.md`
@@ -18,18 +21,30 @@ This directory is the normative UI/UX implementation layer for LapSure.
 Visual references never override evidence semantics.
 
 ## Start here
-- `SCREEN_INDEX.md` — all S01–S23 screens.
-- `DESIGN_SYSTEM.md` — native visual system.
-- `COMPONENT_CATALOG.md` — reusable components.
-- `UI_STATE_MODEL.md` — canonical state semantics.
-- `DATA_BINDING_CONTRACT.md` — source-to-UI mapping.
-- `INTERACTION_PATTERNS.md` — navigation/guided behavior.
+
+- `SCREEN_INDEX.md` — machine/human navigation to all S01–S23 screens.
+- `DESIGN_SYSTEM.md` — visual system and native Win32 implementation intent.
+- `COMPONENT_CATALOG.md` — reusable component inventory.
+- `UI_STATE_MODEL.md` — canonical status/state semantics.
+- `DATA_BINDING_CONTRACT.md` — source-to-UI mapping and no-fabrication rules.
+- `INTERACTION_PATTERNS.md` — navigation, dialogs, guided tests, live updates.
 - `UX_COPY_VI.md` — canonical Vietnamese copy.
-- `ACCESSIBILITY_DPI.md` — Windows keyboard/DPI contract.
-- `TRACEABILITY_MATRIX.md` — requirement → screen → data → test.
-- `KNOWN_MOCKUP_DEVIATIONS.md` — intentional visual corrections.
+- `ACCESSIBILITY_DPI.md` — Windows keyboard/DPI/accessibility contract.
+- `TRACEABILITY_MATRIX.md` — requirement → screen → data → code/test mapping.
+- `KNOWN_MOCKUP_DEVIATIONS.md` — places where visual concepts must not be copied literally.
 - `UI_ACCEPTANCE_GATES.md` — Definition of Done.
-- `references/MANIFEST.yaml` — screen/spec/image map.
+- `references/MANIFEST.yaml` — machine-readable screen-to-reference map.
 
 ## Agent rule
-For a single screen task: read `AGENTS.md`, `SCREEN_INDEX.md`, the target screen contract, linked components, state/data contracts, matching approved visual, then inspect current code/model/providers. Implement, build, test, capture, compare and audit. Do not infer unavailable data from mockups.
+
+For a single screen task:
+1. Read `AGENTS.md`.
+2. Read `SCREEN_INDEX.md`.
+3. Read the target screen contract.
+4. Read only the linked component contracts.
+5. Read `DATA_BINDING_CONTRACT.md` and applicable state rules.
+6. Inspect the matching approved visual reference.
+7. Inspect current code/model/providers.
+8. Implement, build, test, capture, compare, audit.
+
+Do not infer unavailable data from mockups.

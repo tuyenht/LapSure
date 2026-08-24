@@ -1,4 +1,11 @@
 /out/
 /bin/
 /dist/
+/build/
+/LapSure.exe
+/profiles/cache/
+*.pfx
+.vs/
+*.user
+*.suo
 

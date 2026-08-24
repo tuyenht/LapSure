@@ -1,0 +1,10 @@
+profileId=lenovo_thinkpad_x1_carbon_gen10
+modelContains=X1 Carbon Gen 10
+displayName=Lenovo ThinkPad X1 Carbon Gen 10
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad X1 Carbon Gen 10
+port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / USB4 / PD 3.0 / DP 1.4a|true
+port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / USB4 / PD 3.0 / DP 1.4a|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a|Right USB 3.2 Gen 1 (Always On)|Right|USB-A|USB 3.2 Gen 1 Always On|true
+port=right_hdmi|Right HDMI 2.0b|Right|HDMI|HDMI 2.0b Video Output|true

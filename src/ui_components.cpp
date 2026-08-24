@@ -40,14 +40,25 @@ void DrawAppShellFooter(HDC dc, const RECT& r, const UiFonts& fonts, int dpi, in
 
     SetBkMode(dc, TRANSPARENT);
     SelectObject(dc, fonts.hSmall);
+    
+    // Column 1: Engine status
     SetTextColor(dc, readyEngines >= totalEngines ? UiColors::SuccessGreen : UiColors::WarnAmber);
     std::wstring engineText = L"● Engine: " + std::to_wstring(readyEngines) + L"/" + std::to_wstring(totalEngines) + L" sẵn sàng";
-    TextOutW(dc, r.left + UiMetrics::Scale(16, dpi), r.top + UiMetrics::Scale(8, dpi), engineText.c_str(), (int)engineText.size());
+    RECT c1{ r.left + UiMetrics::Scale(16, dpi), r.top, r.left + UiMetrics::Scale(200, dpi), r.bottom };
+    DrawTextW(dc, engineText.c_str(), (int)engineText.size(), &c1, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
+    // Column 2: DB Date
     SetTextColor(dc, UiColors::TextMuted);
-    TextOutW(dc, r.left + UiMetrics::Scale(240, dpi), r.top + UiMetrics::Scale(8, dpi), L"Cơ sở dữ liệu: 2026.08.23", 25);
-    TextOutW(dc, r.left + UiMetrics::Scale(480, dpi), r.top + UiMetrics::Scale(8, dpi), L"Chế độ chẩn đoán: Win32 Native C++20", 36);
-    TextOutW(dc, r.right - UiMetrics::Scale(180, dpi), r.top + UiMetrics::Scale(8, dpi), L"Chính sách: Evidence First", 26);
+    RECT c2{ c1.right + UiMetrics::Scale(10, dpi), r.top, c1.right + UiMetrics::Scale(180, dpi), r.bottom };
+    DrawTextW(dc, L"Cơ sở dữ liệu: 2026.08.23", 25, &c2, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+    // Column 3: Mode
+    RECT c3{ c2.right + UiMetrics::Scale(10, dpi), r.top, r.right - UiMetrics::Scale(200, dpi), r.bottom };
+    DrawTextW(dc, L"Chế độ: Win32 Native C++20", 27, &c3, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+    // Column 4: Policy
+    RECT c4{ r.right - UiMetrics::Scale(190, dpi), r.top, r.right - UiMetrics::Scale(16, dpi), r.bottom };
+    DrawTextW(dc, L"Chính sách: Evidence First", 26, &c4, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
 }
 
 // ============================================================
@@ -137,20 +148,54 @@ void DrawSidebar(HDC dc, const RECT& r, MainTab activeTab, const UiFonts& fonts,
 
     SetBkMode(dc, TRANSPARENT);
 
-    // Brand Logo & Title
-    SelectObject(dc, fonts.hTitle);
+    // Brand Logo & Title with Emblem
+    int logoS = UiMetrics::Scale(36, dpi);
+    int logoX = r.left + UiMetrics::Scale(16, dpi);
+    int logoY = r.top + UiMetrics::Scale(16, dpi);
+    RECT logoRect{ logoX, logoY, logoX + logoS, logoY + logoS };
+    DrawRoundedCard(dc, logoRect, UiMetrics::Scale(8, dpi), UiColors::PrimaryBlue, RGB(96, 165, 250), 1);
+
+    // Inner Laptop Base & Checkmark in emblem
+    int pad = UiMetrics::Scale(6, dpi);
+    int deckY = logoRect.bottom - pad - UiMetrics::Scale(4, dpi);
+    RECT deckRect{ logoRect.left + pad, deckY, logoRect.right - pad, deckY + UiMetrics::Scale(3, dpi) };
+    DrawRoundedCard(dc, deckRect, 1, RGB(226, 232, 240), RGB(226, 232, 240), 1);
+
+    // Emerald Checkmark circle
+    int chkR = UiMetrics::Scale(7, dpi);
+    int chkCX = (logoRect.left + logoRect.right) / 2;
+    int chkCY = logoRect.top + UiMetrics::Scale(15, dpi);
+    HBRUSH gBrush = CreateSolidBrush(RGB(16, 185, 129));
+    HPEN gPen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+    HGDIOBJ oldGb = SelectObject(dc, gBrush);
+    HGDIOBJ oldGp = SelectObject(dc, gPen);
+    Ellipse(dc, chkCX - chkR, chkCY - chkR, chkCX + chkR, chkCY + chkR);
+    SelectObject(dc, oldGb); SelectObject(dc, oldGp);
+    DeleteObject(gBrush); DeleteObject(gPen);
+
+    // White Checkmark lines
+    HPEN wPen = CreatePen(PS_SOLID, UiMetrics::Scale(2, dpi), RGB(255, 255, 255));
+    HGDIOBJ oldWp = SelectObject(dc, wPen);
+    MoveToEx(dc, chkCX - UiMetrics::Scale(4, dpi), chkCY, nullptr);
+    LineTo(dc, chkCX - UiMetrics::Scale(1, dpi), chkCY + UiMetrics::Scale(3, dpi));
+    LineTo(dc, chkCX + UiMetrics::Scale(4, dpi), chkCY - UiMetrics::Scale(3, dpi));
+    SelectObject(dc, oldWp);
+    DeleteObject(wPen);
+
+    int textX = logoRect.right + UiMetrics::Scale(10, dpi);
+    SelectObject(dc, fonts.hBodyBold);
     SetTextColor(dc, UiColors::TextWhite);
     std::wstring brand = L"LapSure";
-    TextOutW(dc, r.left + UiMetrics::Scale(16, dpi), r.top + UiMetrics::Scale(16, dpi), brand.c_str(), (int)brand.size());
+    TextOutW(dc, textX, r.top + UiMetrics::Scale(16, dpi), brand.c_str(), (int)brand.size());
 
     SelectObject(dc, fonts.hSmall);
-    SetTextColor(dc, UiColors::TextMuted);
+    SetTextColor(dc, RGB(147, 197, 253));
     std::wstring tag = L"PRO DASHBOARD";
-    TextOutW(dc, r.left + UiMetrics::Scale(16, dpi), r.top + UiMetrics::Scale(38, dpi), tag.c_str(), (int)tag.size());
+    TextOutW(dc, textX, r.top + UiMetrics::Scale(34, dpi), tag.c_str(), (int)tag.size());
 
     // Navigation Groups
     auto groups = GetDefaultSidebarGroups(deviceGroupExpanded);
-    int y = r.top + UiMetrics::Scale(68, dpi) - scrollOffsetY;
+    int y = r.top + UiMetrics::Scale(75, dpi) - scrollOffsetY;
     int botH = UiMetrics::Scale(70, dpi);
     int maxContentY = r.bottom - botH - UiMetrics::Scale(12, dpi);
 
@@ -171,7 +216,7 @@ void DrawSidebar(HDC dc, const RECT& r, MainTab activeTab, const UiFonts& fonts,
         if (grp.isExpanded) {
             for (const auto& item : grp.items) {
                 bool active = (item.tab == activeTab);
-                int itemH = UiMetrics::Scale(25, dpi);
+                int itemH = UiMetrics::Scale(26, dpi);
                 RECT itemRect{ r.left + UiMetrics::Scale(10, dpi), y, r.right - UiMetrics::Scale(10, dpi), y + itemH };
 
                 if (y + itemH > r.top + UiMetrics::Scale(60, dpi) && y < maxContentY) {
@@ -312,30 +357,34 @@ void DrawMetricCard(HDC dc, const RECT& r, const MetricCardConfig& config, const
     DrawRoundedCard(dc, r, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
     SetBkMode(dc, TRANSPARENT);
+    
     // Label
     SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, UiColors::TextMuted);
-    TextOutW(dc, r.left + UiMetrics::Scale(14, dpi), r.top + UiMetrics::Scale(10, dpi), config.label.c_str(), (int)config.label.size());
+    RECT lr{ r.left + UiMetrics::Scale(12, dpi), r.top + UiMetrics::Scale(8, dpi), r.right - UiMetrics::Scale(12, dpi), r.top + UiMetrics::Scale(24, dpi) };
+    DrawTextW(dc, config.label.c_str(), (int)config.label.size(), &lr, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
 
     // Value
-    SelectObject(dc, fonts.hTitle);
     StatePresentation sp = GetStatePresentation(config.state);
     COLORREF valClr = config.hasBadge ? sp.textColor : UiColors::TextMain;
     SetTextColor(dc, valClr);
-    TextOutW(dc, r.left + UiMetrics::Scale(14, dpi), r.top + UiMetrics::Scale(28, dpi), config.value.c_str(), (int)config.value.size());
-
-    // Status Badge or Note
-    if (config.hasBadge) {
-        int bw = UiMetrics::Scale(110, dpi);
-        int bh = UiMetrics::Scale(20, dpi);
-        DrawStatusBadge(dc, r.right - bw - UiMetrics::Scale(12, dpi), r.top + UiMetrics::Scale(10, dpi), bw, bh, config.state, fonts);
+    
+    if (config.value.size() > 8) {
+        SelectObject(dc, fonts.hBodyBold);
+    } else {
+        SelectObject(dc, fonts.hTitle);
     }
+    
+    RECT vr{ r.left + UiMetrics::Scale(12, dpi), r.top + UiMetrics::Scale(24, dpi), r.right - UiMetrics::Scale(12, dpi), r.top + UiMetrics::Scale(54, dpi) };
+    DrawTextW(dc, config.value.c_str(), (int)config.value.size(), &vr, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
+    // Subtitle Note
     if (!config.unitOrSource.empty() || !config.note.empty()) {
         SelectObject(dc, fonts.hSmall);
         SetTextColor(dc, UiColors::TextLight);
-        std::wstring sub = config.unitOrSource.empty() ? config.note : config.unitOrSource;
-        TextOutW(dc, r.left + UiMetrics::Scale(14, dpi), r.bottom - UiMetrics::Scale(22, dpi), sub.c_str(), (int)sub.size());
+        std::wstring sub = config.unitOrSource.empty() ? config.note : (config.unitOrSource + (config.note.empty() ? L"" : (L" • " + config.note)));
+        RECT nr{ r.left + UiMetrics::Scale(12, dpi), r.bottom - UiMetrics::Scale(22, dpi), r.right - UiMetrics::Scale(12, dpi), r.bottom - UiMetrics::Scale(4, dpi) };
+        DrawTextW(dc, sub.c_str(), (int)sub.size(), &nr, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
     }
 }
 
@@ -357,8 +406,6 @@ void DrawProgressCoverage(HDC dc, const RECT& r, const ProgressCoverageConfig& c
 
     // Percentage
     SelectObject(dc, fonts.hSmall);
-    // Percentage
-    SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, config.barColor);
     std::wstring pctStr = std::to_wstring(pct) + L"%";
     RECT pctRect{ r.right - UiMetrics::Scale(50, dpi), r.top, r.right, r.top + UiMetrics::Scale(20, dpi) };
@@ -377,31 +424,82 @@ void DrawProgressCoverage(HDC dc, const RECT& r, const ProgressCoverageConfig& c
 void DrawGuidedStepper(HDC dc, const RECT& r, const std::vector<StepperStep>& steps, const UiFonts& fonts, int dpi) {
     if (steps.empty()) return;
     int stepCount = (int)steps.size();
-    int stepW = (r.right - r.left) / stepCount;
+    int totalW = r.right - r.left;
+    int totalH = r.bottom - r.top;
 
-    for (int i = 0; i < stepCount; ++i) {
-        const auto& s = steps[i];
-        int sx = r.left + i * stepW;
-        RECT stepRect{ sx + UiMetrics::Scale(4, dpi), r.top, sx + stepW - UiMetrics::Scale(4, dpi), r.bottom };
+    bool isVertical = (totalW < UiMetrics::Scale(550, dpi)) || (totalH > totalW * 0.5);
 
-        COLORREF borderClr = s.isCurrent ? UiColors::PrimaryBlue : UiColors::CardBorder;
-        int borderW = s.isCurrent ? 2 : 1;
-        DrawRoundedCard(dc, stepRect, UiMetrics::RadiusMd, UiColors::CardBg, borderClr, borderW);
+    if (isVertical) {
+        int stepH = totalH / stepCount;
+        for (int i = 0; i < stepCount; ++i) {
+            const auto& s = steps[i];
+            int sy = r.top + i * stepH;
+            RECT stepRect{ r.left, sy + UiMetrics::Scale(2, dpi), r.right, sy + stepH - UiMetrics::Scale(4, dpi) };
 
-        SetBkMode(dc, TRANSPARENT);
-        // Step number circle / badge
-        int badgeW = UiMetrics::Scale(105, dpi);
-        int badgeH = UiMetrics::Scale(20, dpi);
-        DrawStatusBadge(dc, stepRect.right - badgeW - UiMetrics::Scale(6, dpi), stepRect.top + UiMetrics::Scale(8, dpi), badgeW, badgeH, s.state, fonts);
+            COLORREF cardBg = s.isCurrent ? RGB(239, 246, 255) : UiColors::CardBg;
+            COLORREF borderClr = s.isCurrent ? UiColors::PrimaryBlue : UiColors::CardBorder;
+            int borderW = s.isCurrent ? 2 : 1;
+            DrawRoundedCard(dc, stepRect, UiMetrics::RadiusSm, cardBg, borderClr, borderW);
 
-        SelectObject(dc, fonts.hBodyBold);
-        SetTextColor(dc, s.isCurrent ? UiColors::PrimaryBlue : UiColors::TextMain);
-        std::wstring numTitle = std::to_wstring(s.stepNumber) + L". " + s.title;
-        TextOutW(dc, stepRect.left + UiMetrics::Scale(10, dpi), stepRect.top + UiMetrics::Scale(8, dpi), numTitle.c_str(), (int)numTitle.size());
+            SetBkMode(dc, TRANSPARENT);
+            
+            // Step Number Circle
+            int circleD = UiMetrics::Scale(20, dpi);
+            int circleX = stepRect.left + UiMetrics::Scale(8, dpi);
+            int circleY = stepRect.top + UiMetrics::Scale(8, dpi);
+            COLORREF circleBg = s.isCurrent ? UiColors::PrimaryBlue : (s.state == CanonicalUiState::Good || s.state == CanonicalUiState::Pass ? UiColors::SuccessGreen : RGB(226, 232, 240));
+            COLORREF circleText = (s.isCurrent || s.state == CanonicalUiState::Good || s.state == CanonicalUiState::Pass) ? RGB(255, 255, 255) : UiColors::TextMain;
 
-        SelectObject(dc, fonts.hSmall);
-        SetTextColor(dc, UiColors::TextMuted);
-        TextOutW(dc, stepRect.left + UiMetrics::Scale(10, dpi), stepRect.top + UiMetrics::Scale(28, dpi), s.description.c_str(), (int)s.description.size());
+            HBRUSH cBrush = CreateSolidBrush(circleBg);
+            HPEN cPen = CreatePen(PS_SOLID, 1, circleBg);
+            HGDIOBJ op = SelectObject(dc, cPen);
+            HGDIOBJ ob = SelectObject(dc, cBrush);
+            Ellipse(dc, circleX, circleY, circleX + circleD, circleY + circleD);
+            SelectObject(dc, op); SelectObject(dc, ob);
+            DeleteObject(cPen); DeleteObject(cBrush);
+
+            SetTextColor(dc, circleText);
+            SelectObject(dc, fonts.hBodyBold);
+            std::wstring numStr = std::to_wstring(s.stepNumber);
+            RECT numRect{ circleX, circleY, circleX + circleD, circleY + circleD };
+            DrawTextW(dc, numStr.c_str(), (int)numStr.size(), &numRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+            // Step Title
+            int textX = circleX + circleD + UiMetrics::Scale(8, dpi);
+            SelectObject(dc, fonts.hBodyBold);
+            SetTextColor(dc, s.isCurrent ? UiColors::PrimaryBlue : UiColors::TextMain);
+            RECT titleRect{ textX, stepRect.top + UiMetrics::Scale(4, dpi), stepRect.right - UiMetrics::Scale(6, dpi), stepRect.top + UiMetrics::Scale(20, dpi) };
+            DrawTextW(dc, s.title.c_str(), (int)s.title.size(), &titleRect, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+            // Step Description
+            SelectObject(dc, fonts.hSmall);
+            SetTextColor(dc, UiColors::TextMuted);
+            RECT descRect{ textX, stepRect.top + UiMetrics::Scale(20, dpi), stepRect.right - UiMetrics::Scale(6, dpi), stepRect.bottom - UiMetrics::Scale(2, dpi) };
+            DrawTextW(dc, s.description.c_str(), (int)s.description.size(), &descRect, DT_LEFT | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX);
+        }
+    } else {
+        int stepW = totalW / stepCount;
+        for (int i = 0; i < stepCount; ++i) {
+            const auto& s = steps[i];
+            int sx = r.left + i * stepW;
+            RECT stepRect{ sx + UiMetrics::Scale(4, dpi), r.top, sx + stepW - UiMetrics::Scale(4, dpi), r.bottom };
+
+            COLORREF borderClr = s.isCurrent ? UiColors::PrimaryBlue : UiColors::CardBorder;
+            int borderW = s.isCurrent ? 2 : 1;
+            DrawRoundedCard(dc, stepRect, UiMetrics::RadiusMd, UiColors::CardBg, borderClr, borderW);
+
+            SetBkMode(dc, TRANSPARENT);
+            SelectObject(dc, fonts.hBodyBold);
+            SetTextColor(dc, s.isCurrent ? UiColors::PrimaryBlue : UiColors::TextMain);
+            std::wstring numTitle = std::to_wstring(s.stepNumber) + L". " + s.title;
+            RECT tr{ stepRect.left + UiMetrics::Scale(8, dpi), stepRect.top + UiMetrics::Scale(8, dpi), stepRect.right - UiMetrics::Scale(8, dpi), stepRect.top + UiMetrics::Scale(26, dpi) };
+            DrawTextW(dc, numTitle.c_str(), (int)numTitle.size(), &tr, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+            SelectObject(dc, fonts.hSmall);
+            SetTextColor(dc, UiColors::TextMuted);
+            RECT dr{ stepRect.left + UiMetrics::Scale(8, dpi), stepRect.top + UiMetrics::Scale(28, dpi), stepRect.right - UiMetrics::Scale(8, dpi), stepRect.bottom - UiMetrics::Scale(6, dpi) };
+            DrawTextW(dc, s.description.c_str(), (int)s.description.size(), &dr, DT_LEFT | DT_WORDBREAK | DT_END_ELLIPSIS);
+        }
     }
 }
 

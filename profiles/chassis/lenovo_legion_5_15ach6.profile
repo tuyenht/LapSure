@@ -1,0 +1,13 @@
+profileId=lenovo_legion_5_15ach6
+modelContains=Legion 5 15
+displayName=Lenovo Legion 5 15-inch
+validationStatus=draft
+reference=Lenovo PSREF Legion 5 15ACH6 / 15ITH6
+port=left_usbc|Left USB-C 3.2 Gen 2 / DP|Left|USB-C|USB-C 3.2 Gen 2 (DisplayPort 1.4)|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=back_usb_a1|Back USB 3.2 Gen 1 #1|Back|USB-A|USB 3.2 Gen 1|true
+port=back_usb_a2|Back USB 3.2 Gen 1 #2 (Always On)|Back|USB-A|USB 3.2 Gen 1 Always On|true
+port=back_usb_a3|Back USB 3.2 Gen 1 #3|Back|USB-A|USB 3.2 Gen 1|true
+port=back_usbc|Back USB-C (PD / DP 1.4)|Back|USB-C|USB-C 3.2 Gen 2 (PD & DP 1.4)|true
+port=back_hdmi|Back HDMI 2.1|Back|HDMI|HDMI 2.1 Video Output|true
+port=back_rj45|Back RJ-45 Ethernet|Back|RJ45|Gigabit Ethernet LAN|true

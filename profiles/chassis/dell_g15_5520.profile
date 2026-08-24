@@ -1,0 +1,11 @@
+profileId=dell_g15_5520
+modelContains=G15 5520
+displayName=Dell G15 Gaming 5520
+validationStatus=draft
+reference=Dell G15 5520 Setup and Specifications
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a1|Right USB 3.2 Gen 1 #1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true
+port=back_tb4|Back Thunderbolt 4 / USB-C (DP)|Back|USB-C|Thunderbolt 4 / DP Alt Mode|true
+port=back_hdmi|Back HDMI 2.1|Back|HDMI|HDMI 2.1 Video Output|true
+port=back_usb_a|Back USB 3.2 Gen 1|Back|USB-A|USB 3.2 Gen 1|true

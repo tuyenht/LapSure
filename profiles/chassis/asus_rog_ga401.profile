@@ -1,0 +1,10 @@
+profileId=asus_rog_ga401
+modelContains=GA401
+displayName=ASUS ROG Zephyrus G14 GA401
+validationStatus=draft
+reference=ASUS ROG Zephyrus G14 GA401 Specifications
+port=left_hdmi|Left HDMI 2.0b|Left|HDMI|HDMI 2.0b Video Output|true
+port=left_usbc|Left USB-C 3.2 Gen 2 (PD / DP)|Left|USB-C|USB-C 3.2 Gen 2 with Power Delivery & DisplayPort|true
+port=right_usbc|Right USB-C 3.2 Gen 2|Right|USB-C|USB-C 3.2 Gen 2 Data|true
+port=right_usb_a1|Right USB 3.2 Gen 1 #1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true

@@ -1,0 +1,12 @@
+profileId=dell_latitude_7480
+modelContains=Latitude 7480
+displayName=Dell Latitude 7480
+validationStatus=draft
+reference=Dell Latitude 7480 Setup and Specifications
+port=left_usbc|Left USB-C / Thunderbolt 3 (PD/DP)|Left|USB-C|USB-C / DisplayPort / Power Delivery|true
+port=left_hdmi|Left HDMI 1.4b|Left|HDMI|HDMI 1.4b Video Output|true
+port=left_usb_a|Left USB 3.1 Gen 1|Left|USB-A|USB 3.1 Gen 1|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a1|Right USB 3.1 Gen 1 (PowerShare)|Right|USB-A|USB 3.1 Gen 1 with PowerShare|true
+port=right_usb_a2|Right USB 3.1 Gen 1|Right|USB-A|USB 3.1 Gen 1|true
+port=right_sd|Right MicroSD Card Slot|Right|MicroSD|MicroSD Card Reader|true

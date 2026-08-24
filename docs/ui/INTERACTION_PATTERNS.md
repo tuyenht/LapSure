@@ -1,28 +1,59 @@
 # LapSure Interaction Patterns
 
-## One primary action
-Workflow screens expose one visually dominant next action.
+## 1. One primary action
+Workflow screens expose one visually dominant next action. Secondary actions must not compete.
 
-## Guided sequence
-S02 → S03 as needed → S04 → S05 → S06/S07 → S16 → S18 → S19. Manual result recording remains gated until the required automatic snapshot exists.
+## 2. Guided sequencing
+Canonical flow:
+S02 → optional/required S03 → S04 → S05 → S06/S07 → S16 → S18 → S19.
 
-## Drill-down
-Summary click/expand exposes evidence without changing result.
+Manual functional results remain gated until the automatic snapshot required by the orchestrator exists.
 
-## Long-running operations
-Off UI thread; show real state/progress/elapsed; cancellation bounded; pause only if supported; no fake ETA precision.
+## 3. Drill-down
+Summary card/row click opens or expands evidence detail without changing the underlying result.
+Technical detail must be progressive disclosure.
 
-## Manual verification
-State what to do, success criteria, result choices, skip consequence and operator-evidence attribution.
+## 4. Long-running operations
+- Run off UI thread.
+- Keep UI responsive.
+- Show RUNNING + stage + elapsed/progress when real.
+- Cancellation is explicit and bounded.
+- Pause exists only if operation truly supports it.
+- Do not fake remaining-time precision.
 
-## Destructive/safety-sensitive actions
-Confirm abandoning active session, deleting evidence/history, closing interrupted journal and disruptive test actions.
+## 5. Manual verification
+Every human-required test must state:
+- what to do,
+- what counts as success,
+- available result choices,
+- effect of skipping,
+- evidence attribution as operator-confirmed.
 
-## Navigation
-Preserve session context; back/navigation never silently discards evidence; S23 is contextual.
+## 6. Destructive / safety-sensitive actions
+Require confirmation for:
+- abandoning an active session,
+- deleting evidence/history,
+- closing an interrupted journal without recovery,
+- potentially disruptive test actions.
 
-## Empty/error states
-Design no-data, provider unavailable, permission denied, unsupported and not-tested states with next-best action when available.
+## 7. Navigation
+- Sidebar selection changes top-level screen.
+- Back navigation should not discard evidence silently.
+- Contextual S23 recovery appears on startup/history, not as permanent primary navigation.
+- Preserve current session context when moving between detail screens.
 
-## Keyboard
-Tab follows visual order; Enter/Space activates; Esc safely closes modal/full-screen test; focus visible.
+## 8. Empty/error states
+Every list/table/detail screen needs a designed state for:
+- no data,
+- provider unavailable,
+- permission denied,
+- unsupported environment,
+- not tested.
+
+Provide a next-best action when one exists.
+
+## 9. Keyboard behavior
+- Tab follows visual order.
+- Enter/Space activates buttons.
+- Esc closes modal/full-screen visual test safely.
+- Focus is visible.

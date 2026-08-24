@@ -1,0 +1,11 @@
+profileId=hp_victus_15
+modelContains=Victus 15
+displayName=HP Victus Gaming 15
+validationStatus=draft
+reference=HP Victus 15 Setup and Specifications
+port=left_usb_a|Left USB 3.2 Gen 1 (HP Sleep and Charge)|Left|USB-A|USB 3.2 Gen 1 Sleep and Charge|true
+port=left_sd|Left SD Card Reader|Left|SD|Multi-format SD Card Reader|true
+port=right_usbc|Right USB-C 3.2 Gen 1 (DP 1.4 / Sleep)|Right|USB-C|USB-C 3.2 Gen 1 with DP 1.4 & Sleep and Charge|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_hdmi|Right HDMI 2.1|Right|HDMI|HDMI 2.1 Video Output|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true

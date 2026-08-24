@@ -1,0 +1,11 @@
+profileId=msi_gf63_thin
+modelContains=GF63
+displayName=MSI GF63 Thin
+validationStatus=draft
+reference=MSI GF63 Thin Specifications
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usbc|Right USB-C 3.2 Gen 1|Right|USB-C|USB-C 3.2 Gen 1 (Data only)|true
+port=right_usb_a1|Right USB 3.2 Gen 1 #1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true
+port=back_hdmi|Back HDMI (4K @ 30Hz)|Back|HDMI|HDMI Video Output|true

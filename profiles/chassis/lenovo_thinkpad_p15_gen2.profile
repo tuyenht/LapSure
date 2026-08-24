@@ -1,0 +1,13 @@
+profileId=lenovo_thinkpad_p15_gen2
+modelContains=P15 Gen 2
+displayName=Lenovo ThinkPad P15 Gen 2
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad P15 Gen 2
+port=left_hdmi|Left HDMI 2.1|Left|HDMI|HDMI 2.1 Video Output|true
+port=left_usb_a|Left USB 3.2 Gen 1 (Always On)|Left|USB-A|USB 3.2 Gen 1 Always On|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_sd|Right SD Card Reader|Right|SD|Full-size SD Card Reader|true
+port=back_tb4_1|Back Thunderbolt 4 #1|Back|USB-C|Thunderbolt 4 / PD / DP 1.4|true
+port=back_tb4_2|Back Thunderbolt 4 #2|Back|USB-C|Thunderbolt 4 / PD / DP 1.4|true
+port=back_usbc|Back USB-C 3.2 Gen 2|Back|USB-C|USB-C 3.2 Gen 2 / DP 1.4|true
+port=back_rj45|Back 2.5GbE RJ-45 Ethernet|Back|RJ45|2.5 Gigabit Ethernet LAN|true

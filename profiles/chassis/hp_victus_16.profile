@@ -1,0 +1,12 @@
+profileId=hp_victus_16
+modelContains=Victus 16
+displayName=HP Victus Gaming 16
+validationStatus=draft
+reference=HP Victus 16 Setup and Specifications
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Gigabit Ethernet LAN|true
+port=left_usb_a|Left USB 3.2 Gen 1 (Sleep and Charge)|Left|USB-A|USB 3.2 Gen 1 Sleep and Charge|true
+port=left_hdmi|Left HDMI 2.1|Left|HDMI|HDMI 2.1 Video Output|true
+port=left_usbc|Left USB-C 3.2 Gen 1 (PD / DP 1.4)|Left|USB-C|USB-C 3.2 Gen 1 (Power Delivery & DP 1.4)|true
+port=left_sd|Left SD Card Reader|Left|SD|Multi-format SD Card Reader|true
+port=right_usb_a1|Right USB 3.2 Gen 1 #1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2|Right|USB-A|USB 3.2 Gen 1|true

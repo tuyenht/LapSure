@@ -1,0 +1,10 @@
+profileId=asus_zenbook_ux3402
+modelContains=UX3402
+displayName=ASUS ZenBook 14 OLED UX3402
+validationStatus=draft
+reference=ASUS ZenBook 14 OLED UX3402 Specifications
+port=left_usb_a|Left USB 3.2 Gen 2|Left|USB-A|USB 3.2 Gen 2 (10Gbps)|true
+port=right_hdmi|Right HDMI 2.1|Right|HDMI|HDMI 2.1 TMDS Video Output|true
+port=right_tb4_1|Right Thunderbolt 4 #1|Right|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_tb4_2|Right Thunderbolt 4 #2|Right|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_microsd|Right MicroSD Card Reader|Right|MicroSD|MicroSD Card Reader|true

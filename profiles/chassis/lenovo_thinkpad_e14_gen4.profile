@@ -1,0 +1,10 @@
+profileId=lenovo_thinkpad_e14_gen4
+modelContains=E14 Gen 4
+displayName=Lenovo ThinkPad E14 Gen 4
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad E14 Gen 4
+port=left_tb4|Left Thunderbolt 4 / USB-C|Left|USB-C|Thunderbolt 4 / USB-C / PD / DP|true
+port=left_usb_a|Left USB 3.2 Gen 1 (Always On)|Left|USB-A|USB 3.2 Gen 1 Always On|true
+port=left_hdmi|Left HDMI 2.0|Left|HDMI|HDMI 2.0 Video Output|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a|Right USB 2.0|Right|USB-A|USB 2.0|true

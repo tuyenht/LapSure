@@ -1,0 +1,11 @@
+profileId=asus_tuf_fa506
+modelContains=FA506
+displayName=ASUS TUF Gaming A15 FA506
+validationStatus=draft
+reference=ASUS TUF Gaming A15 FA506 Specifications
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Gigabit Ethernet LAN|true
+port=left_hdmi|Left HDMI 2.0b|Left|HDMI|HDMI 2.0b Video Output|true
+port=left_usb_a1|Left USB 3.2 Gen 1 #1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_usb_a2|Left USB 3.2 Gen 1 #2|Left|USB-A|USB 3.2 Gen 1|true
+port=left_usbc|Left USB-C 3.2 Gen 2 (DP)|Left|USB-C|USB-C 3.2 Gen 2 with DisplayPort|true
+port=right_usb_a|Right USB 2.0|Right|USB-A|USB 2.0|true

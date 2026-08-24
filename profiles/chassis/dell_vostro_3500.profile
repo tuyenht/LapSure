@@ -1,0 +1,11 @@
+profileId=dell_vostro_3500
+modelContains=Vostro 3500
+displayName=Dell Vostro 3500
+validationStatus=draft
+reference=Dell Vostro 3500 Setup and Specifications
+port=left_hdmi|Left HDMI 1.4|Left|HDMI|HDMI 1.4 Video Output|true
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Gigabit Ethernet LAN|true
+port=left_usb_a1|Left USB 3.2 Gen 1 #1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_usb_a2|Left USB 3.2 Gen 1 #2|Left|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a|Right USB 2.0|Right|USB-A|USB 2.0|true
+port=right_sd|Right SD Card Slot|Right|SD|3-in-1 SD Card Reader|true

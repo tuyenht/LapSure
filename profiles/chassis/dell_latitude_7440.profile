@@ -1,0 +1,10 @@
+profileId=dell_latitude_7440
+modelContains=Latitude 7440
+displayName=Dell Latitude 7440
+validationStatus=draft
+reference=Dell Latitude 7440 Setup and Specifications
+port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / Power Delivery|true
+port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / Power Delivery|true
+port=left_hdmi|Left HDMI 2.0|Left|HDMI|HDMI 2.0 Video Output|true
+port=right_usb_a1|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a2|Right USB 3.2 Gen 1 (PowerShare)|Right|USB-A|USB 3.2 Gen 1 with PowerShare|true

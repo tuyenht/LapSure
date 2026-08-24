@@ -1,0 +1,12 @@
+profileId=lenovo_thinkpad_p14s_gen2
+modelContains=P14s Gen 2
+displayName=Lenovo ThinkPad P14s Gen 2
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad P14s Gen 2
+port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / PD / DP 1.4a|true
+port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / PD / DP 1.4a|true
+port=left_usb_a|Left USB 3.2 Gen 1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_hdmi|Left HDMI 2.0|Left|HDMI|HDMI 2.0 Video Output|true
+port=left_microsd|Left MicroSD Card Slot|Left|MicroSD|MicroSD card reader|true
+port=right_rj45|Right RJ-45 Ethernet|Right|RJ45|Gigabit Ethernet LAN|true
+port=right_usb_a|Right USB 3.2 Gen 1 (Always On)|Right|USB-A|USB 3.2 Gen 1 Always On|true

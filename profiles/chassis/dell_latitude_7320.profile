@@ -1,0 +1,10 @@
+profileId=dell_latitude_7320
+modelContains=Latitude 7320
+displayName=Dell Latitude 7320
+validationStatus=draft
+reference=Dell Latitude 7320 Setup and Specifications
+port=left_tb4|Left Thunderbolt 4|Left|USB-C|Thunderbolt 4 / Power Delivery|true
+port=right_tb4|Right Thunderbolt 4|Right|USB-C|Thunderbolt 4 / Power Delivery|true
+port=right_usb_a|Right USB 3.2 Gen 1 (PowerShare)|Right|USB-A|USB 3.2 Gen 1 with PowerShare|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true
+port=right_microsd|Right MicroSD Card Slot|Right|MicroSD|MicroSD Card Reader|true

@@ -1,0 +1,13 @@
+profileId=dell_precision_7540
+modelContains=Precision 7540
+displayName=Dell Precision 7540
+validationStatus=draft
+reference=Dell Precision 7540 Setup and Specifications
+port=left_tb3_1|Left Thunderbolt 3 #1|Left|USB-C|Thunderbolt 3 / DP|true
+port=left_tb3_2|Left Thunderbolt 3 #2|Left|USB-C|Thunderbolt 3 / DP|true
+port=left_sd|Left SD Card Reader|Left|SD|Full-size SD Card Slot|true
+port=right_usb_a1|Right USB 3.1 Gen 1 (PowerShare)|Right|USB-A|USB 3.1 Gen 1 with PowerShare|true
+port=right_usb_a2|Right USB 3.1 Gen 1|Right|USB-A|USB 3.1 Gen 1|true
+port=back_hdmi|Back HDMI 2.0|Back|HDMI|HDMI 2.0|true
+port=back_minidp|Back Mini DisplayPort 1.4|Back|Mini-DP|Mini DisplayPort 1.4|true
+port=back_rj45|Back RJ-45 Ethernet|Back|RJ45|Gigabit Ethernet LAN|true

@@ -1,0 +1,10 @@
+profileId=apple_macbook_pro_14_16
+modelContains=MacBookPro18
+displayName=Apple MacBook Pro 14/16-inch
+validationStatus=draft
+reference=Apple MacBook Pro 14/16 (M1 Pro/Max) Specifications
+port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI Video Output|true
+port=right_tb4|Right Thunderbolt 4|Right|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_sd|Right SDXC Card Slot|Right|SD|SDXC Card Reader|true

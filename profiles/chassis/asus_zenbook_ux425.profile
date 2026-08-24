@@ -1,0 +1,10 @@
+profileId=asus_zenbook_ux425
+modelContains=UX425
+displayName=ASUS ZenBook 14 UX425
+validationStatus=draft
+reference=ASUS ZenBook 14 UX425 Specifications
+port=left_hdmi|Left HDMI 2.0b|Left|HDMI|HDMI 2.0b Video Output|true
+port=left_tb4_1|Left Thunderbolt 4 / USB-C #1|Left|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=left_tb4_2|Left Thunderbolt 4 / USB-C #2|Left|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_microsd|Right MicroSD Card Reader|Right|MicroSD|MicroSD Card Reader|true

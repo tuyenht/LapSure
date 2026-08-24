@@ -1,0 +1,10 @@
+profileId=lenovo_ideapad_5_14
+modelContains=IdeaPad 5 14
+displayName=Lenovo IdeaPad 5 14-inch
+validationStatus=draft
+reference=Lenovo PSREF IdeaPad 5 14ITL05 / 14ALC05
+port=left_usbc|Left USB-C (PD / DP)|Left|USB-C|USB-C 3.2 Gen 1 with Power Delivery & DisplayPort|true
+port=left_hdmi|Left HDMI 1.4b|Left|HDMI|HDMI 1.4b Video Output|true
+port=right_usb_a1|Right USB 3.2 Gen 1 #1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_usb_a2|Right USB 3.2 Gen 1 #2 (Always On)|Right|USB-A|USB 3.2 Gen 1 Always On|true
+port=right_sd|Right SD Card Reader|Right|SD|4-in-1 Card Reader|true

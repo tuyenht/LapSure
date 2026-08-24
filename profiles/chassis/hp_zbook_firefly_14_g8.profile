@@ -1,0 +1,10 @@
+profileId=hp_zbook_firefly_14_g8
+modelContains=ZBook Firefly 14 G8
+displayName=HP ZBook Firefly 14 G8
+validationStatus=draft
+reference=HP QuickSpecs ZBook Firefly 14 G8
+port=left_usb_a|Left USB 3.2 Gen 1 (Charging)|Left|USB-A|USB 3.2 Gen 1 Charging|true
+port=right_hdmi|Right HDMI 2.0|Right|HDMI|HDMI 2.0 Video Output|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_tb4_1|Right Thunderbolt 4 / USB4 #1|Right|USB-C|Thunderbolt 4 / USB4 / Power Delivery / DP 1.4|true
+port=right_tb4_2|Right Thunderbolt 4 / USB4 #2|Right|USB-C|Thunderbolt 4 / USB4 / Power Delivery / DP 1.4|true

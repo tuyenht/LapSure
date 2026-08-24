@@ -1,0 +1,9 @@
+profileId=acer_swift_3_sf314
+modelContains=SF314
+displayName=Acer Swift 3 SF314
+validationStatus=draft
+reference=Acer Swift 3 SF314 Specifications
+port=left_tb4|Left Thunderbolt 4 / USB-C (PD/DP)|Left|USB-C|Thunderbolt 4 / Power Delivery / DP|true
+port=left_hdmi|Left HDMI 2.0|Left|HDMI|HDMI 2.0 Video Output|true
+port=left_usb_a|Left USB 3.2 Gen 1 (Power-off Charging)|Left|USB-A|USB 3.2 Gen 1 with Power-off Charging|true
+port=right_usb_a|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true

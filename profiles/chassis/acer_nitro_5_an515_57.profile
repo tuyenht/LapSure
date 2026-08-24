@@ -1,0 +1,11 @@
+profileId=acer_nitro_5_an515_57
+modelContains=AN515-57
+displayName=Acer Nitro 5 AN515-57
+validationStatus=draft
+reference=Acer Nitro 5 AN515-57 User Guide
+port=left_rj45|Left RJ-45 Ethernet|Left|RJ45|Killer E2600 Gigabit Ethernet|true
+port=left_usb_a1|Left USB 3.2 Gen 1 #1|Left|USB-A|USB 3.2 Gen 1|true
+port=left_usb_a2|Left USB 3.2 Gen 1 #2|Left|USB-A|USB 3.2 Gen 1|true
+port=right_hdmi|Right HDMI 2.1|Right|HDMI|HDMI 2.1 Video Output|true
+port=right_usb_a|Right USB 3.2 Gen 2 (Power-off Charging)|Right|USB-A|USB 3.2 Gen 2 with Power-off Charging|true
+port=right_tb4|Right Thunderbolt 4 / USB-C|Right|USB-C|Thunderbolt 4 / USB-C / DP|true

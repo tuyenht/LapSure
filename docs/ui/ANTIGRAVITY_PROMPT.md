@@ -1,11 +1,15 @@
 # Recommended Google Antigravity 2.0 Start Prompt
 
+Use this after opening `tuyenht/LapSure` as the active Project and enabling the LapSure workspace rules.
+
 ```text
 You are the lead implementation agent for LapSure Professional Dashboard.
+
 Repository: tuyenht/LapSure
 
 Read and obey @AGENTS.md first.
-For UI work read:
+
+For UI work use the repository's agent-executable UI contract:
 @docs/ui/README.md
 @docs/ui/LAPSURE_UI_MASTER_SPEC.md
 @docs/ui/SCREEN_INDEX.md
@@ -17,21 +21,23 @@ For UI work read:
 
 Use `.agents/skills/lapsure-ui/SKILL.md`.
 
-The complete approved visual source is `docs/ui/references/LapSure_UI_Visual_Reference_Pack.zip`. Extract only the required member(s) to a temporary working directory when visually auditing a target screen. Mockup literals are not diagnostic evidence.
-
-Goal: implement the Professional Dashboard in the existing native C++20/Win32 application while preserving evidence correctness, Windows/WinPE graceful degradation, trusted-engine policy, bounded cancellation, report contracts and no-false-PASS semantics.
+Goal:
+Implement the Professional Dashboard in the existing native C++20/Win32 application, preserving evidence correctness, Windows/WinPE graceful degradation, trusted-engine policy, bounded cancellation, report contracts and no-false-PASS semantics.
 
 Execution:
 1. Audit current UI/model/providers/tests against the contract.
-2. Create/use `feature/professional-dashboard`.
+2. Create/use feature branch `feature/professional-dashboard`.
 3. Build shared design/state/data components first.
-4. Implement S01–S08, S09–S15, S16–S23.
-5. For each screen read only its contract, linked components, state/data contracts and matching visual member from the manifest.
-6. Never copy illustrative mockup values; unsupported values render explicit unavailable states.
-7. Build strict MSVC x64 Release and run repository-supported tests after each meaningful phase.
-8. Launch/capture real UI when possible and compare with approved visual direction.
-9. Use separate visual and evidence reviews before completion.
-10. Continue autonomously through feasible P0 gates; do not stop at planning.
+4. Implement screens in phases S01–S08, S09–S15, S16–S23.
+5. For each screen read only its contract, referenced components, state/data contracts and matching approved visual.
+6. Never copy illustrative values from mockups. Unsupported values render explicit unavailable/unknown/not-tested states.
+7. Build strict MSVC x64 Release and run repository-supported regression tests after each meaningful phase.
+8. Launch/capture real UI when possible and compare with the approved visual direction.
+9. Use separate visual and evidence reviews before marking a screen complete.
+10. Continue autonomously through every feasible P0 gate; do not stop at planning.
 
-Completion report: phases/screens, changed files, build/tests, visual artifacts, evidence audit, DPI/accessibility audit, not-run gates, remaining P0/P1, branch/commits/PR. Never report done with a known P0 evidence-semantic violation.
+Completion report must include:
+phases/screens, changed files, build/test results, visual artifacts, evidence audit, DPI/accessibility audit, gates not run, remaining P0/P1 gaps, branch, commit hashes and PR link if created.
+
+Never report done while a known P0 evidence-semantic violation remains.
 ```

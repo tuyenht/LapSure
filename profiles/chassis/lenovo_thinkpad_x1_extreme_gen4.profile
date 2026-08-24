@@ -1,0 +1,11 @@
+profileId=lenovo_thinkpad_x1_extreme_gen4
+modelContains=X1 Extreme Gen 4
+displayName=Lenovo ThinkPad X1 Extreme Gen 4
+validationStatus=draft
+reference=Lenovo PSREF ThinkPad X1 Extreme Gen 4
+port=left_tb4_1|Left Thunderbolt 4 #1|Left|USB-C|Thunderbolt 4 / PD / DP 1.4|true
+port=left_tb4_2|Left Thunderbolt 4 #2|Left|USB-C|Thunderbolt 4 / PD / DP 1.4|true
+port=left_hdmi|Left HDMI 2.1|Left|HDMI|HDMI 2.1 Video Output|true
+port=right_usb_a1|Right USB 3.2 Gen 1 (Always On)|Right|USB-A|USB 3.2 Gen 1 Always On|true
+port=right_usb_a2|Right USB 3.2 Gen 1|Right|USB-A|USB 3.2 Gen 1|true
+port=right_sd|Right SD Card Reader|Right|SD|SD 7.0 Card Reader|true

@@ -1,0 +1,10 @@
+profileId=dell_xps_15_7590
+modelContains=XPS 15 7590
+displayName=Dell XPS 15 7590
+validationStatus=draft
+reference=Dell XPS 15 7590 Setup and Specifications
+port=left_tb3|Left Thunderbolt 3|Left|USB-C|Thunderbolt 3 / Power Delivery / DP|true
+port=left_hdmi|Left HDMI 2.0|Left|HDMI|HDMI 2.0 Video Output|true
+port=left_usb_a|Left USB 3.1 Gen 1 (PowerShare)|Left|USB-A|USB 3.1 Gen 1 with PowerShare|true
+port=right_usb_a|Right USB 3.1 Gen 1|Right|USB-A|USB 3.1 Gen 1|true
+port=right_sd|Right SD Card Reader|Right|SD|Full-size SD Card Reader|true

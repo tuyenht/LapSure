@@ -62,4 +62,6 @@ The UI:
 - MUST keep provider/environment failures visible.
 - MUST use shared state/data/component contracts from `docs/ui/`.
 
-Prefer a presentation/view-model mapper that normalizes status wording, availability and unit formatting without mutating underlying diagnostic truth. Screen renderers should depend on shared native components/tokens, not duplicate semantic state logic.
+Prefer a presentation/view-model mapper that normalizes status wording, availability and unit formatting without mutating underlying diagnostic truth.
+
+Screen renderers should depend on shared native components/tokens, not duplicate semantic state logic.

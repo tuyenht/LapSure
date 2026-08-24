@@ -75,9 +75,9 @@ void RenderScreenS22_SessionHistory(HDC dc, const RECT& r, const AuditReport& re
     Text(dc, detail.left + 14, detail.top + 14, L"Phiên đang chọn", fonts.hBodyBold, UiColors::TextMain);
     DrawStatusBadge(dc, detail.left + 14, detail.top + UiMetrics::Scale(40, dpi), UiMetrics::Scale(190, dpi), UiMetrics::Scale(22, dpi), HistoryState(selected), fonts, VerdictVi(selected.verdict));
     Text(dc, detail.left + 14, detail.top + UiMetrics::Scale(76, dpi), L"ID: " + Nz(selected.sessionId), fonts.hSmall, UiColors::TextMuted);
-    Text(dc, detail.left + 14, detail.top + UiMetrics::Scale(98, dpi), L"HTML: " + (selected.htmlPath.empty() ? L"Không có" : L"Có"), fonts.hSmall, UiColors::TextMain);
-    Text(dc, detail.left + 14, detail.top + UiMetrics::Scale(118, dpi), L"JSON: " + (selected.jsonPath.empty() ? L"Không có" : L"Có"), fonts.hSmall, UiColors::TextMain);
-    Text(dc, detail.left + 14, detail.top + UiMetrics::Scale(138, dpi), L"Journal evidence: " + (selected.evidencePath.empty() ? L"Không có" : L"Có"), fonts.hSmall, UiColors::TextMain);
+    Text(dc, detail.left + 14, detail.top + UiMetrics::Scale(98, dpi), std::wstring(L"HTML: ") + (selected.htmlPath.empty() ? L"Không có" : L"Có"), fonts.hSmall, UiColors::TextMain);
+    Text(dc, detail.left + 14, detail.top + UiMetrics::Scale(118, dpi), std::wstring(L"JSON: ") + (selected.jsonPath.empty() ? L"Không có" : L"Có"), fonts.hSmall, UiColors::TextMain);
+    Text(dc, detail.left + 14, detail.top + UiMetrics::Scale(138, dpi), std::wstring(L"Journal evidence: ") + (selected.evidencePath.empty() ? L"Không có" : L"Có"), fonts.hSmall, UiColors::TextMain);
 
     const int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
     RECT openBtn{detail.left + 14, detail.bottom - btnH * 2 - UiMetrics::Scale(24, dpi), detail.right - 14, detail.bottom - btnH - UiMetrics::Scale(18, dpi)};

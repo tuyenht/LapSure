@@ -273,7 +273,7 @@ void RenderScreenS18_FinalReport(HDC dc, const RECT& r, const AuditReport& rep, 
         DrawTextW(dc, text.c_str(), -1, &tr, DT_LEFT | DT_WORDBREAK);
     } else {
         for (const auto& reason : decision.reasons) {
-            RECT tr{reasonCard.left + 12, y, reasonCard.right - 12, std::min(reasonCard.bottom - 8, y + UiMetrics::Scale(44, dpi))};
+            RECT tr{reasonCard.left + 12, y, reasonCard.right - 12, std::min<LONG>(reasonCard.bottom - 8, static_cast<LONG>(y + UiMetrics::Scale(44, dpi)))};
             std::wstring line = L"• " + reason;
             DrawTextW(dc, line.c_str(), -1, &tr, DT_LEFT | DT_WORDBREAK);
             y += UiMetrics::Scale(46, dpi);

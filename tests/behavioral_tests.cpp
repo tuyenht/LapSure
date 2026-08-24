@@ -191,25 +191,25 @@ int main() {
 
     const auto historyDir = txRoot / L"history";
     std::filesystem::create_directories(historyDir);
-    const auto htmlPath = historyDir / L"audit_tx-session.html";
-    const auto jsonPath = historyDir / L"audit_tx-session.json";
-    { std::ofstream f(htmlPath, std::ios::binary | std::ios::trunc); f << "<html></html>"; }
+    const auto txHtmlPath = historyDir / L"audit_tx-session.html";
+    const auto txJsonPath = historyDir / L"audit_tx-session.json";
+    { std::ofstream f(txHtmlPath, std::ios::binary | std::ios::trunc); f << "<html></html>"; }
     lap::InitializeSessionHistory(historyDir.wstring());
     lap::AuditReport txReport = CompletedAutomaticReport();
     txReport.hardware.stress.sessionId = L"tx-session";
     txReport.hardware.stress.decision.overall = L"BUY";
-    Expect(lap::CommitSessionHistoryBundle(txReport, htmlPath.wstring(), L""), "history accepts partial HTML artifact");
+    Expect(lap::CommitSessionHistoryBundle(txReport, txHtmlPath.wstring(), L""), "history accepts partial HTML artifact");
     auto txHistory = lap::GetSessionHistorySnapshot();
     auto txIt = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& e){ return e.sessionId == L"tx-session"; });
     Expect(txIt != txHistory.end() && txIt->status == L"ARTIFACT_PARTIAL", "history marks single artifact as ARTIFACT_PARTIAL");
-    { std::ofstream f(jsonPath, std::ios::binary | std::ios::trunc); f << "{}"; }
-    Expect(lap::CommitSessionHistoryBundle(txReport, htmlPath.wstring(), jsonPath.wstring()), "history commits complete report pair");
+    { std::ofstream f(txJsonPath, std::ios::binary | std::ios::trunc); f << "{}"; }
+    Expect(lap::CommitSessionHistoryBundle(txReport, txHtmlPath.wstring(), txJsonPath.wstring()), "history commits complete report pair");
     txHistory = lap::GetSessionHistorySnapshot();
     txIt = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& e){ return e.sessionId == L"tx-session"; });
     Expect(txIt != txHistory.end() && txIt->status == L"COMPLETE" && !txIt->htmlPath.empty() && !txIt->jsonPath.empty(), "history bundle becomes COMPLETE only with HTML and JSON");
     const auto outsidePath = txRoot / L"outside.json";
     { std::ofstream f(outsidePath, std::ios::binary | std::ios::trunc); f << "{}"; }
-    Expect(!lap::CommitSessionHistoryBundle(txReport, htmlPath.wstring(), outsidePath.wstring()), "history rejects bundle artifact outside trusted root");
+    Expect(!lap::CommitSessionHistoryBundle(txReport, txHtmlPath.wstring(), outsidePath.wstring()), "history rejects bundle artifact outside trusted root");
     std::filesystem::remove_all(txRoot, cleanupError);
 
     std::filesystem::remove_all(providerDir,cleanupError);

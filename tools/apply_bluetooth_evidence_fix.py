@@ -33,3 +33,5 @@ if text.count(old_call) != 1:
 text = text.replace(old_call, new_call, 1)
 path.write_text(text, encoding="utf-8")
 print("Applied Bluetooth known-good interaction evidence gate")
+
+# Trigger note: migration is intentionally one-shot and self-deleting after validated application.

@@ -33,7 +33,7 @@ mode_hit = mouse.index("// 3. Mode Pills Click", start_hit) if "// 3. Mode Pills
 start_block = mouse[start_hit:mode_hit]
 assert "gCurrentTab == MainTab::Dashboard" in start_block, "S01 Start/Stop hitbox is still global"
 
-new_session_marker = mouse.find("New Session", mode_hit)
+new_session_marker = mouse.find("// 4. NewSession Screen", mode_hit)
 assert new_session_marker != -1, "could not locate S02-specific mouse handling"
 mode_block = mouse[start_hit:new_session_marker]
 assert "gCurrentTab == MainTab::Dashboard" in mode_block, "S01 mode-pill hitbox is still global"

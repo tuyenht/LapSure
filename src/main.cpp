@@ -105,7 +105,7 @@ const wchar_t* UiDimension(Dimension d) {
 const wchar_t* GetCurrentStageName(int stage) {
     switch (stage) {
     case 1: return L"Nhận diện hệ thống";
-    case 2: return L"CPU & Microbench";
+    case 2: return L"CPU & Nhận diện";
     case 3: return L"Bộ nhớ (RAM)";
     case 4: return L"Lưu trữ (Storage / SMART)";
     case 5: return L"Đồ họa (GPU & DXGI)";
@@ -136,18 +136,6 @@ std::wstring ServiceTag(const Capabilities& caps, const std::atomic_bool* cancel
     return tag;
 }
 
-int GetReadyEngineCount() {
-    auto caps = DetectCapabilities(gDir);
-    int c = 6; // Native Registry, SetupAPI, CIM, MediaFoundation, WLAN, WaveIn
-    if (caps.powershell) c++;
-    if (caps.wmi) c++;
-    if (caps.smartctl) c++;
-    if (caps.nvidiaSmi) c++;
-    if (caps.battery) c++;
-    if (!caps.winPE) c += 2;
-    return std::clamp(c, 1, 14);
-}
-
 void AddLiveLog(const std::wstring& msg, const std::wstring& src = L"WMI", int state = 0) {
     auto now = std::chrono::system_clock::now();
     auto tt = std::chrono::system_clock::to_time_t(now);
@@ -166,6 +154,7 @@ void PostStatus(HWND h, const std::wstring& s) {
 }
 
 int RunInventoryOnly(const std::wstring& outputDir) {
+  // inventory_only_begin
     std::atomic_bool cancel{false}; auto caps = DetectCapabilities(gDir); auto model = Reg(L"SystemProductName"), tag = ServiceTag(caps, &cancel);
     auto pl = LoadFactoryProfile(gDir + L"\\profiles", model, tag);
     if (!pl.loaded && !tag.empty()) {
@@ -353,15 +342,19 @@ void AuditWorkerCore(HWND h) {
     report.genericMode = (pl.loaded && !pl.exact);
     syncToGlobal(report);
     gAuditCompletedItems = 1;
-    PostStatus(h, L"Đã nhận diện hệ thống: " + (report.model.empty() ? L"Thành công" : report.model));
+    PostStatus(h, report.model.empty()
+        ? L"Đã hoàn tất thu thập nhận diện; model hệ thống chưa xác định."
+        : L"Đã nhận diện hệ thống: " + report.model);
     
     checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 2;
-        PostStatus(h, L"Đang đọc thông tin CPU và vi điểm chuẩn...");
+        PostStatus(h, L"Đang thu thập danh tính và thông tin CPU...");
         syncToGlobal(report);
         gAuditCompletedItems = 2;
-        PostStatus(h, L"Đã nhận diện CPU: " + report.hardware.cpuName);
+        PostStatus(h, report.hardware.cpuName.empty()
+            ? L"Đã hoàn tất thu thập CPU; chưa xác định được tên bộ xử lý."
+            : L"Đã nhận diện CPU: " + report.hardware.cpuName);
     }
     checkPause();
     if (!gCancel) {
@@ -405,12 +398,12 @@ void AuditWorkerCore(HWND h) {
     checkPause();
     if (!gCancel) {
         gAuditCurrentStage = 7;
-        PostStatus(h, L"Đang kiểm tra kết nối Wi-Fi, Bluetooth và cổng cắm...");
+        PostStatus(h, L"Đang nhận diện adapter Wi-Fi, Bluetooth, Ethernet và controller kết nối...");
         CollectFunctionalPresence(report, caps, &gCancel);
         report.hardware.stress.chassisProfile = LoadChassisProfile(gDir, report.model);
         syncToGlobal(report);
         gAuditCompletedItems = 7;
-        PostStatus(h, L"Hoàn tất kiểm tra Mạng & Kết nối");
+        PostStatus(h, L"Đã thu thập nhận diện Mạng & Kết nối; chức năng thực tế vẫn cần kiểm tra riêng.");
     }
     checkPause();
     if (!gCancel) {
@@ -625,8 +618,11 @@ void RenderNewSession(HDC dc, const RECT& r, const AuditReport& rep, int dpi) {
 
     drawPreflightRow(L"Quyền Quản trị viên (Admin)", !caps.winPE ? CanonicalUiState::Pass : CanonicalUiState::Warning, !caps.winPE ? L"Đầy đủ quyền truy cập phần cứng" : L"WinPE Cứu hộ");
     drawPreflightRow(L"Môi trường Hệ điều hành", CanonicalUiState::Pass, caps.winPE ? L"Windows Preinstallation (WinPE)" : L"Windows 64-bit Native");
-    drawPreflightRow(L"Bộ công cụ chẩn đoán", (GetReadyEngineCount() >= 12) ? CanonicalUiState::Pass : CanonicalUiState::Warning, L"WMI, CIM, SetupAPI, DirectX sẵn sàng");
-    drawPreflightRow(L"Cơ sở dữ liệu Chassis", CanonicalUiState::Pass, L"18+ Chassis profiles & CPU baselines");
+    drawPreflightRow(L"Provider hệ thống", caps.wmi ? CanonicalUiState::Info : CanonicalUiState::Warning,
+                     caps.wmi ? L"WMI/CIM khả dụng; provider tùy chọn được xác minh khi chạy"
+                              : L"WMI/CIM không khả dụng; một số bằng chứng có thể bị thiếu");
+    drawPreflightRow(L"Hồ sơ Chassis", CanonicalUiState::Info,
+                     L"Hồ sơ phù hợp sẽ được nạp theo model/Service Tag khi kiểm định");
 
     // Action Panel: Start Inspection Button
     RECT actionCard{ rightX, preflightCard.bottom + UiMetrics::Scale(12, dpi), r.right - UiMetrics::Scale(24, dpi), preflightCard.bottom + UiMetrics::Scale(180, dpi) };
@@ -3026,9 +3022,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             RenderGenericScreen(memDC, layout.contentRect, gCurrentTab, repSnapshot, dpi);
         }
 
-        // C01 App Shell Footer (with dynamic engine count and DPI scaling)
-        int readyEngines = GetReadyEngineCount();
-        DrawAppShellFooter(memDC, layout.footerRect, gFonts, dpi, readyEngines, 14);
+        // C01 App Shell Footer. Runtime shell intentionally receives no heuristic provider count;
+        // provider/engine readiness must come from explicit evidence state rather than WM_PAINT probing.
+        DrawAppShellFooter(memDC, layout.footerRect, gFonts, dpi, 0, 0);
 
         BitBlt(hdc, 0, 0, cr.right - cr.left, cr.bottom - cr.top, memDC, 0, 0, SRCCOPY);
 

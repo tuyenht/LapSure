@@ -74,8 +74,10 @@ bool HasFunctionalEvidence(const FunctionalTestSummary& summary, const wchar_t* 
 }
 
 CanonicalUiState MergeFunctional(std::initializer_list<CanonicalUiState> states) {
-    bool hasPass = false;
-    bool hasUnsupported = false;
+    int passed = 0;
+    int unsupported = 0;
+    int unresolved = 0;
+    const int total = static_cast<int>(states.size());
     for (auto state : states) {
         if (state == CanonicalUiState::Fail || state == CanonicalUiState::Error) return CanonicalUiState::Fail;
         if (state == CanonicalUiState::Warning) return CanonicalUiState::Warning;
@@ -83,12 +85,34 @@ CanonicalUiState MergeFunctional(std::initializer_list<CanonicalUiState> states)
         if (state == CanonicalUiState::ProviderUnavailable) return CanonicalUiState::ProviderUnavailable;
         if (state == CanonicalUiState::ManualRequired) return CanonicalUiState::ManualRequired;
         if (state == CanonicalUiState::Incomplete) return CanonicalUiState::Incomplete;
-        if (state == CanonicalUiState::Pass || state == CanonicalUiState::Good) hasPass = true;
-        if (state == CanonicalUiState::Unsupported) hasUnsupported = true;
+        if (state == CanonicalUiState::Pass || state == CanonicalUiState::Good) {
+            ++passed;
+            continue;
+        }
+        if (state == CanonicalUiState::Unsupported) {
+            ++unsupported;
+            continue;
+        }
+        ++unresolved;
     }
-    if (hasPass) return CanonicalUiState::Pass;
-    if (hasUnsupported) return CanonicalUiState::Unsupported;
+    if (total > 0 && passed == total) return CanonicalUiState::Pass;
+    if (total > 0 && unsupported == total) return CanonicalUiState::Unsupported;
+    if (passed > 0 || unsupported > 0 || unresolved > 0) return CanonicalUiState::Incomplete;
     return CanonicalUiState::NotTested;
+}
+
+struct FindingCounts {
+    unsigned warnings{};
+    unsigned criticalFails{};
+};
+
+FindingCounts CountLiveFindings(const AuditReport& rep) {
+    FindingCounts counts;
+    for (const auto& finding : rep.findings) {
+        if (finding.severity == Severity::Critical && finding.state == State::Fail) ++counts.criticalFails;
+        if (finding.state == State::Warning) ++counts.warnings;
+    }
+    return counts;
 }
 
 std::wstring ConfidenceVi(Confidence confidence) {
@@ -218,6 +242,17 @@ std::wstring StorageHealthDetail(const AuditReport& rep) {
     return L"Thiếu provider sức khỏe ổ lưu trữ";
 }
 
+CanonicalUiState StorageDomainState(const AuditReport& rep, const CoverageSnapshot& coverage) {
+    const auto health = StorageHealthState(rep);
+    if (health == CanonicalUiState::Fail) return CanonicalUiState::Fail;
+    if (CoverageState(coverage, L"storage") != CanonicalUiState::Pass) {
+        return health == CanonicalUiState::ProviderUnavailable
+            ? CanonicalUiState::ProviderUnavailable
+            : CanonicalUiState::Incomplete;
+    }
+    return health == CanonicalUiState::Good ? CanonicalUiState::Good : CanonicalUiState::Incomplete;
+}
+
 CanonicalUiState BatteryEvidenceState(const AuditReport& rep) {
     if (!rep.hardware.battery.present) return CanonicalUiState::Unsupported;
     if (!rep.hardware.battery.capacityReadable || rep.hardware.battery.healthPercent < 0)
@@ -230,22 +265,6 @@ std::wstring BatteryEvidenceDetail(const AuditReport& rep) {
     if (!rep.hardware.battery.capacityReadable || rep.hardware.battery.healthPercent < 0)
         return L"Không có dữ liệu dung lượng pin tin cậy";
     return L"Đã đo dung lượng thiết kế / sạc đầy; không dùng generic health score";
-}
-
-CanonicalUiState PhysicalSafetyState(const FunctionalTestSummary& summary) {
-    bool any = false;
-    bool allResolved = true;
-    for (const auto& item : summary.items) {
-        if (item.id.rfind(L"physical_", 0) != 0) continue;
-        any = true;
-        auto state = MapFunctionalStatus(item.status);
-        if (state == CanonicalUiState::Fail) return CanonicalUiState::Fail;
-        if (state == CanonicalUiState::Warning) return CanonicalUiState::Warning;
-        if (state == CanonicalUiState::ManualRequired || state == CanonicalUiState::NotTested)
-            allResolved = false;
-    }
-    if (!any) return CanonicalUiState::NotTested;
-    return allResolved ? CanonicalUiState::Pass : CanonicalUiState::Incomplete;
 }
 
 StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool running, bool paused,
@@ -271,20 +290,15 @@ StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool runni
         }
         break;
     case 2:
-        out.source = rep.hardware.stress.cpuBenchmark.baselineSource.empty()
-            ? L"CPU identity + BuiltIn-FP-Mix-v1" : rep.hardware.stress.cpuBenchmark.baselineSource;
-        out.detail = L"Danh tính CPU và microbenchmark có version/baseline";
+        out.source = L"CPU inventory / CIM / processor identity";
+        out.detail = L"Nhận diện CPU; microbenchmark chỉ chạy trong bước Stress & Ổn định";
         if (completed) {
             if (rep.hardware.cpuName.empty()) {
                 out.state = CanonicalUiState::Incomplete;
                 out.label = L"THIẾU DỮ LIỆU";
-            } else if (rep.hardware.stress.cpuBenchmark.verdict == L"BELOW BASELINE") {
-                out.state = CanonicalUiState::Warning;
-                out.label = L"DƯỚI BASELINE";
             } else {
                 out.state = CanonicalUiState::Info;
-                out.label = rep.hardware.stress.cpuBenchmark.verdict == L"NOT SCORED"
-                    ? L"ĐÃ ĐO — CHƯA CÓ BASELINE" : L"ĐÃ ĐO";
+                out.label = L"ĐÃ NHẬN DIỆN";
             }
         }
         break;
@@ -308,11 +322,12 @@ StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool runni
         out.source = StorageHealthDetail(rep);
         out.detail = L"Identity + Reliability/SMART/NVMe theo provider thực tế";
         if (completed) {
-            out.state = StorageHealthState(rep);
+            const auto coverage = BuildCoverageSnapshot(rep);
+            out.state = StorageDomainState(rep, coverage);
             if (out.state == CanonicalUiState::Good) out.label = L"BẰNG CHỨNG SỨC KHỎE HỢP LỆ";
             else if (out.state == CanonicalUiState::Fail) out.label = L"PHÁT HIỆN LỖI SỨC KHỎE";
             else if (out.state == CanonicalUiState::ProviderUnavailable) out.label = L"THIẾU PROVIDER";
-            else out.label = L"THIẾU DỮ LIỆU";
+            else out.label = L"THIẾU COVERAGE BẮT BUỘC";
         }
         break;
     case 5:
@@ -362,8 +377,10 @@ StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool runni
         break;
     }
     case 9: {
-        out.source = L"LapSure stress journal + event delta + telemetry";
-        out.detail = L"Stress CPU/RAM/GPU và đánh giá ổn định theo bằng chứng phát sinh";
+        out.source = rep.hardware.stress.cpuBenchmark.baselineSource.empty()
+            ? L"Stress journal + event delta + telemetry + BuiltIn-FP-Mix-v1"
+            : L"Stress journal + telemetry + " + rep.hardware.stress.cpuBenchmark.baselineSource;
+        out.detail = L"Stress CPU/RAM/GPU; microbenchmark CPU được chạy và ghi bằng chứng tại bước này";
         unsigned seconds = 0;
         for (const auto& stage : rep.hardware.stress.stages) seconds += stage.elapsedSeconds;
         if (seconds > 0) out.duration = FormatDuration(seconds);
@@ -393,7 +410,7 @@ StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool runni
 const wchar_t* AutoStageName(int stage) {
     switch (stage) {
     case 1: return L"Nhận diện hệ thống";
-    case 2: return L"CPU & Microbench";
+    case 2: return L"CPU & Nhận diện";
     case 3: return L"Bộ nhớ (RAM)";
     case 4: return L"Lưu trữ";
     case 5: return L"Đồ họa (GPU)";
@@ -431,6 +448,8 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
     const int modeY = r.top + UiMetrics::Scale(70, dpi);
     const auto coverage = BuildCoverageSnapshot(rep);
     const auto& decision = rep.hardware.stress.decision;
+    const auto liveFindingCounts = CountLiveFindings(rep);
+    const bool hasCollectedFindings = auditCompletedItems > 0 || !rep.findings.empty();
 
     PageHeaderConfig header;
     header.title = L"Tổng quan thiết bị";
@@ -492,19 +511,21 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
 
     MetricCardConfig warnings;
     warnings.label = L"CẢNH BÁO";
-    warnings.value = auditReady ? std::to_wstring(decision.warnings) : L"—";
-    warnings.note = L"Từ findings/decision engine";
-    warnings.state = auditReady ? (decision.warnings > 0 ? CanonicalUiState::Warning : CanonicalUiState::Info)
-                                : CanonicalUiState::NotTested;
+    warnings.value = hasCollectedFindings ? std::to_wstring(liveFindingCounts.warnings) : L"—";
+    warnings.note = L"Findings runtime của phiên hiện tại";
+    warnings.state = hasCollectedFindings
+        ? (liveFindingCounts.warnings > 0 ? CanonicalUiState::Warning : CanonicalUiState::Info)
+        : CanonicalUiState::NotTested;
     RECT k3{ k2.right + gap, kpiY, k2.right + gap + kpiW, kpiY + kpiH };
     DrawMetricCard(dc, k3, warnings, fonts, dpi);
 
     MetricCardConfig critical;
     critical.label = L"LỖI NGHIÊM TRỌNG";
-    critical.value = auditReady ? std::to_wstring(decision.criticalFails) : L"—";
-    critical.note = L"Lỗi có thể chặn quyết định mua";
-    critical.state = auditReady ? (decision.criticalFails > 0 ? CanonicalUiState::Fail : CanonicalUiState::Info)
-                                : CanonicalUiState::NotTested;
+    critical.value = hasCollectedFindings ? std::to_wstring(liveFindingCounts.criticalFails) : L"—";
+    critical.note = L"Critical FAIL trong findings runtime";
+    critical.state = hasCollectedFindings
+        ? (liveFindingCounts.criticalFails > 0 ? CanonicalUiState::Fail : CanonicalUiState::Info)
+        : CanonicalUiState::NotTested;
     RECT k4{ k3.right + gap, kpiY, k3.right + gap + kpiW, kpiY + kpiH };
     DrawMetricCard(dc, k4, critical, fonts, dpi);
 
@@ -551,13 +572,13 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
                     factoryCard.right - UiMetrics::Scale(12, dpi), factoryCard.top + UiMetrics::Scale(44, dpi) };
     DrawTextW(dc, model.c_str(), static_cast<int>(model.size()), &modelRect,
               DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
-    CanonicalUiState profileState = rep.factoryExact ? CanonicalUiState::Pass
+    CanonicalUiState profileState = rep.factoryExact ? CanonicalUiState::Info
         : (!rep.profileSource.empty() ? CanonicalUiState::Changed : CanonicalUiState::NotTested);
     RECT profileBadge{ factoryCard.left + UiMetrics::Scale(12, dpi), factoryCard.bottom - UiMetrics::Scale(27, dpi),
                        factoryCard.right - UiMetrics::Scale(12, dpi), factoryCard.bottom - UiMetrics::Scale(6, dpi) };
     DrawStatusBadge(dc, profileBadge, profileState, fonts,
-                    rep.factoryExact ? L"HỒ SƠ CHÍNH XÁC"
-                                     : (!rep.profileSource.empty() ? L"HỒ SƠ THAM CHIẾU" : L"CHƯA CÓ HỒ SƠ"));
+                    rep.factoryExact ? L"KHỚP HỒ SƠ THAM CHIẾU"
+                                     : (!rep.profileSource.empty() ? L"HỒ SƠ CÓ SAI KHÁC" : L"CHƯA CÓ HỒ SƠ"));
 
     RECT stepCard{ rightX, factoryCard.bottom + gap, r.right - pad, r.bottom - UiMetrics::Scale(20, dpi) };
     DrawRoundedCard(dc, stepCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
@@ -667,7 +688,7 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
         eventState = CanonicalUiState::ProviderUnavailable;
     }
 
-    CanonicalUiState profileDomainState = rep.factoryExact ? CanonicalUiState::Pass
+    CanonicalUiState profileDomainState = rep.factoryExact ? CanonicalUiState::Info
         : (!rep.profileSource.empty() ? CanonicalUiState::Changed : CanonicalUiState::NotTested);
     CanonicalUiState coverageDomainState = coverage.requiredTotal > 0 && coverage.requiredMissing == 0
         ? CanonicalUiState::Pass : CanonicalUiState::Incomplete;
@@ -683,8 +704,8 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
     std::vector<Domain> domains = {
         { L"ID", L"Nhận diện hệ thống", CoverageDetail(coverage, L"identity", L"Model, Service Tag, CPU, BIOS"), CoverageState(coverage, L"identity"), L"" },
         { L"RAM", L"Bộ nhớ (RAM)", CoverageDetail(coverage, L"memory", L"Dung lượng và module"), ramState, ramLabel },
-        { L"SSD", L"Lưu trữ", StorageHealthDetail(rep), StorageHealthState(rep), L"" },
-        { L"BAT", L"Pin & Năng lượng", BatteryEvidenceDetail(rep), BatteryEvidenceState(rep), L"" },
+        { L"SSD", L"Lưu trữ", CoverageDetail(coverage, L"storage", StorageHealthDetail(rep).c_str()), StorageDomainState(rep, coverage), L"" },
+        { L"BAT", L"Pin & Năng lượng", BatteryEvidenceDetail(rep), BatteryEvidenceState(rep), rep.hardware.battery.present ? L"" : L"KHÔNG CÓ PIN" },
         { L"GPU", L"Đồ họa (GPU)", L"Identity/VRAM/driver; chức năng cần bằng chứng riêng", gpuState, gpuLabel },
         { L"LCD", L"Hiển thị", L"EDID + kiểm tra màu/khuyết tật thực tế", displayState, L"" },
         { L"KEY", L"Bàn phím & Touchpad", L"Không suy chức năng touchpad từ presence", keyboardState, L"" },
@@ -741,8 +762,8 @@ void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, co
                                const std::vector<LiveLogEntry>& liveLogs, int focusIndex) {
     (void)focusIndex;
     const int pad = UiMetrics::Scale(24, dpi);
-    const int rightPanelW = std::clamp((r.right - r.left) * 26 / 100,
-                                       UiMetrics::Scale(260, dpi), UiMetrics::Scale(340, dpi));
+    const int rightPanelW = std::clamp<int>(static_cast<int>((r.right - r.left) * 26 / 100),
+                                            UiMetrics::Scale(260, dpi), UiMetrics::Scale(340, dpi));
     const int rightX = r.right - rightPanelW - UiMetrics::Scale(20, dpi);
     const int mainW = rightX - r.left - UiMetrics::Scale(32, dpi);
     const int topY = r.top + UiMetrics::Scale(70, dpi);
@@ -878,12 +899,13 @@ void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, co
     DrawRoundedCard(dc, listCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
     const int rowGap = UiMetrics::Scale(4, dpi);
-    const int availableRows = std::max(UiMetrics::Scale(306, dpi), listCard.bottom - listCard.top - UiMetrics::Scale(12, dpi));
+    const int availableRows = std::max<int>(UiMetrics::Scale(306, dpi),
+        static_cast<int>(listCard.bottom - listCard.top) - UiMetrics::Scale(12, dpi));
     const int rowHeight = std::clamp((availableRows - rowGap * 8) / 9,
                                      UiMetrics::Scale(32, dpi), UiMetrics::Scale(44, dpi));
     int rowY = listCard.top + UiMetrics::Scale(6, dpi);
     const wchar_t* names[9] = {
-        L"Nhận diện hệ thống", L"CPU & Microbench", L"Bộ nhớ (RAM)", L"Lưu trữ",
+        L"Nhận diện hệ thống", L"CPU & Nhận diện", L"Bộ nhớ (RAM)", L"Lưu trữ",
         L"Đồ họa (GPU)", L"Pin & Năng lượng", L"Mạng & Kết nối", L"Nhật ký & Forensics",
         L"Stress & Ổn định"
     };
@@ -898,7 +920,8 @@ void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, co
                         current ? UiColors::InfoBorder : UiColors::CardBorder,
                         current ? 2 : 1);
 
-        const int titleW = std::max(UiMetrics::Scale(185, dpi), (row.right - row.left) * 31 / 100);
+        const int titleW = std::max<int>(UiMetrics::Scale(185, dpi),
+            static_cast<int>((row.right - row.left) * 31 / 100));
         SelectObject(dc, fonts.hBodyBold);
         SetTextColor(dc, current ? UiColors::PrimaryBlue : UiColors::TextMain);
         std::wstring title = std::to_wstring(i + 1) + L". " + names[i];

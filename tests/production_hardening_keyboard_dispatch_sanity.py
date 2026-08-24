@@ -4,7 +4,6 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN = (ROOT / "src" / "main.cpp").read_text(encoding="utf-8")
 
 assert "Screen-aware primary action dispatch" in MAIN
-assert "if (gFocusIndex != 3) return 0;" in MAIN
 assert "else if (gFocusIndex == 3) PostMessageW(h, WM_COMMAND, 1300, 0);" not in MAIN
 
 required = {
@@ -35,6 +34,13 @@ keyboard = MAIN[keyboard_start:keyboard_end]
 # A focus index is presentation state, never an operation selector. The old
 # global focus-2 route could start a full audit from an unrelated screen.
 assert "if (gFocusIndex == 2)" not in keyboard, "global focus-2 operation dispatch remains"
+assert "const int actionFocus = gFocusIndex;" in keyboard, "keyboard action focus snapshot missing"
+assert "if (actionFocus != 3) return 0;" in keyboard, "screen-aware secondary CTA gate missing"
+focus2_start = keyboard.index("if (actionFocus == 2)")
+focus2_end = keyboard.index("if (actionFocus != 3)", focus2_start)
+focus2 = keyboard[focus2_start:focus2_end]
+assert "switch (gCurrentTab)" in focus2, "focus-2 activation is not screen-aware"
+assert "StartAudit(h);" in focus2, "supported audit screens lost their start/stop action"
 assert "case MainTab::Memory:" in keyboard, "S11 primary action is not keyboard reachable"
 
 # S22/S23 have multiple actions; keyboard focus must not silently choose one.

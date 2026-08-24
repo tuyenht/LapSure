@@ -33,8 +33,7 @@ int main(){
     Expect(!unconfigured.hashMatches&&!unconfigured.sha256.empty(),"empty allowlist hash remains untrusted while actual SHA is measured");
     Expect(unconfigured.reason.find(L"not configured")!=std::wstring::npos||unconfigured.reason.find(L"invalid")!=std::wstring::npos,"unconfigured hash has explicit reason");
 
-    {std::ofstream f(manifest,std::ios::binary|std::ios::trunc);f<<"probe=";
-     std::string hash(unconfigured.sha256.begin(),unconfigured.sha256.end());f<<hash<<"\n";}
+    {std::wofstream f(manifest,std::ios::trunc);f<<L"probe="<<unconfigured.sha256<<L"\n";}
     auto trusted=lap::VerifyEngine(base.wstring(),L"tools\\probe.exe",L"probe");
     Expect(trusted.hashMatches,"matching SHA-256 trusts reviewed bundled engine");
 

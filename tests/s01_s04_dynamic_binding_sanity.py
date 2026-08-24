@@ -54,7 +54,7 @@ assert "ManualRequired" in UI
 # Generic machine-health scoring must not return to these screens.
 LOWER = UI.lower()
 assert "điểm sức khỏe" not in LOWER
-assert "health score" not in LOWER
+assert "DrawCircularScoreGauge" not in UI
 assert "score gauge" not in LOWER
 
 # No synthetic audit-stage duration literals. Only measured stress elapsed is formatted.

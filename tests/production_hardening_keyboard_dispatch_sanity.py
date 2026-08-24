@@ -14,6 +14,7 @@ required = {
     "display": "case MainTab::Display:",
     "audio camera": "case MainTab::AudioCamera:",
     "network": "case MainTab::Network:",
+    "memory": "case MainTab::Memory:",
     "final report": "case MainTab::Reports:",
     "export": "case MainTab::ExportShare:",
 }
@@ -27,10 +28,16 @@ assert "gCurrentTab = MainTab::ExportShare;" in MAIN
 assert "IsTrustedSessionArtifactPath(gReportPath)" in MAIN
 assert "Screens with no single primary CTA" in MAIN
 
-# S22/S23 have multiple actions; keyboard focus must not silently choose one.
 keyboard_start = MAIN.index("case VK_RETURN:")
 keyboard_end = MAIN.index("case WM_MOUSEWHEEL:", keyboard_start)
 keyboard = MAIN[keyboard_start:keyboard_end]
+
+# A focus index is presentation state, never an operation selector. The old
+# global focus-2 route could start a full audit from an unrelated screen.
+assert "if (gFocusIndex == 2)" not in keyboard, "global focus-2 operation dispatch remains"
+assert "case MainTab::Memory:" in keyboard, "S11 primary action is not keyboard reachable"
+
+# S22/S23 have multiple actions; keyboard focus must not silently choose one.
 assert "case MainTab::SessionHistory:" not in keyboard
 assert "case MainTab::InterruptedRecovery:" not in keyboard
 

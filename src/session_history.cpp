@@ -105,6 +105,32 @@ SessionHistoryEntry* FindLocked(const std::wstring& id) {
     return nullptr;
 }
 
+std::wstring LowerPath(std::wstring s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](wchar_t c) { return static_cast<wchar_t>(towlower(c)); });
+    return s;
+}
+
+bool IsTrustedArtifactPathLocked(const std::wstring& artifactPath) {
+    if (artifactPath.empty() || gHistoryDir.empty()) return false;
+    std::error_code ec;
+    auto root = std::filesystem::weakly_canonical(std::filesystem::path(gHistoryDir), ec);
+    if (ec || root.empty()) return false;
+    ec.clear();
+    auto candidate = std::filesystem::weakly_canonical(std::filesystem::path(artifactPath), ec);
+    if (ec || candidate.empty() || candidate == root) return false;
+
+    ec.clear();
+    if (!std::filesystem::is_regular_file(candidate, ec) || ec) return false;
+
+    auto ext = LowerPath(candidate.extension().wstring());
+    if (ext != L".html" && ext != L".json" && ext != L".txt") return false;
+
+    std::wstring rootText = LowerPath(root.wstring());
+    std::wstring candidateText = LowerPath(candidate.wstring());
+    if (!rootText.empty() && rootText.back() != L'\\' && rootText.back() != L'/') rootText.push_back(L'\\');
+    return candidateText.size() > rootText.size() && candidateText.compare(0, rootText.size(), rootText) == 0;
+}
+
 std::wstring FallbackSessionId(const std::wstring& artifactPath) {
     const auto stem = std::filesystem::path(artifactPath).stem().wstring();
     if (!stem.empty()) return stem;
@@ -127,11 +153,17 @@ std::vector<SessionHistoryEntry> GetSessionHistorySnapshot() {
     return gHistory;
 }
 
+bool IsTrustedSessionArtifactPath(const std::wstring& artifactPath) {
+    std::lock_guard<std::mutex> lk(gHistoryMutex);
+    return IsTrustedArtifactPathLocked(artifactPath);
+}
+
 void RecordSessionHistoryArtifact(const AuditReport& report, const std::wstring& artifactPath, bool isHtml) {
     if (artifactPath.empty()) return;
     const auto dir = std::filesystem::path(artifactPath).parent_path().wstring();
     InitializeSessionHistory(dir);
     std::lock_guard<std::mutex> lk(gHistoryMutex);
+    if (!IsTrustedArtifactPathLocked(artifactPath)) return;
     std::wstring id = report.hardware.stress.sessionId.empty() ? FallbackSessionId(artifactPath) : report.hardware.stress.sessionId;
     auto* e = FindLocked(id);
     if (!e) {
@@ -190,12 +222,15 @@ bool DeleteSessionHistoryEntry(const std::wstring& sessionId, bool deleteArtifac
     auto it = std::find_if(gHistory.begin(), gHistory.end(), [&](const SessionHistoryEntry& e){ return e.sessionId == sessionId; });
     if (it == gHistory.end()) return false;
     if (deleteArtifacts) {
-        std::error_code ec;
-        if (!it->htmlPath.empty()) std::filesystem::remove(it->htmlPath, ec);
-        ec.clear();
-        if (!it->jsonPath.empty()) std::filesystem::remove(it->jsonPath, ec);
-        ec.clear();
-        if (!it->evidencePath.empty()) std::filesystem::remove(it->evidencePath, ec);
+        const std::wstring paths[] = {it->htmlPath, it->jsonPath, it->evidencePath};
+        for (const auto& path : paths) {
+            if (!path.empty() && !IsTrustedArtifactPathLocked(path)) return false;
+        }
+        for (const auto& path : paths) {
+            if (path.empty()) continue;
+            std::error_code ec;
+            if (!std::filesystem::remove(std::filesystem::path(path), ec) || ec) return false;
+        }
     }
     gHistory.erase(it);
     return SaveIndexLocked();

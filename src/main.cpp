@@ -105,6 +105,14 @@ const wchar_t* UiDimension(Dimension d) {
     }
 }
 
+CanonicalUiState LifecycleStateFromDecision(const AuditReport& report) {
+    const auto& overall = report.hardware.stress.decision.overall;
+    if (overall == L"BUY") return CanonicalUiState::Pass;
+    if (overall == L"BUY WITH NOTES") return CanonicalUiState::Warning;
+    if (overall == L"REJECT") return CanonicalUiState::Fail;
+    return CanonicalUiState::Incomplete;
+}
+
 const wchar_t* GetCurrentStageName(int stage) {
     switch (stage) {
     case 1: return L"Nhận diện hệ thống";
@@ -448,7 +456,7 @@ void AuditWorkerCore(HWND h) {
     }
     gAuditReady = !gCancel;
     gRunning = false;
-    gSessionLifecycleState = gCancel ? CanonicalUiState::Cancelled : CanonicalUiState::Pass;
+    gSessionLifecycleState = gCancel ? CanonicalUiState::Cancelled : LifecycleStateFromDecision(gReport);
     PostMessageW(h, WM_AUDIT_DONE, gCancel ? 1 : 0, 0);
 }
 
@@ -2532,6 +2540,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         else if (id == 1204) { if (CanRunManualTest(h)) { auto caps = DetectCapabilities(gDir); auto fc = DetectFunctionalCapabilities(caps, &gCancel); CommitManualResult(RunSpeakerWizard(h, fc.audioPresent)); } return 0; }
         else if (id == 1205) { if (CanRunManualTest(h)) { auto caps = DetectCapabilities(gDir); CommitManualResult(RunUsbPortWizard(h, caps, &gCancel)); } return 0; }
         else if (id == 1206) { if (CanRunManualTest(h)) CommitManualResults(RunFunctionalIoWizard(h)); return 0; }
+        else if (id == 1212) { if (CanRunManualTest(h)) CommitManualResults(RunAudioCameraWizard(h)); return 0; }
+        else if (id == 1213) { if (CanRunManualTest(h)) CommitManualResults(RunNetworkConnectivityWizard(h)); return 0; }
         else if (id == 1207) { if (CanRunManualTest(h)) { wchar_t label[64] = L"USB-C / USB-A port"; CommitPortResult(RunPhysicalPortProbe(h, label, &gCancel)); } return 0; }
         else if (id == 1208) { if (CanRunManualTest(h)) CommitManualResults(RunPhysicalConditionWizard(h)); return 0; }
         else if (id == 1209) { if (CanRunManualTest(h)) { SellerClaim claim; if (RunSellerClaimWizard(h, claim)) CommitSellerClaim(claim); } return 0; }
@@ -2892,30 +2902,19 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
         }
 
-        // 14. Display Screen: Open Wizard Button Hit-Test
-        if (gCurrentTab == MainTab::Display) {
-            int rightPanelW = UiMetrics::Scale(300, dpi);
-            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
-            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
-            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
-                PostMessageW(h, WM_COMMAND, 1201, 0);
-                return 0;
-            }
-        }
-
-        // 15. Audio & Camera Screen: Open Wizard Button Hit-Test
-        if (gCurrentTab == MainTab::AudioCamera) {
-            int rightPanelW = UiMetrics::Scale(300, dpi);
-            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
-            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(260, dpi) };
-            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
-            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
-                PostMessageW(h, WM_COMMAND, 1204, 0);
+        // 14–16. S12/S13/S14 primary actions: use the same C10 geometry as rendering.
+        if (gCurrentTab == MainTab::Display || gCurrentTab == MainTab::AudioCamera || gCurrentTab == MainTab::Network) {
+            const int pad = UiMetrics::Scale(24, dpi);
+            const int top = layout.contentRect.top + UiMetrics::Scale(72, dpi);
+            const int rightW = UiMetrics::Scale(300, dpi);
+            const int leftRight = layout.contentRect.right - rightW - UiMetrics::Scale(34, dpi);
+            RECT rail{leftRight + UiMetrics::Scale(10, dpi), top,
+                      layout.contentRect.right - pad, layout.contentRect.bottom - UiMetrics::Scale(20, dpi)};
+            RECT actionButton = GetNextActionButtonRect(rail, dpi);
+            if (x >= actionButton.left && x <= actionButton.right && y >= actionButton.top && y <= actionButton.bottom) {
+                if (gCurrentTab == MainTab::Display) PostMessageW(h, WM_COMMAND, 1201, 0);
+                else if (gCurrentTab == MainTab::AudioCamera) PostMessageW(h, WM_COMMAND, 1212, 0);
+                else PostMessageW(h, WM_COMMAND, 1213, 0);
                 return 0;
             }
         }
@@ -2947,7 +2946,8 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 RECT deleteBtn{detail.left + 14, detail.bottom - btnH2 - UiMetrics::Scale(10, dpi), detail.right - 14, detail.bottom - UiMetrics::Scale(10, dpi)};
                 if (x >= openBtn.left && x <= openBtn.right && y >= openBtn.top && y <= openBtn.bottom) {
                     const std::wstring path = !selected.htmlPath.empty() ? selected.htmlPath : (!selected.jsonPath.empty() ? selected.jsonPath : selected.evidencePath);
-                    if (!path.empty()) ShellExecuteW(h, L"open", path.c_str(), nullptr, nullptr, SW_SHOW);
+                    if (!path.empty() && IsTrustedSessionArtifactPath(path)) ShellExecuteW(h, L"open", path.c_str(), nullptr, nullptr, SW_SHOW);
+                    else if (!path.empty()) MessageBoxW(h, L"Đường dẫn report/evidence không nằm trong thư mục lịch sử tin cậy hoặc không phải loại file được phép.", L"LapSure", MB_OK | MB_ICONERROR);
                     else MessageBoxW(h, L"Phiên này chưa có file report/evidence có thể mở.", L"LapSure", MB_OK | MB_ICONINFORMATION);
                     return 0;
                 }
@@ -2956,7 +2956,10 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                         L"YES: xóa mục lịch sử VÀ các file report/evidence.\nNO: chỉ xóa mục khỏi index, giữ nguyên file.\nCANCEL: không thay đổi.",
                         L"Xóa phiên kiểm định", MB_YESNOCANCEL | MB_ICONWARNING);
                     if (answer == IDYES || answer == IDNO) {
-                        DeleteSessionHistoryEntry(selected.sessionId, answer == IDYES);
+                        if (!DeleteSessionHistoryEntry(selected.sessionId, answer == IDYES)) {
+                            MessageBoxW(h, L"Không thể xóa phiên hoặc artifact không vượt qua kiểm tra đường dẫn an toàn.", L"LapSure", MB_OK | MB_ICONERROR);
+                            return 0;
+                        }
                         auto after = GetSessionHistorySnapshot();
                         gHistorySelectedIndex = after.empty() ? 0 : std::min(gHistorySelectedIndex, static_cast<int>(after.size()) - 1);
                         InvalidateRect(h, nullptr, FALSE);
@@ -3027,7 +3030,12 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         SetFunctionalButtonsEnabled(w?FALSE:TRUE);
         if (gNext) EnableWindow(gNext,w?FALSE:TRUE);
         gRunning = false; gAuditReady = (w == 0);
-        gSessionLifecycleState = (w == 0) ? CanonicalUiState::Pass : CanonicalUiState::Cancelled;
+        if (w == 0) {
+            std::lock_guard<std::mutex> lk(gReportMutex);
+            gSessionLifecycleState = LifecycleStateFromDecision(gReport);
+        } else if (gSessionLifecycleState != CanonicalUiState::Interrupted) {
+            gSessionLifecycleState = CanonicalUiState::Cancelled;
+        }
         InvalidateRect(h, nullptr, FALSE);
         if (gCloseRequested) DestroyWindow(h);
         return 0;
@@ -3254,25 +3262,7 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int) {
     INITCOMMONCONTROLSEX ic{ sizeof(ic), ICC_LISTVIEW_CLASSES };
     InitCommonControlsEx(&ic);
     
-    // Silent automatic certificate trust for current user on launch
-    {
-        std::wstring certPath = gDir + L"\\LapSure_CodeSigning.cer";
-        if (!std::filesystem::exists(certPath)) certPath = gDir + L"\\resources\\LapSure_CodeSigning.cer";
-        if (!std::filesystem::exists(certPath)) certPath = gDir + L"\\bin\\LapSure_CodeSigning.cer";
-        if (std::filesystem::exists(certPath)) {
-            std::wstring cmd = L"certutil.exe -addstore -user TrustedPublisher \"" + certPath + L"\"";
-            STARTUPINFOW si{ sizeof(si) };
-            si.dwFlags = STARTF_USESHOWWINDOW;
-            si.wShowWindow = SW_HIDE;
-            PROCESS_INFORMATION pi{};
-            std::vector<wchar_t> cmdBuf(cmd.begin(), cmd.end());
-            cmdBuf.push_back(L'\0');
-            if (CreateProcessW(nullptr, cmdBuf.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-                CloseHandle(pi.hThread);
-                CloseHandle(pi.hProcess);
-            }
-        }
-    }
+    // Trust stores are never modified at runtime. Release signing/trust is an installer/release responsibility.
 
     WNDCLASSEXW wc{ sizeof(wc) };
     wc.style = CS_HREDRAW | CS_VREDRAW;

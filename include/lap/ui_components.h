@@ -157,6 +157,7 @@ struct NextActionConfig {
     RECT outButtonRect{};
 };
 
+RECT GetNextActionButtonRect(const RECT& panelRect, int dpi);
 void DrawNextActionPanel(HDC dc, const RECT& r, const NextActionConfig& config, const UiFonts& fonts, int dpi);
 
 // ============================================================

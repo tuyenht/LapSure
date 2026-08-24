@@ -615,6 +615,16 @@ void DrawDataTable(HDC dc, const RECT& r, const DataTableConfig& config, const U
 // C10 — Next Action Panel
 // ============================================================
 
+RECT GetNextActionButtonRect(const RECT& panelRect, int dpi) {
+    const int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+    return RECT{
+        panelRect.left + UiMetrics::Scale(14, dpi),
+        panelRect.bottom - btnH - UiMetrics::Scale(12, dpi),
+        panelRect.right - UiMetrics::Scale(14, dpi),
+        panelRect.bottom - UiMetrics::Scale(12, dpi)
+    };
+}
+
 void DrawNextActionPanel(HDC dc, const RECT& r, const NextActionConfig& config, const UiFonts& fonts, int dpi) {
     DrawRoundedCard(dc, r, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
@@ -646,8 +656,7 @@ void DrawNextActionPanel(HDC dc, const RECT& r, const NextActionConfig& config, 
     }
 
     if (!config.buttonText.empty()) {
-        int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-        RECT br{ r.left + UiMetrics::Scale(14, dpi), r.bottom - btnH - UiMetrics::Scale(12, dpi), r.right - UiMetrics::Scale(14, dpi), r.bottom - UiMetrics::Scale(12, dpi) };
+        RECT br = GetNextActionButtonRect(r, dpi);
         COLORREF bg = config.isButtonEnabled ? UiColors::PrimaryBlue : UiColors::GrayPillBg;
         COLORREF border = config.isButtonEnabled ? UiColors::PrimaryBlue : UiColors::GrayPillBorder;
         DrawRoundedCard(dc, br, UiMetrics::RadiusPill, bg, border, 1);

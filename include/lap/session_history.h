@@ -20,6 +20,7 @@ struct SessionHistoryEntry {
 
 void InitializeSessionHistory(const std::wstring& outputDir);
 std::vector<SessionHistoryEntry> GetSessionHistorySnapshot();
+bool IsTrustedSessionArtifactPath(const std::wstring& artifactPath);
 void RecordSessionHistoryArtifact(const AuditReport& report, const std::wstring& artifactPath, bool isHtml);
 bool ArchiveInterruptedSession(const std::wstring& appDir, const std::wstring& outputDir);
 bool DeleteSessionHistoryEntry(const std::wstring& sessionId, bool deleteArtifacts);

@@ -57,14 +57,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          Remove-Item -LiteralPath tools\__pycache__ -Recurse -Force -ErrorAction SilentlyContinue
           git add src/main.cpp src/engines.cpp src/stress.cpp
-          git rm .github/workflows/round4-one-shot.yml
-          git rm tools/apply_round4_runtime_batch.py tools/normalize_round4_runtime_script.py tools/apply_hidden_control_gating.py
+          git rm -f .github/workflows/round4-one-shot.yml
+          git rm -f tools/apply_round4_runtime_batch.py tools/normalize_round4_runtime_script.py tools/apply_hidden_control_gating.py
           git diff --cached --check
           git commit -m "security: harden process and trusted engine execution"
           $sha = git rev-parse HEAD
           "SOURCE_COMMIT=$sha" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          if (git status --porcelain) { throw "Candidate working tree is not clean" }
+          if (git status --porcelain) { git status --short; throw "Candidate working tree is not clean" }
 
       - name: Full regression suite on candidate
         shell: cmd

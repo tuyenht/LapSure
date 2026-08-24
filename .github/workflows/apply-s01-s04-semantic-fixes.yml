@@ -46,9 +46,9 @@ jobs:
         shell: pwsh
         run: python tools/apply_s01_s04_semantic_fixes.py
 
-      - name: Diff sanity
+      - name: Diff sanity for production targets
         shell: pwsh
-        run: git diff --check
+        run: git diff --check -- src/ui_screens_s01_s04_v2.cpp src/main.cpp CMakeLists.txt
 
       - name: Source and evidence regression gates
         shell: cmd

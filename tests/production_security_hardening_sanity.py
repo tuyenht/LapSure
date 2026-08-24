@@ -18,10 +18,26 @@ assert 'smartctl=' in MANIFEST and 'nvidia_smi=' in MANIFEST
 assert 'assemblyIdentity version="0.1.1.0"' in APP
 assert 'certutil' not in MAIN.lower()
 
-# All gReportPath ShellExecute routes must be guarded by the trusted artifact predicate.
-for line in MAIN.splitlines():
-    if 'ShellExecuteW' in line and 'gReportPath.c_str()' in line:
-        assert 'IsTrustedSessionArtifactPath(gReportPath)' in line, line
+# All gReportPath ShellExecute routes must be guarded in the surrounding route/block.
+unsafe_old_routes = [
+    'else if (id == 2 && !gReportPath.empty()) ShellExecuteW',
+    'else if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str()',
+]
+for route in unsafe_old_routes:
+    assert route not in MAIN, f"legacy unguarded report-open route remains: {route}"
+
+needle = 'ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);'
+pos = 0
+count = 0
+while True:
+    pos = MAIN.find(needle, pos)
+    if pos < 0:
+        break
+    count += 1
+    context = MAIN[max(0, pos - 360):pos + len(needle)]
+    assert 'IsTrustedSessionArtifactPath(gReportPath)' in context, context
+    pos += len(needle)
+assert count >= 3, "expected keyboard, command, and S19 trusted report-open routes"
 
 assert "PATH-discovered" in SEC
 assert "does not modify Windows TrustedPublisher" in SEC

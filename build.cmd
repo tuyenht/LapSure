@@ -41,7 +41,7 @@ if %errorlevel% equ 0 (
     gh release download --pattern "LapSure-windows-x64-portable.zip" --dir "out\download" --clobber
     if %errorlevel% equ 0 (
         echo [INFO] Dang giai nen va dong bo vao bin\LapSure.exe...
-        powershell -NoProfile -Command "Expand-Archive -LiteralPath out\download\LapSure-windows-x64-portable.zip -DestinationPath bin -Force; Copy-Item bin\LapSure.exe .\LapSure.exe -Force"
+        powershell -NoProfile -Command "Expand-Archive -LiteralPath out\download\LapSure-windows-x64-portable.zip -DestinationPath bin -Force; (Get-Item bin\LapSure.exe).LastWriteTime = Get-Date; Copy-Item bin\LapSure.exe .\LapSure.exe -Force; (Get-Item .\LapSure.exe).LastWriteTime = Get-Date"
         echo.
         echo =======================================================
         echo [THANH CONG] Da dong bo ban LapSure.exe moi nhat!
@@ -83,6 +83,7 @@ if exist build\Release\LapSure.exe (
     copy /Y build\Release\LapSure.exe .\LapSure.exe >nul
     if not exist bin mkdir bin
     copy /Y build\Release\LapSure.exe bin\LapSure.exe >nul
+    powershell -NoProfile -Command "(Get-Item bin\LapSure.exe).LastWriteTime = Get-Date; (Get-Item .\LapSure.exe).LastWriteTime = Get-Date"
     echo.
     echo =======================================================
     echo [THANH CONG] Da bien dich xong LapSure.exe!

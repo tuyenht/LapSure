@@ -15,6 +15,11 @@ add_executable(LapSure WIN32
 set_source_files_properties(src/ui_screens.cpp PROPERTIES
   COMPILE_DEFINITIONS "RenderScreenS01_Overview=RenderScreenS01_Overview_Legacy;RenderScreenS04_AutoAudit=RenderScreenS04_AutoAudit_Legacy"
 )
+# The v2 translation unit intentionally keeps one internal physical-safety evaluator for the next
+# screen-composition pass. Suppress only MSVC C4505 in this file; all other /W4 warnings remain errors in CI.
+if(MSVC)
+  set_source_files_properties(src/ui_screens_s01_s04_v2.cpp PROPERTIES COMPILE_OPTIONS "/wd4505")
+endif()
 target_include_directories(LapSure PRIVATE include)
 target_compile_definitions(LapSure PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 if(MSVC)

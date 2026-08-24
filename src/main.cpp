@@ -113,6 +113,30 @@ CanonicalUiState LifecycleStateFromDecision(const AuditReport& report) {
     return CanonicalUiState::Incomplete;
 }
 
+struct ReportPersistResult {
+    std::wstring htmlPath;
+    std::wstring jsonPath;
+    bool historyCommitted{false};
+    bool Complete() const { return !htmlPath.empty() && !jsonPath.empty() && historyCommitted; }
+};
+
+void MarkReportPersistenceIncomplete(AuditReport& report) {
+    auto& decision = report.hardware.stress.decision;
+    if (decision.overall == L"BUY" || decision.overall == L"BUY WITH NOTES") decision.overall = L"INCOMPLETE";
+    decision.coverage = L"PARTIAL";
+    decision.confidence = Confidence::Low;
+    const std::wstring reason = L"Report bundle/history persistence did not complete; acceptance verdict is withheld.";
+    if (std::find(decision.reasons.begin(), decision.reasons.end(), reason) == decision.reasons.end()) decision.reasons.push_back(reason);
+}
+
+ReportPersistResult PersistReportBundle(const AuditReport& report, const std::wstring& outputDir) {
+    ReportPersistResult result;
+    result.htmlPath = SaveHtmlReport(report, outputDir);
+    result.jsonPath = SaveJsonReport(report, outputDir);
+    result.historyCommitted = CommitSessionHistoryBundle(report, result.htmlPath, result.jsonPath);
+    return result;
+}
+
 const wchar_t* GetCurrentStageName(int stage) {
     switch (stage) {
     case 1: return L"Nhận diện hệ thống";
@@ -238,8 +262,16 @@ void RebuildDecisionAndReports() {
         gReportOutputDir = out;
         InitializeSessionHistory(out);
     }
-    gReportPath = SaveHtmlReport(gReport, out);
-    SaveJsonReport(gReport, out);
+    auto persisted = PersistReportBundle(gReport, out);
+    if (!persisted.Complete()) {
+        MarkReportPersistenceIncomplete(gReport);
+        BuildOrchestrator(gReport, false, false);
+        persisted = PersistReportBundle(gReport, out);
+        gSessionLifecycleState = CanonicalUiState::Incomplete;
+    } else {
+        gSessionLifecycleState = LifecycleStateFromDecision(gReport);
+    }
+    gReportPath = persisted.htmlPath;
 }
 
 void UpsertFunctional(const FunctionalItemResult& x) {
@@ -443,20 +475,31 @@ void AuditWorkerCore(HWND h) {
         PostStatus(h, L"Hoàn tất bài kiểm tra độ ổn định Stress (" + gSelectedMode + L")");
     }
 
-    std::wstring reportPath;
+    ReportPersistResult persisted;
     if (!gCancel) {
         auto out = ResolveReportDirectory(gDir, caps.winPE);
-        reportPath = SaveHtmlReport(report, out);
-        SaveJsonReport(report, out);
+        gReportOutputDir = out;
+        InitializeSessionHistory(out);
+        persisted = PersistReportBundle(report, out);
+        if (!persisted.Complete()) {
+            MarkReportPersistenceIncomplete(report);
+            BuildOrchestrator(report, false, false);
+            persisted = PersistReportBundle(report, out);
+            PostStatus(h, persisted.Complete()
+                ? L"Report đã persist sau retry nhưng verdict acceptance vẫn giữ INCOMPLETE để bảo toàn tính thận trọng."
+                : L"Không thể persist đầy đủ HTML/JSON/history; journal được giữ để phục hồi và không phát hành clean verdict.");
+        }
+        if (persisted.Complete()) CompleteStressJournal(gDir);
     }
     {
         std::lock_guard<std::mutex> lk(gReportMutex);
         gReport = std::move(report);
-        gReportPath = std::move(reportPath);
+        gReportPath = persisted.htmlPath;
     }
-    gAuditReady = !gCancel;
+    gAuditReady = !gCancel && persisted.Complete();
     gRunning = false;
-    gSessionLifecycleState = gCancel ? CanonicalUiState::Cancelled : LifecycleStateFromDecision(gReport);
+    gSessionLifecycleState = gCancel ? CanonicalUiState::Cancelled
+        : (persisted.Complete() ? LifecycleStateFromDecision(gReport) : CanonicalUiState::Incomplete);
     PostMessageW(h, WM_AUDIT_DONE, gCancel ? 1 : 0, 0);
 }
 

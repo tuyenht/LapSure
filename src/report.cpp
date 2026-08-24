@@ -26,7 +26,14 @@ const wchar_t* ViDecision(const std::wstring&s){if(s==L"BUY")return L"CÓ THỂ 
 const wchar_t* ViStatus(const std::wstring&s){if(s==L"COMPLETE"||s==L"PASS"||s==L"HIGH")return L"ĐÃ KIỂM TRA ĐỦ";if(s==L"FAIL")return L"KHÔNG ĐẠT";if(s==L"WARNING")return L"CẦN LƯU Ý";if(s==L"PARTIAL")return L"CHƯA HOÀN TẤT";if(s==L"NOT TESTED"||s==L"NOT RUN")return L"CHƯA KIỂM TRA";return L"CHƯA XÁC ĐỊNH";}
 const wchar_t* ViConfidence(Confidence c){return c==Confidence::High?L"Cao":(c==Confidence::Medium?L"Trung bình":L"Thấp");}
 const wchar_t* ViTestVerdict(TestVerdict v){switch(v){case TestVerdict::Pass:return L"Đạt";case TestVerdict::Warning:return L"Cần lưu ý";case TestVerdict::Fail:return L"Không đạt";case TestVerdict::Cancelled:return L"Đã dừng";default:return L"Chưa kiểm tra";}}
-bool WriteUtf8File(const std::filesystem::path&p,const std::wstring&text){if(text.size()>static_cast<size_t>(INT_MAX))return false;int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),nullptr,0,nullptr,nullptr);if(n<=0)return false;std::string bytes(static_cast<size_t>(n),'\0');if(WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),bytes.data(),n,nullptr,nullptr)!=n)return false;std::ofstream out(p,std::ios::binary|std::ios::trunc);if(!out)return false;out.write(bytes.data(),static_cast<std::streamsize>(bytes.size()));out.flush();return out.good();}
+bool WriteUtf8File(const std::filesystem::path&p,const std::wstring&text){
+ if(text.size()>static_cast<size_t>(INT_MAX))return false;
+ int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),nullptr,0,nullptr,nullptr);if(n<=0)return false;
+ std::string bytes(static_cast<size_t>(n),'\0');if(WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,text.data(),static_cast<int>(text.size()),bytes.data(),n,nullptr,nullptr)!=n)return false;
+ const auto target=p.wstring();const auto temp=target+L".tmp";std::ofstream out(std::filesystem::path(temp),std::ios::binary|std::ios::trunc);if(!out)return false;
+ out.write(bytes.data(),static_cast<std::streamsize>(bytes.size()));out.flush();if(!out.good()){out.close();DeleteFileW(temp.c_str());return false;}out.close();
+ if(!MoveFileExW(temp.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)){DeleteFileW(temp.c_str());return false;}return true;
+}
 }
 std::wstring ResolveReportDirectory(const std::wstring& appDir,bool winPE){
  std::filesystem::path app(appDir);auto local=app/L"reports";
@@ -84,7 +91,7 @@ std::wstring SaveHtmlReport(const AuditReport&r,const std::wstring&dir){
  f<<L"</div>";
  f<<L"<h2>Toàn bộ bằng chứng kỹ thuật</h2><table><tr><th>Lĩnh vực</th><th>Nhóm</th><th>Hạng mục</th><th>Giá trị thực tế</th><th>Mức mong đợi</th><th>Trạng thái</th><th>Mức độ</th><th>Nguồn bằng chứng</th></tr>";
  for(auto&x:r.findings)f<<L"<tr><td>"<<ToString(x.dimension)<<L"</td><td>"<<Html(x.group)<<L"</td><td>"<<Html(x.name)<<L"</td><td><pre>"<<Html(x.value)<<L"</pre></td><td>"<<Html(x.expected)<<L"</td><td class='"<<ToString(x.state)<<L"'>"<<ToString(x.state)<<L"</td><td>"<<ToString(x.severity)<<L"</td><td>"<<Html(x.evidence)<<L"</td></tr>";
- f<<L"</table></details></main></body></html>";if(!WriteUtf8File(p,f.str()))return L"";RecordSessionHistoryArtifact(r,p.wstring(),true);return p.wstring();
+ f<<L"</table></details></main></body></html>";if(!WriteUtf8File(p,f.str()))return L"";return p.wstring();
 }
 std::wstring SaveJsonReport(const AuditReport&r,const std::wstring&dir){
  std::filesystem::create_directories(dir);auto p=std::filesystem::path(dir)/(L"audit_"+ReportStem(r)+L".json");std::wostringstream f;
@@ -102,6 +109,6 @@ std::wstring SaveJsonReport(const AuditReport&r,const std::wstring&dir){
  for(size_t i=0;i<r.hardware.stress.functional.items.size();++i){auto&x=r.hardware.stress.functional.items[i];f<<L"{\"id\":\""<<Json(x.id)<<L"\",\"name\":\""<<Json(x.name)<<L"\",\"status\":\""<<FunctionalStatusText(x.status)<<L"\",\"detail\":\""<<Json(x.detail)<<L"\",\"evidence\":\""<<Json(x.evidence)<<L"\"}"<<(i+1<r.hardware.stress.functional.items.size()?L",":L"");}
  f<<L"]},\"portPower\":{\"overall\":\""<<Json(r.hardware.stress.portPower.overall)<<L"\",\"ports\":[";for(size_t i=0;i<r.hardware.stress.portPower.ports.size();++i){auto&x=r.hardware.stress.portPower.ports[i];f<<L"{\"label\":\""<<Json(x.portLabel)<<L"\",\"verdict\":\""<<Json(x.verdict)<<L"\",\"instanceId\":\""<<Json(x.instanceId)<<L"\",\"locationPath\":\""<<Json(x.locationPath)<<L"\"}"<<(i+1<r.hardware.stress.portPower.ports.size()?L",":L"");}f<<L"]},\"runtimeValidation\":{\"overall\":\""<<Json(r.hardware.stress.runtimeValidation.overall)<<L"\",\"failed\":"<<r.hardware.stress.runtimeValidation.failed<<L",\"warning\":"<<r.hardware.stress.runtimeValidation.warning<<L"},\"chassisProfile\":{\"id\":\""<<Json(r.hardware.stress.chassisProfile.profileId)<<L"\",\"requiredRemaining\":"<<RequiredPortsRemaining(r.hardware.stress.chassisProfile)<<L"},\"orchestrator\":{\"overall\":\""<<Json(r.hardware.stress.orchestrator.overall)<<L"\",\"percent\":"<<r.hardware.stress.orchestrator.percent<<L"}},\n\"findings\":[\n";
  for(size_t i=0;i<r.findings.size();++i){auto&x=r.findings[i];f<<L"{\"dimension\":\""<<ToString(x.dimension)<<L"\",\"group\":\""<<Json(x.group)<<L"\",\"name\":\""<<Json(x.name)<<L"\",\"value\":\""<<Json(x.value)<<L"\",\"expected\":\""<<Json(x.expected)<<L"\",\"state\":\""<<ToString(x.state)<<L"\",\"severity\":\""<<ToString(x.severity)<<L"\",\"evidence\":\""<<Json(x.evidence)<<L"\"}"<<(i+1<r.findings.size()?L",":L"")<<L"\n";}
- f<<L"]}\n";if(!WriteUtf8File(p,f.str()))return L"";RecordSessionHistoryArtifact(r,p.wstring(),false);return p.wstring();
+ f<<L"]}\n";if(!WriteUtf8File(p,f.str()))return L"";return p.wstring();
 }
 } // namespace lap

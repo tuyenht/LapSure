@@ -16,7 +16,10 @@
 #include "lap/acquisition.h"
 #include "lap/cloud_lookup.h"
 #include "lap/profile.h"
+#include "lap/journal.h"
+#include "lap/session_history.h"
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <atomic>
 
@@ -175,6 +178,40 @@ int main() {
     providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
     const auto coverage=lap::BuildCoverageContract(providerReport);
     Expect(coverage.size()>=10&&std::any_of(coverage.begin(),coverage.end(),[](const auto&x){return x.id==L"storage";})&&providerReport.hardware.stress.decision.coverage==L"PARTIAL","coverage contract exposes required domains and gates incomplete evidence");
+    const auto txRoot = std::filesystem::temp_directory_path() / L"lapsure-transaction-recovery";
+    std::filesystem::remove_all(txRoot, cleanupError);
+    std::filesystem::create_directories(txRoot / L"reports");
+    Expect(lap::WriteStressJournal(txRoot.wstring(), L"tx-session", L"CPU sustained load", L"RUNNING"), "transaction journal starts");
+    auto txJournal = lap::ReadInterruptedStressJournal(txRoot.wstring());
+    Expect(txJournal.present && txJournal.status == L"RUNNING" && txJournal.stageStatus == L"RUNNING", "running journal is recoverable");
+    Expect(lap::WriteStressJournal(txRoot.wstring(), L"tx-session", L"CPU sustained load", L"COMPLETED"), "stage completion updates journal");
+    txJournal = lap::ReadInterruptedStressJournal(txRoot.wstring());
+    Expect(txJournal.present && txJournal.status == L"RUNNING" && txJournal.stageStatus == L"COMPLETED", "journal remains recoverable after completed stage");
+    Expect(lap::DiscardInterruptedStressJournal(txRoot.wstring()) && !lap::ReadInterruptedStressJournal(txRoot.wstring()).present, "orderly cancel/discard is not reported as interruption");
+
+    const auto historyDir = txRoot / L"history";
+    std::filesystem::create_directories(historyDir);
+    const auto htmlPath = historyDir / L"audit_tx-session.html";
+    const auto jsonPath = historyDir / L"audit_tx-session.json";
+    { std::ofstream f(htmlPath, std::ios::binary | std::ios::trunc); f << "<html></html>"; }
+    lap::InitializeSessionHistory(historyDir.wstring());
+    lap::AuditReport txReport = CompletedAutomaticReport();
+    txReport.hardware.stress.sessionId = L"tx-session";
+    txReport.hardware.stress.decision.overall = L"BUY";
+    Expect(lap::CommitSessionHistoryBundle(txReport, htmlPath.wstring(), L""), "history accepts partial HTML artifact");
+    auto txHistory = lap::GetSessionHistorySnapshot();
+    auto txIt = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& e){ return e.sessionId == L"tx-session"; });
+    Expect(txIt != txHistory.end() && txIt->status == L"ARTIFACT_PARTIAL", "history marks single artifact as ARTIFACT_PARTIAL");
+    { std::ofstream f(jsonPath, std::ios::binary | std::ios::trunc); f << "{}"; }
+    Expect(lap::CommitSessionHistoryBundle(txReport, htmlPath.wstring(), jsonPath.wstring()), "history commits complete report pair");
+    txHistory = lap::GetSessionHistorySnapshot();
+    txIt = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& e){ return e.sessionId == L"tx-session"; });
+    Expect(txIt != txHistory.end() && txIt->status == L"COMPLETE" && !txIt->htmlPath.empty() && !txIt->jsonPath.empty(), "history bundle becomes COMPLETE only with HTML and JSON");
+    const auto outsidePath = txRoot / L"outside.json";
+    { std::ofstream f(outsidePath, std::ios::binary | std::ios::trunc); f << "{}"; }
+    Expect(!lap::CommitSessionHistoryBundle(txReport, htmlPath.wstring(), outsidePath.wstring()), "history rejects bundle artifact outside trusted root");
+    std::filesystem::remove_all(txRoot, cleanupError);
+
     std::filesystem::remove_all(providerDir,cleanupError);
     return failures == 0 ? 0 : 1;
 }

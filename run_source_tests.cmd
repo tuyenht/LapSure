@@ -35,3 +35,5 @@ python tests\s22_s23_persistence_recovery_sanity.py
 if errorlevel 1 exit /b 1
 python tests\production_hardening_round1_sanity.py
 if errorlevel 1 exit /b 1
+python tests\production_hardening_round2_sanity.py
+if errorlevel 1 exit /b 1

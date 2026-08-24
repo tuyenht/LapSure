@@ -8,6 +8,7 @@ struct InterruptedSessionInfo {
     std::wstring sessionId;
     std::wstring stage;
     std::wstring status;
+    std::wstring stageStatus;
     std::wstring time;
     std::wstring rawEvidence;
     std::wstring journalPath;

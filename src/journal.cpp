@@ -35,6 +35,7 @@ InterruptedSessionInfo ReadInterruptedStressJournal(const std::wstring& appDir) 
     info.sessionId = ValueOf(info.rawEvidence, L"session");
     info.stage = ValueOf(info.rawEvidence, L"stage");
     info.status = ValueOf(info.rawEvidence, L"status");
+    info.stageStatus = ValueOf(info.rawEvidence, L"stage_status");
     info.time = ValueOf(info.rawEvidence, L"time");
     info.present = (info.status == L"RUNNING");
     return info;
@@ -52,7 +53,8 @@ bool WriteStressJournal(const std::wstring& appDir, const std::wstring& id, cons
     if (!f) return false;
     SYSTEMTIME t{};
     GetLocalTime(&t);
-    f << L"session=" << id << L"\nstage=" << stage << L"\nstatus=" << status
+    f << L"session=" << id << L"\nstage=" << stage << L"\nstatus=RUNNING"
+      << L"\nstage_status=" << status
       << L"\ntime=" << t.wYear << L"-" << t.wMonth << L"-" << t.wDay << L" "
       << t.wHour << L":" << t.wMinute << L":" << t.wSecond << L"\n";
     f.flush();

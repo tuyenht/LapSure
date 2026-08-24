@@ -17,8 +17,9 @@ assert "std::wstring sessionId;" in MODEL
 assert "ss.sessionId=SessionId()" in STRESS
 assert "ReportStem(const AuditReport&r)" in REPORT
 assert "r.hardware.stress.sessionId" in REPORT
-assert "RecordSessionHistoryArtifact(r,p.wstring(),true)" in REPORT
-assert "RecordSessionHistoryArtifact(r,p.wstring(),false)" in REPORT
+assert "CommitSessionHistoryBundle" in HISTORY_H
+assert "CommitSessionHistoryBundle" in HISTORY
+assert "PersistReportBundle" in MAIN
 assert 'L"audit_"+ReportStem(r)+L".html"' in REPORT
 assert 'L"audit_"+ReportStem(r)+L".json"' in REPORT
 

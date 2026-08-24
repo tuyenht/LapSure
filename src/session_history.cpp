@@ -158,13 +158,19 @@ bool IsTrustedSessionArtifactPath(const std::wstring& artifactPath) {
     return IsTrustedArtifactPathLocked(artifactPath);
 }
 
-void RecordSessionHistoryArtifact(const AuditReport& report, const std::wstring& artifactPath, bool isHtml) {
-    if (artifactPath.empty()) return;
-    const auto dir = std::filesystem::path(artifactPath).parent_path().wstring();
-    InitializeSessionHistory(dir);
+bool CommitSessionHistoryBundle(const AuditReport& report, const std::wstring& htmlPath, const std::wstring& jsonPath) {
+    if (htmlPath.empty() && jsonPath.empty()) return false;
+    const std::wstring seed = !htmlPath.empty() ? htmlPath : jsonPath;
+    const auto dir = std::filesystem::path(seed).parent_path().wstring();
     std::lock_guard<std::mutex> lk(gHistoryMutex);
-    if (!IsTrustedArtifactPathLocked(artifactPath)) return;
-    std::wstring id = report.hardware.stress.sessionId.empty() ? FallbackSessionId(artifactPath) : report.hardware.stress.sessionId;
+    if (gHistoryDir.empty()) {
+        gHistoryDir = dir;
+        LoadIndexLocked();
+    }
+    if ((!htmlPath.empty() && !IsTrustedArtifactPathLocked(htmlPath)) ||
+        (!jsonPath.empty() && !IsTrustedArtifactPathLocked(jsonPath))) return false;
+
+    std::wstring id = report.hardware.stress.sessionId.empty() ? FallbackSessionId(seed) : report.hardware.stress.sessionId;
     auto* e = FindLocked(id);
     if (!e) {
         SessionHistoryEntry item;
@@ -176,9 +182,18 @@ void RecordSessionHistoryArtifact(const AuditReport& report, const std::wstring&
     e->model = report.model;
     e->serviceTag = report.serviceTag;
     e->verdict = report.hardware.stress.decision.overall;
-    e->status = report.hardware.stress.decision.overall == L"INCOMPLETE" ? L"INCOMPLETE" : L"COMPLETE";
-    if (isHtml) e->htmlPath = artifactPath; else e->jsonPath = artifactPath;
-    SaveIndexLocked();
+    if (!htmlPath.empty()) e->htmlPath = htmlPath;
+    if (!jsonPath.empty()) e->jsonPath = jsonPath;
+    const bool pairComplete = !e->htmlPath.empty() && !e->jsonPath.empty();
+    e->status = pairComplete ? L"COMPLETE" : L"ARTIFACT_PARTIAL";
+    e->note = pairComplete ? L"" : L"Report bundle chưa đầy đủ; không được coi là phiên đã persist hoàn chỉnh.";
+    return SaveIndexLocked();
+}
+
+void RecordSessionHistoryArtifact(const AuditReport& report, const std::wstring& artifactPath, bool isHtml) {
+    if (artifactPath.empty()) return;
+    if (isHtml) (void)CommitSessionHistoryBundle(report, artifactPath, L"");
+    else (void)CommitSessionHistoryBundle(report, L"", artifactPath);
 }
 
 bool ArchiveInterruptedSession(const std::wstring& appDir, const std::wstring& outputDir) {

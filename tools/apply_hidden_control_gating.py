@@ -4,7 +4,14 @@ root = Path(__file__).resolve().parents[1]
 main_path = root / "src" / "main.cpp"
 text = main_path.read_text(encoding="utf-8")
 
-old_focus2 = '''            if (actionFocus == 2) {
+def replace_once(old: str, new: str, label: str) -> None:
+    global text
+    if old not in text:
+        raise SystemExit(f"{label} anchor not found")
+    text = text.replace(old, new, 1)
+
+replace_once(
+'''            if (actionFocus == 2) {
                 // Focus selects the visible top-level CTA; the current screen still
                 // decides whether that CTA is an audit action. No global StartAudit.
                 switch (gCurrentTab) {
@@ -19,60 +26,37 @@ old_focus2 = '''            if (actionFocus == 2) {
                 }
                 return 0;
             }
-'''
-new_focus2 = '''            if (actionFocus == 2) {
+''',
+'''            if (actionFocus == 2) {
                 // Focus slot 2 belongs to the S01 top-level Start/Stop button only.
                 // Other screens must never inherit this invisible operation target.
                 if (gCurrentTab == MainTab::Dashboard) StartAudit(h);
                 return 0;
             }
-'''
-if old_focus2 not in text:
-    raise SystemExit("focus-2 anchor not found")
-text = text.replace(old_focus2, new_focus2, 1)
+''', "focus-2")
 
-old_left = '''        case VK_LEFT:
+replace_once(
+'''        case VK_LEFT:
             if (gFocusIndex == 1) {
-'''
-new_left = '''        case VK_LEFT:
+''',
+'''        case VK_LEFT:
             if (gFocusIndex == 1 && (gCurrentTab == MainTab::Dashboard || gCurrentTab == MainTab::NewSession)) {
-'''
-if old_left not in text:
-    raise SystemExit("left mode anchor not found")
-text = text.replace(old_left, new_left, 1)
+''', "left mode")
 
-old_right = '''        case VK_RIGHT:
+replace_once(
+'''        case VK_RIGHT:
             if (gFocusIndex == 1) {
-'''
-new_right = '''        case VK_RIGHT:
+''',
+'''        case VK_RIGHT:
             if (gFocusIndex == 1 && (gCurrentTab == MainTab::Dashboard || gCurrentTab == MainTab::NewSession)) {
-'''
-if old_right not in text:
-    raise SystemExit("right mode anchor not found")
-text = text.replace(old_right, new_right, 1)
+''', "right mode")
 
-old_start = '''        // 2. Start / Stop Button Click
-        int btnW = UiMetrics::Scale(230, dpi);
-        int btnH = UiMetrics::Scale(40, dpi);
-        int modeY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-        RECT btnRect{ cr.right - btnW - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi), cr.right - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi) + btnH };
-        if (x >= btnRect.left && x <= btnRect.right && y >= btnRect.top && y <= btnRect.bottom) {
-            StartAudit(h);
-            return 0;
-        }
+mouse_start = text.find("        // 2. Start / Stop Button Click\n")
+mouse_end = text.find("        // 3.1 S01 Dashboard Specific Click Hit-Tests\n", mouse_start)
+if mouse_start < 0 or mouse_end < 0:
+    raise SystemExit("S01 mouse strip markers not found")
 
-        // 3. Mode Pills Click (with DPI-scaled gap)
-        int mX = layout.contentRect.left + UiMetrics::Scale(134, dpi);
-        int pillW = UiMetrics::Scale(80, dpi);
-        int pillH = UiMetrics::Scale(28, dpi);
-        int gap = UiMetrics::Scale(6, dpi);
-        if (y >= modeY && y <= modeY + pillH) {
-            if (x >= mX && x <= mX + pillW) { gSelectedMode = L"Quick"; InvalidateRect(h, nullptr, FALSE); }
-            else if (x >= mX + pillW + gap && x <= mX + (pillW + gap) * 2) { gSelectedMode = L"Standard"; InvalidateRect(h, nullptr, FALSE); }
-            else if (x >= mX + (pillW + gap) * 2 && x <= mX + (pillW + gap) * 2 + pillW) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
-        }
-'''
-new_start = '''        // 2–3. S01 top mode strip and Start/Stop button. These hit regions exist
+new_mouse = '''        // 2–3. S01 top mode strip and Start/Stop button. These hit regions exist
         // only when the Dashboard renderer actually draws the matching controls.
         int modeY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
         if (gCurrentTab == MainTab::Dashboard) {
@@ -91,14 +75,12 @@ new_start = '''        // 2–3. S01 top mode strip and Start/Stop button. These
             if (y >= modeY && y <= modeY + pillH) {
                 if (x >= mX && x <= mX + pillW) { gSelectedMode = L"Quick"; InvalidateRect(h, nullptr, FALSE); }
                 else if (x >= mX + pillW + gap && x <= mX + (pillW + gap) * 2) { gSelectedMode = L"Standard"; InvalidateRect(h, nullptr, FALSE); }
-                else if (x >= mX + (pillW + gap) * 2 && x <= mX + (pillW + gap) * 2 + pillW) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
+                else if (x >= mX + (pillW + gap) * 2 && x <= mX + (pillW + gap) * 3) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
             }
         }
-'''
-if old_start not in text:
-    raise SystemExit("S01 mouse strip anchor not found")
-text = text.replace(old_start, new_start, 1)
 
+'''
+text = text[:mouse_start] + new_mouse + text[mouse_end:]
 main_path.write_text(text, encoding="utf-8")
 
 canonical_ci = '''name: windows-msvc-build

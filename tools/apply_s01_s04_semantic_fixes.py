@@ -1,7 +1,10 @@
 from pathlib import Path
 
-PATH = Path("src/ui_screens_s01_s04_v2.cpp")
-text = PATH.read_text(encoding="utf-8")
+UI_PATH = Path("src/ui_screens_s01_s04_v2.cpp")
+MAIN_PATH = Path("src/main.cpp")
+CMAKE_PATH = Path("CMakeLists.txt")
+
+text = UI_PATH.read_text(encoding="utf-8")
 
 
 def replace_once(old: str, new: str, label: str) -> None:
@@ -235,5 +238,55 @@ replace_once(
 ''',
 "storage and battery domain cards")
 
-PATH.write_text(text, encoding="utf-8")
-print("Applied S01/S04 semantic fixes")
+UI_PATH.write_text(text, encoding="utf-8")
+
+main = MAIN_PATH.read_text(encoding="utf-8")
+ready_helper = '''int GetReadyEngineCount() {
+    auto caps = DetectCapabilities(gDir);
+    int c = 6; // Native Registry, SetupAPI, CIM, MediaFoundation, WLAN, WaveIn
+    if (caps.powershell) c++;
+    if (caps.wmi) c++;
+    if (caps.smartctl) c++;
+    if (caps.nvidiaSmi) c++;
+    if (caps.battery) c++;
+    if (!caps.winPE) c += 2;
+    return std::clamp(c, 1, 14);
+}
+
+'''
+if main.count(ready_helper) != 1:
+    raise SystemExit("ready engine helper: expected one match")
+main = main.replace(ready_helper, "", 1)
+
+footer_call = '''        // C01 App Shell Footer (with dynamic engine count and DPI scaling)
+        int readyEngines = GetReadyEngineCount();
+        DrawAppShellFooter(memDC, layout.footerRect, gFonts, dpi, readyEngines, 14);
+'''
+footer_replacement = '''        // C01 App Shell Footer. Runtime shell intentionally receives no heuristic provider count;
+        // provider/engine readiness must come from explicit evidence state rather than WM_PAINT probing.
+        DrawAppShellFooter(memDC, layout.footerRect, gFonts, dpi, 0, 0);
+'''
+if main.count(footer_call) != 1:
+    raise SystemExit("footer call: expected one match")
+main = main.replace(footer_call, footer_replacement, 1)
+
+inventory_signature = '''int RunInventoryOnly(const std::wstring& outputDir) {
+'''
+if "// inventory_only_begin" not in main:
+    if main.count(inventory_signature) != 1:
+        raise SystemExit("inventory marker: RunInventoryOnly signature not unique")
+    main = main.replace(inventory_signature, inventory_signature + "  // inventory_only_begin\n", 1)
+MAIN_PATH.write_text(main, encoding="utf-8")
+
+cmake = CMAKE_PATH.read_text(encoding="utf-8")
+suppression = '''# The v2 translation unit intentionally keeps one internal physical-safety evaluator for the next
+# screen-composition pass. Suppress only MSVC C4505 in this file; all other /W4 warnings remain errors in CI.
+if(MSVC)
+  set_source_files_properties(src/ui_screens_s01_s04_v2.cpp PROPERTIES COMPILE_OPTIONS "/wd4505")
+endif()
+'''
+if suppression in cmake:
+    cmake = cmake.replace(suppression, "", 1)
+CMAKE_PATH.write_text(cmake, encoding="utf-8")
+
+print("Applied S01/S04 semantic, UI-thread, and inventory validation fixes")

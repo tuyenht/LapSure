@@ -17,8 +17,8 @@ checks = [
     ("orderly cancellation discards active journal", "DiscardInterruptedStressJournal(appDir)" in stress),
     ("history supports bundle commit", "CommitSessionHistoryBundle" in history_h and "CommitSessionHistoryBundle" in history),
     ("history distinguishes partial artifact bundle", 'L"ARTIFACT_PARTIAL"' in history),
-    ("report writes atomically", "MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH" in report and 'L".tmp"' in report),
-    ("audit completes journal only after report pair and history commit", "CommitSessionHistoryBundle(report, htmlPath, jsonPath)" in main and "CompleteStressJournal(gDir)" in main),
+    ("report writes atomically", "MOVEFILE_REPLACE_EXISTING" in report and "MOVEFILE_WRITE_THROUGH" in report and 'L".tmp"' in report),
+    ("audit completes journal only after transactional report persistence", "CommitSessionHistoryBundle(report, result.htmlPath, result.jsonPath)" in main and "PersistReportBundle(report, out)" in main and "if (persisted.Complete()) CompleteStressJournal(gDir)" in main),
     ("report persistence failure cannot publish clean acceptance lifecycle", "MarkReportPersistenceIncomplete" in main),
     ("behavioral recovery transaction coverage exists", "journal remains recoverable after completed stage" in behavior and "history bundle becomes COMPLETE only with HTML and JSON" in behavior),
 ]

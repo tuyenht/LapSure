@@ -2463,6 +2463,25 @@ std::vector<MainTab> GetVisualTabList() {
     return list;
 }
 
+
+bool HasRamStressEvidence() {
+    std::lock_guard<std::mutex> lk(gReportMutex);
+    for (const auto& stage : gReport.hardware.stress.stages) {
+        if (stage.ram.bytesAllocated || stage.ram.bytesTested || stage.ram.mismatches || stage.ram.passes) return true;
+    }
+    return false;
+}
+
+void ActivateMemoryPrimaryAction(HWND h) {
+    if (HasRamStressEvidence()) {
+        gCurrentTab = MainTab::Stress;
+        gFocusIndex = 3;
+        InvalidateRect(h, nullptr, FALSE);
+        return;
+    }
+    StartAudit(h);
+}
+
 static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     switch (m) {
     case WM_CREATE: {
@@ -2556,12 +2575,24 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
             return 0;
         case VK_RETURN:
-        case VK_SPACE:
-            if (gFocusIndex == 2) {
-                StartAudit(h);
+        case VK_SPACE: {
+            const int actionFocus = gFocusIndex;
+            if (actionFocus == 2) {
+                // Focus selects the visible top-level CTA; the current screen still
+                // decides whether that CTA is an audit action. No global StartAudit.
+                switch (gCurrentTab) {
+                case MainTab::Dashboard:
+                case MainTab::AutoAudit:
+                case MainTab::NewSession:
+                case MainTab::Stress:
+                    StartAudit(h);
+                    break;
+                default:
+                    break;
+                }
                 return 0;
             }
-            if (gFocusIndex != 3) return 0;
+            if (actionFocus != 3) return 0;
 
             // Screen-aware primary action dispatch. Keyboard activation must never
             // execute a generic action that does not match the visible screen CTA.
@@ -2593,6 +2624,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             case MainTab::Network:
                 PostMessageW(h, WM_COMMAND, 1213, 0);
                 break;
+            case MainTab::Memory:
+                ActivateMemoryPrimaryAction(h);
+                break;
             case MainTab::Reports:
                 gCurrentTab = MainTab::ExportShare;
                 InvalidateRect(h, nullptr, FALSE);
@@ -2610,6 +2644,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 break;
             }
             return 0;
+        }
         }
         break;
     }
@@ -2992,6 +3027,21 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                 } else {
                     MessageBoxW(h, L"Phiên hiện tại chưa có HTML report tin cậy để mở.", L"LapSure", MB_OK | MB_ICONINFORMATION);
                 }
+                return 0;
+            }
+        }
+
+        // S11 primary action hit-test: use the exact C10 rail geometry from the renderer.
+        if (gCurrentTab == MainTab::Memory) {
+            const int pad = UiMetrics::Scale(24, dpi);
+            const int top = layout.contentRect.top + UiMetrics::Scale(72, dpi);
+            const int rightW = UiMetrics::Scale(300, dpi);
+            const int leftRight = layout.contentRect.right - rightW - UiMetrics::Scale(34, dpi);
+            RECT rail{leftRight + UiMetrics::Scale(10, dpi), top,
+                      layout.contentRect.right - pad, layout.contentRect.bottom - UiMetrics::Scale(20, dpi)};
+            const RECT actionButton = GetNextActionButtonRect(rail, dpi);
+            if (x >= actionButton.left && x <= actionButton.right && y >= actionButton.top && y <= actionButton.bottom) {
+                ActivateMemoryPrimaryAction(h);
                 return 0;
             }
         }

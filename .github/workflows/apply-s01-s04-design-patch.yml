@@ -1,28 +1,24 @@
 name: Apply S01 S04 Design Patch
 
 on:
-  push:
-    branches:
-      - feature/s01-s04-design-alignment
-    paths:
-      - tools/apply_s01_s04_design_patch.py
-      - .github/workflows/apply-s01-s04-design-patch.yml
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: lapsure-design-patch-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   apply-and-validate:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout feature branch
+      - name: Checkout requested ref
         uses: actions/checkout@v4
-        with:
-          ref: feature/s01-s04-design-alignment
-          fetch-depth: 0
 
-      - name: Apply renderer patch
+      - name: Apply renderer patch in runner workspace only
         shell: pwsh
         run: python tools/apply_s01_s04_design_patch.py
 
@@ -38,15 +34,6 @@ jobs:
         shell: cmd
         run: run_source_tests.cmd
 
-      - name: Commit validated renderer changes
+      - name: Show validated workspace diff
         shell: pwsh
-        run: |
-          if (-not (git diff --quiet -- src/main.cpp)) {
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/main.cpp
-            git commit -m "ui: align S01 overview and S04 auto audit with approved design"
-            git push origin HEAD:feature/s01-s04-design-alignment
-          } else {
-            Write-Host "No renderer changes to commit."
-          }
+        run: git diff -- src/main.cpp

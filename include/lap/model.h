@@ -341,6 +341,7 @@ struct RuntimeValidationSummary {
 };
 
 struct StressSession {
+    std::wstring sessionId;
     std::wstring mode{L"Quick"};
     bool completed{false};
     long long wheaBefore{};

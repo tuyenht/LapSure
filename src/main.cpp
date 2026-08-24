@@ -28,6 +28,8 @@
 #include "lap/profile.h"
 #include "lap/cloud_lookup.h"
 #include "lap/report.h"
+#include "lap/session_history.h"
+#include "lap/journal.h"
 #include "resource.h"
 #include "lap/scoring.h"
 #include "lap/process.h"
@@ -45,7 +47,7 @@ constexpr UINT WM_AUDIT_DONE = WM_APP + 1;
 constexpr UINT WM_AUDIT_STATUS = WM_APP + 2;
 
 AuditReport gReport;
-std::wstring gDir, gReportPath;
+std::wstring gDir, gReportPath, gReportOutputDir;
 HWND gMainHwnd = nullptr;
 HWND gList = nullptr, gStatus = nullptr, gBtn = nullptr, gOpen = nullptr, gMode = nullptr;
 HWND gFuncDisplay = nullptr, gFuncKeyboard = nullptr, gFuncTouch = nullptr, gFuncSpeaker = nullptr;
@@ -68,6 +70,7 @@ bool gDeviceGroupExpanded = true;
 int gSidebarScrollOffset = 0;
 int gTableScrollOffset = 0;
 int gFocusIndex = 0; // 0: Sidebar, 1: Mode Pills, 2: Primary CTA, 3: Next CTA
+int gHistorySelectedIndex = 0;
 UiFonts gFonts;
 
 std::wstring AppDir() {
@@ -220,8 +223,13 @@ void RebuildDecisionAndReports() {
     std::lock_guard<std::mutex> lk(gReportMutex);
     gReport.hardware.stress.decision = BuildAuditDecision(gReport);
     BuildOrchestrator(gReport, gRunning.load(), gAuditReady.load());
-    auto caps = DetectCapabilities(gDir);
-    auto out = ResolveReportDirectory(gDir, caps.winPE);
+    auto out = gReportOutputDir;
+    if (out.empty()) {
+        auto caps = DetectCapabilities(gDir);
+        out = ResolveReportDirectory(gDir, caps.winPE);
+        gReportOutputDir = out;
+        InitializeSessionHistory(out);
+    }
     gReportPath = SaveHtmlReport(gReport, out);
     SaveJsonReport(gReport, out);
 }
@@ -2912,16 +2920,96 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
         }
 
-        // 16. Interrupted Recovery Screen: Restart Button Hit-Test
+        // 16. Session History: select/open/delete actual local report records.
+        if (gCurrentTab == MainTab::SessionHistory) {
+            auto history = GetSessionHistorySnapshot();
+            int rightW = UiMetrics::Scale(300, dpi);
+            int gap2 = UiMetrics::Scale(12, dpi);
+            RECT body{layout.contentRect.left + UiMetrics::Scale(24, dpi), layout.contentRect.top + UiMetrics::Scale(70, dpi),
+                      layout.contentRect.right - UiMetrics::Scale(24, dpi), layout.contentRect.bottom - UiMetrics::Scale(20, dpi)};
+            RECT tableRect{body.left, body.top, body.right - rightW - gap2, body.bottom};
+            int rowH = UiMetrics::Scale(UiMetrics::TableRowHeight, dpi);
+            if (!history.empty() && x >= tableRect.left && x <= tableRect.right && y >= tableRect.top + rowH && y < tableRect.bottom) {
+                int visibleRow = (y - (tableRect.top + rowH)) / rowH;
+                int idx = gTableScrollOffset + visibleRow;
+                if (idx >= 0 && idx < static_cast<int>(history.size())) {
+                    gHistorySelectedIndex = idx;
+                    InvalidateRect(h, nullptr, FALSE);
+                    return 0;
+                }
+            }
+            if (!history.empty()) {
+                int idx = std::clamp(gHistorySelectedIndex, 0, static_cast<int>(history.size()) - 1);
+                const auto& selected = history[static_cast<size_t>(idx)];
+                RECT detail{tableRect.right + gap2, body.top, body.right, body.bottom};
+                int btnH2 = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+                RECT openBtn{detail.left + 14, detail.bottom - btnH2 * 2 - UiMetrics::Scale(24, dpi), detail.right - 14, detail.bottom - btnH2 - UiMetrics::Scale(18, dpi)};
+                RECT deleteBtn{detail.left + 14, detail.bottom - btnH2 - UiMetrics::Scale(10, dpi), detail.right - 14, detail.bottom - UiMetrics::Scale(10, dpi)};
+                if (x >= openBtn.left && x <= openBtn.right && y >= openBtn.top && y <= openBtn.bottom) {
+                    const std::wstring path = !selected.htmlPath.empty() ? selected.htmlPath : (!selected.jsonPath.empty() ? selected.jsonPath : selected.evidencePath);
+                    if (!path.empty()) ShellExecuteW(h, L"open", path.c_str(), nullptr, nullptr, SW_SHOW);
+                    else MessageBoxW(h, L"Phiên này chưa có file report/evidence có thể mở.", L"LapSure", MB_OK | MB_ICONINFORMATION);
+                    return 0;
+                }
+                if (x >= deleteBtn.left && x <= deleteBtn.right && y >= deleteBtn.top && y <= deleteBtn.bottom) {
+                    int answer = MessageBoxW(h,
+                        L"YES: xóa mục lịch sử VÀ các file report/evidence.\nNO: chỉ xóa mục khỏi index, giữ nguyên file.\nCANCEL: không thay đổi.",
+                        L"Xóa phiên kiểm định", MB_YESNOCANCEL | MB_ICONWARNING);
+                    if (answer == IDYES || answer == IDNO) {
+                        DeleteSessionHistoryEntry(selected.sessionId, answer == IDYES);
+                        auto after = GetSessionHistorySnapshot();
+                        gHistorySelectedIndex = after.empty() ? 0 : std::min(gHistorySelectedIndex, static_cast<int>(after.size()) - 1);
+                        InvalidateRect(h, nullptr, FALSE);
+                    }
+                    return 0;
+                }
+            }
+        }
+
+        // 17. Interrupted Recovery: preserve/discard real journal; interruption never becomes PASS.
         if (gCurrentTab == MainTab::InterruptedRecovery) {
-            int rightPanelW = UiMetrics::Scale(300, dpi);
-            int rightX = cr.right - rightPanelW - UiMetrics::Scale(24, dpi);
-            int curY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-            RECT actionCard{ rightX, curY, cr.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(310, dpi) };
-            int actH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-            RECT br{ actionCard.left + UiMetrics::Scale(14, dpi), actionCard.bottom - actH - UiMetrics::Scale(12, dpi), actionCard.right - UiMetrics::Scale(14, dpi), actionCard.bottom - UiMetrics::Scale(12, dpi) };
-            if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) {
+            RECT body{layout.contentRect.left + UiMetrics::Scale(24, dpi), layout.contentRect.top + UiMetrics::Scale(70, dpi),
+                      layout.contentRect.right - UiMetrics::Scale(24, dpi), layout.contentRect.bottom - UiMetrics::Scale(20, dpi)};
+            int rightW = UiMetrics::Scale(330, dpi);
+            RECT actions{body.right - rightW, body.top, body.right, body.bottom};
+            int btnH2 = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+            int btnGap2 = UiMetrics::Scale(10, dpi);
+            int actionY = actions.bottom - (btnH2 * 3 + btnGap2 * 2 + UiMetrics::Scale(14, dpi));
+            RECT recover{actions.left + 14, actionY, actions.right - 14, actionY + btnH2};
+            RECT closeIncomplete{actions.left + 14, recover.bottom + btnGap2, actions.right - 14, recover.bottom + btnGap2 + btnH2};
+            RECT discard{actions.left + 14, closeIncomplete.bottom + btnGap2, actions.right - 14, closeIncomplete.bottom + btnGap2 + btnH2};
+            auto clearInterrupted = [&] {
+                std::lock_guard<std::mutex> lk(gReportMutex);
+                gReport.hardware.stress.previousInterruptedSessionDetected = false;
+                gReport.hardware.stress.journalPath.clear();
+                gReport.findings.erase(std::remove_if(gReport.findings.begin(), gReport.findings.end(), [](const Finding& f) {
+                    return f.name == L"Previous interrupted stress session";
+                }), gReport.findings.end());
+            };
+            if (x >= recover.left && x <= recover.right && y >= recover.top && y <= recover.bottom) {
+                if (!ArchiveInterruptedSession(gDir, gReportOutputDir)) {
+                    MessageBoxW(h, L"Không thể lưu journal gián đoạn vào lịch sử. LapSure sẽ không xóa bằng chứng gốc.", L"LapSure", MB_OK | MB_ICONERROR);
+                    return 0;
+                }
+                clearInterrupted();
                 StartAudit(h);
+                return 0;
+            }
+            if (x >= closeIncomplete.left && x <= closeIncomplete.right && y >= closeIncomplete.top && y <= closeIncomplete.bottom) {
+                if (!ArchiveInterruptedSession(gDir, gReportOutputDir)) {
+                    MessageBoxW(h, L"Không thể lưu journal gián đoạn. Phiên chưa được đóng.", L"LapSure", MB_OK | MB_ICONERROR);
+                    return 0;
+                }
+                clearInterrupted();
+                InvalidateRect(h, nullptr, FALSE);
+                return 0;
+            }
+            if (x >= discard.left && x <= discard.right && y >= discard.top && y <= discard.bottom) {
+                int answer = MessageBoxW(h, L"Bỏ journal sẽ xóa bằng chứng gián đoạn hiện tại. Thao tác này không tạo PASS. Bạn chắc chắn muốn tiếp tục?", L"Bỏ journal gián đoạn", MB_YESNO | MB_ICONWARNING);
+                if (answer == IDYES) {
+                    if (DiscardInterruptedStressJournal(gDir)) { clearInterrupted(); InvalidateRect(h, nullptr, FALSE); }
+                    else MessageBoxW(h, L"Không thể xóa journal.", L"LapSure", MB_OK | MB_ICONERROR);
+                }
                 return 0;
             }
         }
@@ -3015,7 +3103,7 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         } else if (gCurrentTab == MainTab::Settings) {
             RenderScreenS21_Settings(memDC, layout.contentRect, repSnapshot, gFonts, dpi, 0, gFocusIndex);
         } else if (gCurrentTab == MainTab::SessionHistory) {
-            RenderScreenS22_SessionHistory(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gTableScrollOffset, gFocusIndex);
+            RenderScreenS22_SessionHistory(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gTableScrollOffset, gHistorySelectedIndex, gFocusIndex);
         } else if (gCurrentTab == MainTab::InterruptedRecovery) {
             RenderScreenS23_InterruptedRecovery(memDC, layout.contentRect, repSnapshot, gFonts, dpi, gFocusIndex);
         } else {
@@ -3145,6 +3233,21 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int) {
     if (inventoryOnly) {
         try { return RunInventoryOnly(outputDir); }
         catch (...) { return 3; }
+    }
+
+    {
+        auto startupCaps = DetectCapabilities(gDir);
+        gReportOutputDir = ResolveReportDirectory(gDir, startupCaps.winPE);
+        InitializeSessionHistory(gReportOutputDir);
+        const auto interrupted = ReadInterruptedStressJournal(gDir);
+        if (interrupted.present) {
+            std::lock_guard<std::mutex> lk(gReportMutex);
+            gReport.hardware.stress.previousInterruptedSessionDetected = true;
+            gReport.hardware.stress.journalPath = interrupted.journalPath;
+            gReport.findings.push_back({L"Stability", L"Previous interrupted stress session", interrupted.rawEvidence,
+                L"No abandoned RUNNING journal", State::Warning, Severity::Critical,
+                L"Crash/reboot/interruption evidence; not proof of hardware failure.", Dimension::Health});
+        }
     }
     
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);

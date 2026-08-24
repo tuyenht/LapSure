@@ -111,7 +111,7 @@ void RenderScreenS21_Settings(HDC dc, const RECT& r, const AuditReport& rep, con
 
 // S22 — Lịch sử phiên kiểm định
 void RenderScreenS22_SessionHistory(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,
-                                    int tableScrollOffset = 0, int focusIndex = 0);
+                                    int tableScrollOffset = 0, int selectedIndex = 0, int focusIndex = 0);
 
 // S23 — Khôi phục Phiên bị Gián đoạn
 void RenderScreenS23_InterruptedRecovery(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,

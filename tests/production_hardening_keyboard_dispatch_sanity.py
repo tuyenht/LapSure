@@ -1,10 +1,11 @@
 from pathlib import Path
+from app_source_view import read_app_source
 
 ROOT = Path(__file__).resolve().parents[1]
-MAIN = (ROOT / "src" / "main.cpp").read_text(encoding="utf-8")
+MAIN = read_app_source(ROOT)
 
 assert "Screen-aware primary action dispatch" in MAIN
-assert "else if (gFocusIndex == 3) PostMessageW(h, WM_COMMAND, 1300, 0);" not in MAIN
+assert "else if (gFocusIndex == 3) PostMessageW" not in MAIN
 
 required = {
     "seller claim": "case MainTab::SellerClaim:",
@@ -24,28 +25,24 @@ for command in ["1209", "1208", "1207", "1201", "1212", "1213"]:
     assert f"WM_COMMAND, {command}, 0" in MAIN, f"missing focused command {command}"
 
 assert "gCurrentTab = MainTab::ExportShare;" in MAIN
-assert "IsTrustedSessionArtifactPath(gReportPath)" in MAIN
+assert "OpenCurrentReport(hwnd)" in MAIN
+assert "IsTrustedSessionArtifactPath(path)" in MAIN
 assert "Screens with no single primary CTA" in MAIN
 
 keyboard_start = MAIN.index("case VK_RETURN:")
 keyboard_end = MAIN.index("case WM_MOUSEWHEEL:", keyboard_start)
 keyboard = MAIN[keyboard_start:keyboard_end]
-
-# A focus index is presentation state, never an operation selector. The old
-# global focus-2 route could start a full audit from an unrelated screen.
 assert "if (gFocusIndex == 2)" not in keyboard, "global focus-2 operation dispatch remains"
-assert "const int actionFocus = gFocusIndex;" in keyboard, "keyboard action focus snapshot missing"
-assert "if (actionFocus != 3) return 0;" in keyboard, "screen-aware secondary CTA gate missing"
+assert "const int actionFocus = gFocusIndex;" in keyboard
+assert "if (actionFocus != 3) return 0;" in keyboard
 focus2_start = keyboard.index("if (actionFocus == 2)")
 focus2_end = keyboard.index("if (actionFocus != 3)", focus2_start)
 focus2 = keyboard[focus2_start:focus2_end]
-assert "gCurrentTab == MainTab::Dashboard" in focus2, "focus-2 must belong only to the visible S01 top CTA"
-assert "StartAudit(h);" in focus2, "S01 top-level audit action was lost"
+assert "gCurrentTab == MainTab::Dashboard" in focus2
+assert "StartAudit(hwnd);" in focus2
 for hidden in ["MainTab::AutoAudit", "MainTab::NewSession", "MainTab::Stress"]:
     assert hidden not in focus2, f"focus-2 still activates an invisible top CTA on {hidden}"
-assert "case MainTab::Memory:" in keyboard, "S11 primary action is not keyboard reachable"
-
-# S22/S23 have multiple actions; keyboard focus must not silently choose one.
+assert "case MainTab::Memory:" in keyboard
 assert "case MainTab::SessionHistory:" not in keyboard
 assert "case MainTab::InterruptedRecovery:" not in keyboard
 

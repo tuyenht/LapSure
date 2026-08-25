@@ -1,4 +1,5 @@
 from pathlib import Path
+from app_source_view import read_app_source
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_H = (ROOT / "include/lap/report.h").read_text(encoding="utf-8")
@@ -6,7 +7,7 @@ REPORT_CPP = "\n".join([
     (ROOT / "src/report.cpp").read_text(encoding="utf-8"),
     (ROOT / "src/report_publication.cpp").read_text(encoding="utf-8"),
 ])
-MAIN = (ROOT / "src/main.cpp").read_text(encoding="utf-8")
+APP = read_app_source(ROOT)
 
 
 def require(condition: bool, message: str) -> None:
@@ -27,11 +28,13 @@ require("MoveFileExW" in REPORT_CPP,
 require("CommitSessionHistoryBundle" in REPORT_CPP,
         "history may be committed only by the bundle publication boundary")
 
-require("MarkReportPersistenceIncomplete" not in MAIN,
+require("MarkReportPersistenceIncomplete" not in APP,
         "file I/O failure must not rewrite hardware AuditDecision")
-require("PublishReportBundle" in MAIN,
+require("PublishReportBundle" in APP,
         "interactive and automatic report persistence must use bundle publication")
-require('decision.overall = L"INCOMPLETE"' not in MAIN,
+require('decision.overall = L"INCOMPLETE"' not in APP,
         "publication failure must not assign INCOMPLETE into the hardware decision")
+require("gPublicationReady" in APP and "gAuditReady" in APP,
+        "audit readiness and publication readiness must remain separate runtime truths")
 
 print("Round 5 report publication/decision separation contract: PASS")

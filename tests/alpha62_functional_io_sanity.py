@@ -1,7 +1,9 @@
 from pathlib import Path
+from app_source_view import read_app_source
+
 R=Path(__file__).resolve().parents[1]
 io=(R/"src/functional_io.cpp").read_text(encoding="utf-8")
-main=(R/"src/main.cpp").read_text(encoding="utf-8")
+main=read_app_source(R)
 fn=(R/"src/functional.cpp").read_text(encoding="utf-8")
 cm=(R/"CMakeLists.txt").read_text(encoding="utf-8")
 checks=[

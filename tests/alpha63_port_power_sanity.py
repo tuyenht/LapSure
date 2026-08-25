@@ -1,8 +1,10 @@
 from pathlib import Path
+from app_source_view import read_app_source
+
 R=Path(__file__).resolve().parents[1]
 m=(R/"include/lap/model.h").read_text(encoding="utf-8")
 p=(R/"src/port_power.cpp").read_text(encoding="utf-8")
-main=(R/"src/main.cpp").read_text(encoding="utf-8")
+main=read_app_source(R)
 sc=(R/"src/scoring.cpp").read_text(encoding="utf-8")
 rp=(R/"src/report.cpp").read_text(encoding="utf-8")
 cm=(R/"CMakeLists.txt").read_text(encoding="utf-8")

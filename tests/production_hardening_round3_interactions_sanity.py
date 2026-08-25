@@ -1,9 +1,10 @@
 from pathlib import Path
+from app_source_view import read_app_source
 
 R = Path(__file__).resolve().parents[1]
 h = (R / "include/lap/ui_screens.h").read_text(encoding="utf-8")
 ui = (R / "src/ui_screens_s16_s21_v2.cpp").read_text(encoding="utf-8")
-main = (R / "src/main.cpp").read_text(encoding="utf-8")
+main = read_app_source(R)
 
 checks = [
     ("S18 primary action geometry exported", "GetScreenS18PrimaryActionRect" in h and "GetScreenS18PrimaryActionRect" in ui),
@@ -13,9 +14,9 @@ checks = [
     ("S19 availability comes from persisted history", "GetSessionHistorySnapshot()" in ui and "IsTrustedSessionArtifactPath(htmlPath)" in ui and "IsTrustedSessionArtifactPath(jsonPath)" in ui),
     ("S19 does not fake unavailable formats", 'L"PDF / Ký số", L"CHƯA HỖ TRỢ"' in ui and 'action.isButtonEnabled = htmlReady' in ui),
     ("S19 click uses renderer geometry", "GetScreenS19PrimaryActionRect(layout.contentRect, dpi)" in main),
-    ("S19 open is trust-gated", "IsTrustedSessionArtifactPath(gReportPath)" in main),
+    ("S19 open is trust-gated through one helper", "void OpenCurrentReport" in main and "IsTrustedSessionArtifactPath(path)" in main and "ShellExecuteW(hwnd, L\"open\", path.c_str()" in main),
     ("no legacy invisible S18/S19 action-card hotspots", "Reports Screen: Export Button Hit-Test" not in main and "Export & Share Screen: Open in Browser Button Hit-Test" not in main),
-    ("explicit post-stress cancel discards journal", "else if (!report.hardware.stress.sessionId.empty())" in main and "DiscardInterruptedStressJournal(gDir)" in main),
+    ("explicit post-stress cancel discards journal at persistent root", "else if (!report.hardware.stress.sessionId.empty())" in main and "DiscardInterruptedStressJournal(gReportOutputDir)" in main),
 ]
 
 bad = []

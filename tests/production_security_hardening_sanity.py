@@ -1,9 +1,10 @@
 from pathlib import Path
+from app_source_view import read_app_source
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = (ROOT / "src" / "environment.cpp").read_text(encoding="utf-8")
 ENG = (ROOT / "src" / "engines.cpp").read_text(encoding="utf-8")
-MAIN = (ROOT / "src" / "main.cpp").read_text(encoding="utf-8")
+MAIN = read_app_source(ROOT)
 MANIFEST = (ROOT / "tools" / "engine_manifest.txt").read_text(encoding="utf-8")
 APP = (ROOT / "app.manifest").read_text(encoding="utf-8")
 SEC = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
@@ -18,26 +19,24 @@ assert 'smartctl=' in MANIFEST and 'nvidia_smi=' in MANIFEST
 assert 'assemblyIdentity version="0.1.1.0"' in APP
 assert 'certutil' not in MAIN.lower()
 
-# All gReportPath ShellExecute routes must be guarded in the surrounding route/block.
-unsafe_old_routes = [
+for route in [
     'else if (id == 2 && !gReportPath.empty()) ShellExecuteW',
-    'else if (!gReportPath.empty()) ShellExecuteW(h, L"open", gReportPath.c_str()',
-]
-for route in unsafe_old_routes:
+    'ShellExecuteW(hwnd, L"open", gReportPath.c_str()',
+    'ShellExecuteW(h, L"open", gReportPath.c_str()',
+]:
     assert route not in MAIN, f"legacy unguarded report-open route remains: {route}"
 
-needle = 'ShellExecuteW(h, L"open", gReportPath.c_str(), nullptr, nullptr, SW_SHOW);'
-pos = 0
-count = 0
-while True:
-    pos = MAIN.find(needle, pos)
-    if pos < 0:
-        break
-    count += 1
-    context = MAIN[max(0, pos - 360):pos + len(needle)]
-    assert 'IsTrustedSessionArtifactPath(gReportPath)' in context, context
-    pos += len(needle)
-assert count >= 3, "expected keyboard, command, and S19 trusted report-open routes"
+helper_start = MAIN.index("void OpenCurrentReport")
+helper_end = MAIN.index("AuditReport ReportSnapshot", helper_start)
+helper = MAIN[helper_start:helper_end]
+assert "CurrentReportPath()" in helper
+assert "IsTrustedSessionArtifactPath(path)" in helper
+assert 'ShellExecuteW(hwnd, L"open", path.c_str()' in helper
+assert helper.index("IsTrustedSessionArtifactPath(path)") < helper.index("ShellExecuteW(hwnd")
+
+# History artifacts are also trust-gated before opening.
+assert "IsTrustedSessionArtifactPath(path)" in MAIN
+assert MAIN.count("ShellExecuteW(") >= 2
 
 assert "PATH-discovered" in SEC
 assert "does not modify Windows TrustedPublisher" in SEC

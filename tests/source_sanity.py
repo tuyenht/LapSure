@@ -1,5 +1,7 @@
 from pathlib import Path
 import json, sys
+from app_source_view import read_app_source
+
 ROOT=Path(__file__).resolve().parents[1]
 checks=[]
 def check(name, cond):
@@ -10,7 +12,7 @@ eng=(ROOT/'src/engines.cpp').read_text(encoding='utf-8')
 proc=(ROOT/'src/process.cpp').read_text(encoding='utf-8')
 rep=(ROOT/'src/report.cpp').read_text(encoding='utf-8')
 cm=(ROOT/'CMakeLists.txt').read_text(encoding='utf-8')
-main=(ROOT/'src/main.cpp').read_text(encoding='utf-8')
+main=read_app_source(ROOT)
 fore=(ROOT/'src/forensics.cpp').read_text(encoding='utf-8')
 fn=(ROOT/'src/functional.cpp').read_text(encoding='utf-8')
 profile=json.loads((ROOT/'profiles/Dell_Precision_5560_3ZJC6M3.json').read_text(encoding='utf-8'))
@@ -33,7 +35,7 @@ check('Kernel-Power evidence is unexpected restart only', 'Id=41' in fore)
 check('Battery report XML fallback', 'powercfg.exe /batteryreport /xml' in inv and 'LapSureBattery-' in inv)
 check('Battery fallback remains evidence gated', 'if(!bi.capacityReadable)' in inv and 'BatteryState(bi.healthPercent)' in inv)
 check('Windows native storage reliability provider', 'Get-StorageReliabilityCounter' in eng and 'CollectWindowsStorageReliability' in eng)
-check('Native storage runs before smartctl enrichment', 'CollectWindowsStorageReliability(report' in main and main.index('CollectWindowsStorageReliability(report') < main.index('CollectSmartctl(report'))
+check('Native storage runs before smartctl enrichment', 'CollectWindowsStorageReliability(report' in main and main.index('CollectWindowsStorageReliability(report') < main.index('CollectSmartctl(report')))
 check('Native reliability reduces smartctl dependency', 'native reliability evidence remains available' in eng)
 check('Machine-readable coverage contract', 'coverageContract' in rep and 'BuildCoverageContract' in rep)
 check('Vietnamese default application title', 'Kiểm tra laptop toàn diện' in main and 'BẮT ĐẦU KIỂM TRA' in main)

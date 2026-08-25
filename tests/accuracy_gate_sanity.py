@@ -1,6 +1,6 @@
 from pathlib import Path
 R=Path(__file__).resolve().parents[1]
-f={p.name:p.read_text(encoding="utf-8") for p in [R/"src/forensics.cpp",R/"src/edid.cpp",R/"src/process.cpp",R/"src/main.cpp",R/"CMakeLists.txt"]}
+f={p.name:p.read_text(encoding="utf-8") for p in [R/"src/forensics.cpp",R/"src/edid.cpp",R/"src/process.cpp",R/"CMakeLists.txt"]}
 checks=[
 ("Native EDID provider", "SetupDiOpenDevRegKey" in f["edid.cpp"] and 'L"EDID"' in f["edid.cpp"]),
 ("EDID header validation", "hdr[8]" in f["edid.cpp"]),

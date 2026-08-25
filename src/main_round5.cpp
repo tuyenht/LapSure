@@ -12,6 +12,9 @@
 #include <sstream>
 #include <algorithm>
 #include <cwctype>
+#include <cwchar>
+#include <ctime>
+#include <utility>
 
 #include "lap/inventory.h"
 #include "lap/environment.h"

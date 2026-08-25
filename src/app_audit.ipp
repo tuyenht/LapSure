@@ -102,6 +102,9 @@ void AuditWorkerCore(HWND hwnd) {
         PostStatus(hwnd, L"Đang nhận diện Wi-Fi, Bluetooth, Ethernet và controller kết nối...");
         CollectFunctionalPresence(report, caps, &gCancel);
         report.hardware.stress.chassisProfile = LoadChassisProfile(gDir, report.model);
+        report.hardware.stress.portAttestation = InitializeSessionPortAttestation(
+            report.hardware.stress.sessionId,
+            report.hardware.stress.chassisProfile);
         syncToGlobal(report);
         gAuditCompletedItems = 7;
         PostStatus(hwnd, L"Đã thu thập hiện diện thiết bị; chức năng thực tế vẫn cần stimulus/xác nhận riêng.");
@@ -122,6 +125,9 @@ void AuditWorkerCore(HWND hwnd) {
         gAuditCurrentStage = 9;
         PostStatus(hwnd, L"Chạy kiểm tra độ ổn định Stress (" + gSelectedMode + L")...");
         RunStressSession(report, caps, gDir, MakeStressPlan(gSelectedMode), &gCancel);
+        if (report.hardware.stress.portAttestation.sessionId.empty()) {
+            report.hardware.stress.portAttestation.sessionId = report.hardware.stress.sessionId;
+        }
         RunRuntimeValidation(report, caps, gDir);
         report.hardware.stress.decision = BuildAuditDecision(report);
         BuildOrchestrator(report, false, true);
@@ -190,7 +196,7 @@ void StartAudit(HWND hwnd) {
     gAuditStartTime = std::chrono::steady_clock::now();
     gAuditCurrentStage = 1;
     gAuditCompletedItems = 0;
-    PostStatus(hwnd, L"BẮT ĐẦU KIỂM TRA TOÀN DIỆN LAPTOP...");
+    PostStatus(hwnd, L"BẮT ĐẦU KIỂM TRA TOÀ DIỆN LAPTOP...");
     gCurrentTab = MainTab::AutoAudit;
     gWorker = std::thread(AuditWorker, hwnd);
 }

@@ -42,10 +42,18 @@ int main() {
         "  \"gpuContains\": \"Attacker GPU\"\n"
         "}\n");
 
-    const auto factory = lap::LoadFactoryProfile((root / L"profiles").wstring(),
-                                                  L"Dell Precision 5560", L"ATTACK1");
-    Expect(!factory.loaded && !factory.exact && !factory.trustedProvenance,
+    const auto rawFactory = lap::LoadFactoryProfile((root / L"profiles").wstring(),
+                                                     L"Dell Precision 5560", L"ATTACK1");
+    Expect(rawFactory.profile.serviceTag == L"ATTACK1",
+           "mutable static factory profile remains readable as advisory metadata");
+    Expect(!rawFactory.loaded && !rawFactory.exact && !rawFactory.trustedProvenance,
            "unsigned mutable static factory profile cannot become factory truth");
+
+    const auto decisionFactory = lap::LoadDecisionFactoryProfile((root / L"profiles").wstring(),
+                                                                  L"Dell Precision 5560", L"ATTACK1");
+    Expect(!decisionFactory.loaded && !decisionFactory.exact && !decisionFactory.trustedProvenance &&
+               decisionFactory.profile.serviceTag.empty() && decisionFactory.profile.cpuContains.empty(),
+           "decision factory boundary discards unsigned advisory expectations");
 
     WriteText(root / L"profiles" / L"chassis" / L"attacker.profile",
         "profileId=attacker_precision_5560\n"
@@ -55,10 +63,15 @@ int main() {
         "reference=attacker-controlled portable file\n"
         "port=optional_only|Optional attacker port|Left|USB-C|data|false\n");
 
-    const auto chassis = lap::LoadChassisProfile(root.wstring(), L"Dell Precision 5560");
-    Expect(!chassis.profileId.empty(), "mutable chassis fixture is discoverable for the attack-path test");
-    Expect(chassis.validationStatus != L"physical-verified",
-           "mutable chassis profile cannot self-assert physical verification");
+    const auto rawChassis = lap::LoadChassisProfile(root.wstring(), L"Dell Precision 5560");
+    Expect(!rawChassis.profileId.empty() && rawChassis.validationStatus == L"physical-verified",
+           "attack-path fixture proves raw mutable chassis metadata can self-assert verification");
+
+    const auto decisionChassis = lap::LoadDecisionChassisProfile(root.wstring(), L"Dell Precision 5560");
+    Expect(decisionChassis.profileId == rawChassis.profileId && decisionChassis.ports.size() == rawChassis.ports.size(),
+           "decision chassis boundary preserves advisory port guidance");
+    Expect(decisionChassis.validationStatus == L"static-unverified",
+           "decision chassis boundary strips mutable physical-verification authority");
 
     std::filesystem::remove_all(root, ec);
     return failures == 0 ? 0 : 1;

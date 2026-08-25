@@ -8,6 +8,8 @@ namespace lap {
 enum class State { Pass, Good, Warning, Fail, Changed, NotTested, Unsupported, Info };
 enum class Severity { Info, Minor, Major, Critical };
 enum class Dimension { Identity, Factory, Health, Usage, Performance, Stability, Functional, Evidence };
+enum class CapabilityTruth { Present, AbsentConfirmed, Unknown };
+enum class ProviderCollectionStatus { NotRun, Complete, Failed, Unsupported };
 
 struct Finding {
     std::wstring group;
@@ -257,6 +259,7 @@ struct FunctionalTestSummary {
 };
 
 struct PortProbeResult {
+    std::wstring expectedPortId;
     std::wstring portLabel;
     std::wstring connectorHint;
     std::wstring deviceDescription;
@@ -320,6 +323,24 @@ struct ChassisProfile {
     std::wstring source;
 };
 
+struct SessionPortEvidence {
+    std::wstring expectedPortId;
+    std::wstring label;
+    bool expectedRequired{false};
+    CapabilityTruth observedPresence{CapabilityTruth::Unknown};
+    bool tested{false};
+    std::wstring verdict{L"NOT TESTED"};
+    std::wstring discrepancy;
+    std::wstring correctionReason;
+};
+
+struct SessionPortAttestation {
+    std::wstring sessionId;
+    std::vector<SessionPortEvidence> ports;
+    bool operatorConfirmed{false};
+    std::wstring confirmedAt;
+};
+
 enum class ValidationStatus { Pass, Warning, Fail, NotRun };
 struct ValidationCheck {
     std::wstring id;
@@ -363,6 +384,7 @@ struct StressSession {
     PortPowerSummary portPower;
     OrchestratorSummary orchestrator;
     ChassisProfile chassisProfile;
+    SessionPortAttestation portAttestation;
     RuntimeValidationSummary runtimeValidation;
 };
 
@@ -384,6 +406,7 @@ struct HardwareSnapshot {
     std::vector<MemoryModule> memoryModules;
     std::vector<StorageDevice> storage;
     std::vector<GpuInfo> gpus;
+    ProviderCollectionStatus gpuInventoryStatus{ProviderCollectionStatus::NotRun};
     BatteryInfo battery;
     std::vector<DisplayInfo> displays;
     MainboardInfo mainboard;

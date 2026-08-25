@@ -58,6 +58,24 @@ CloudLookupResult LookupFactoryProfileOnline(const std::wstring& appDir,
                                             unsigned timeoutMs = 3000,
                                             bool allowNetwork = false);
 
+// Decision-safe wrapper. Transport success and identity match are insufficient:
+// unauthenticated cloud/cache data must never become factory truth.
+inline CloudLookupResult LookupFactoryProfileForDecision(const std::wstring& appDir,
+                                                         const std::wstring& vendor,
+                                                         const std::wstring& model,
+                                                         const std::wstring& serviceTag,
+                                                         unsigned timeoutMs = 3000,
+                                                         bool allowNetwork = false) {
+    auto result = LookupFactoryProfileOnline(appDir, vendor, model, serviceTag, timeoutMs, allowNetwork);
+    if (!(result.success && result.identityMatched && result.authenticatedProvenance)) {
+        if (result.success && !result.authenticatedProvenance) {
+            result.error = L"Profile identity matched but provenance is not authenticated; advisory only.";
+        }
+        result.success = false;
+    }
+    return result;
+}
+
 PreCacheSummary RunBatchPreCache(const std::wstring& appDir,
                                 const std::vector<std::wstring>& serviceTags,
                                 const std::wstring& vendor = L"",

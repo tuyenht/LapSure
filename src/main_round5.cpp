@@ -29,6 +29,7 @@
 #include "lap/chassis_profile.h"
 #include "lap/runtime_validation.h"
 #include "lap/port_selector.h"
+#include "lap/port_attestation.h"
 #include "lap/profile.h"
 #include "lap/cloud_lookup.h"
 #include "lap/report.h"

@@ -1,136 +1,192 @@
 # LapSure Production Hardening — Current Status
 
-> Current verification ledger for PR #2. Read this together with the Round 5 design/plan and actual GitHub evidence. Historical checkpoint success proves only the exact candidate and gates that were executed; source implementation presence is not equivalent to compiled/runtime validation.
+> Current verification ledger for PR #2. Read this together with the Round 5 design/plan and actual GitHub evidence. Evidence is always scoped to the exact commit and gate that produced it; compiled evidence is not physical-hardware evidence.
 
 ## Current product state
 
-**Beta 0.1.1 / production-hardening. Not production-certified. Not yet formal-pilot-ready.**
+**Beta 0.1.1 / production-hardening. Round 5 source/compiled closure complete. Not production-certified.**
 
-PR #2 remains **Draft**. Do not mark Ready, merge, or claim production-ready until Round 5 compiled closure and subsequent physical acceptance gates are complete.
+PR #2 remains **Draft**. Do not mark Ready, merge, or claim production-ready until portable package/provenance and formal physical acceptance gates are complete.
 
 ## Current PR candidate
 
 - Branch: `feature/s01-s04-visual-alignment-v2`
-- Current Round 5 source candidate: `f6597e5df7ce071a61fc23c4e1f3c9197aef76b6`
-- Reconciliation against `main` on 2026-08-25: **ahead 199 / behind 0**
-- Normal Draft PR Windows runs for the Task 7/8 pushes were **skipped** by cost-control policy; no new compiled-green claim is attached to `f6597e5d...` yet.
+- Validated Round 5 production-source candidate: `a20c42121398a3b2c1903347eb772287ab441e85`
+- Promotion date: **2026-08-25**
+- At promotion the candidate was **ahead of current `main`, behind 0**, and PR #2 was mergeable.
+- PR #3 was a validation-only PR and was closed **without merge** after the exact validated SHA was fast-forwarded to PR #2.
+- Later documentation-only commits may move the PR head while leaving the validated production-source tree unchanged. Any final package/provenance checkpoint must record its own exact head SHA.
 
-## Last verified compiled automated checkpoint
+## Round 5 Windows evidence chain
 
-- Date: **2026-08-25**
-- Validated production-code candidate: `9ea73849666720ca59ee3b0d8279b2a53492be3d`
-- Round 4 one-shot run: `32800503199`
-- Result: **SUCCESS for the recorded automated checkpoint**
+### Run #569 — `32830853638`
 
-That checkpoint proved the exact Round 4 candidate passed full source regression, strict MSVC x64 Release `/W4 /WX`, compiled behavioral/process/trust suites, inventory-only preflight and package/provenance verification. It does **not** prove later Round 5 changes compile or pass runtime gates.
+- Full source regression/configure reached the Windows build gate.
+- Exposed three real compiled blockers: Win32 `LONG`/`int` clamp deduction, unused RAM-stage parameter under `/WX`, and missing `VerifyEngine` linkage in publication tests.
+- Result: **useful failure evidence; not a promotable candidate**.
 
-## Round 5 source of truth
+### Run #570 — `32835395238`
 
-- Design: `docs/superpowers/specs/2026-08-25-contract-closure-pilot-readiness-design.md`
-- Plan: `docs/superpowers/plans/2026-08-25-contract-closure-pilot-readiness.md`
+- Full source regression: PASS.
+- Strict MSVC x64 compile/link: PASS.
+- CTest exposed a Windows path-normalization false rejection in `VerifyEngine` while traversal/reparse negative cases remained fail-closed.
+- Result: **compile/link evidence; behavioral gate still failed**.
 
-Feature expansion remains frozen until Round 5 contract closure.
+### Run #571 — `32836090653`
 
-## Round 5 implementation ledger
+Exact candidate: `f428b4e99e897da172e75f63aea14bf2d2179042`.
 
-The following implementation work is present on the current PR branch, but later items still require the final compiled checkpoint before being treated as validated runtime behavior:
+- Full source regression: PASS.
+- Strict MSVC x64 `/W4 /WX` compile/link: PASS.
+- All 5 CTest behavioral/security suites: PASS.
+- Inventory-only executable exited successfully and published a transactional report generation, but the CI script incorrectly searched only the output-root top level for JSON rather than the `bundle-<token>` generation directory.
+- Result: **runtime publication succeeded; CI validation contract was stale**.
 
-1. **Branch reconciliation / CI hygiene** — reconciled; obsolete design-patch automation remains removed; current branch is not behind `main`.
-2. **Durable inspection identity / app entry** — Round 5 implementation and source contracts are present.
-3. **Report publication transaction** — hardware truth is separated from publication state; publication implementation/tests are present.
-4. **Transactional bounded session history** — bounded/schema-validated persistence and transaction implementation/tests are present.
-5. **External-engine/process trust closure** — duplicate allowlist, reparse/redirection and restricted child-handle inheritance implementation/tests are present.
-6. **Cloud factory trust/privacy** — landed in `d46d4be92753ab75eb0e2a96dd3488a71eda11ed`:
-   - normal GUI/inventory network lookup is disabled by default;
+### Run #572 — `32837575617`
+
+Exact validated/promoted candidate: `a20c42121398a3b2c1903347eb772287ab441e85`.
+
+Result: **SUCCESS for the complete promotion chain**.
+
+Passed gates:
+
+1. CI cost-control policy.
+2. Full `run_source_tests.cmd` regression.
+3. Strict MSVC x64 configure.
+4. Release compile/link with `/W4 /WX`.
+5. All 5 CTest behavioral/security suites.
+6. Inventory-only provider preflight.
+7. Transactional publication-layout validation: JSON inside `bundle-*`, sibling HTML present, session history committed, no residual `.staging-*` generation.
+8. Inventory-only verdict remained `INCOMPLETE`; no stress stage was fabricated.
+
+This proves the exact candidate's source/build/behavioral/inventory integration gates. It does **not** prove real-machine hardware correctness or visual/accessibility acceptance.
+
+## Round 5 closed implementation contracts
+
+1. **Branch reconciliation / CI hygiene**
+   - current production candidate includes the public-profile privacy hotfix ancestry;
+   - obsolete design-patch workflow is removed from the candidate;
+   - Actions are pinned by full SHA in the active Windows workflow;
+   - Draft/cost-control rules remain in force.
+
+2. **Durable inspection identity / state root**
+   - stable inspection/session identity is created before report publication;
+   - journal/report/history paths use an explicit persistent state/output root;
+   - missing evidence remains incomplete rather than becoming PASS.
+
+3. **Transactional report publication**
+   - HTML/JSON are staged together and atomically promoted as one `bundle-*` generation;
+   - publication readiness is separate from hardware decision truth;
+   - publication failure cannot rewrite a hardware verdict;
+   - failure-injection coverage is compiled and passing.
+
+4. **Transactional bounded session history**
+   - bounded/schema-validated replay;
+   - atomic candidate-save/swap semantics;
+   - history commit is part of the report-publication boundary;
+   - corruption/failure coverage is compiled and passing.
+
+5. **External-engine/process trust closure**
+   - duplicate logical allowlist entries fail closed;
+   - malformed/empty hashes remain untrusted;
+   - path traversal, absolute paths and reparse/redirection are rejected;
+   - Windows path normalization is not incorrectly treated as reparse redirection;
+   - child-process inherited handles are restricted;
+   - trusted execution re-verifies at the launch boundary.
+
+6. **Cloud factory privacy/provenance**
+   - normal runtime network lookup is disabled by default;
    - technician pre-cache is explicit opt-in;
    - request/response sizes are bounded, query values encoded, redirects prohibited and host/HTTPS constrained;
-   - cloud/cache provenance remains advisory/unauthenticated and cannot silently become trusted factory truth;
-   - normal factory-profile loading excludes mutable cache data.
-7. **Product truth / repository hygiene** — landed in `f6597e5df7ce071a61fc23c4e1f3c9197aef76b6`:
-   - S20 uses explicit provider-unavailable semantics instead of presenting unavailable event counts as confirmed zero;
-   - ordinary live logs remain informational rather than PASS-like;
-   - `build.cmd` is local-source-build only and release synchronization is a separate SHA-256-verified operation;
-   - runtime evidence artifacts are ignored by default;
-   - the public machine-specific Precision profile was replaced with an explicit synthetic `SAMPLE` fixture.
+   - cache/cloud provenance remains advisory/unauthenticated and cannot silently become Factory Exact;
+   - mutable cache data is excluded from normal trusted local-profile loading.
 
-### Verification level of Tasks 6–7
+7. **Product truth / repository hygiene**
+   - S20 shows provider-unavailable semantics rather than confirmed zero when Event Log evidence is unavailable;
+   - ordinary live logs are informational rather than PASS-like;
+   - `build.cmd` builds source only; release synchronization is a separate verified operation;
+   - runtime report/history/journal artifacts are ignored by default;
+   - current public tree uses a synthetic SAMPLE factory fixture rather than a machine-specific public identifier.
 
-Source/contract changes are present and were reviewed against their intended invariants. The current chat environment could not clone the GitHub snapshot for a fresh whole-repository source-suite execution, and Draft PR CI intentionally skipped the Windows runner. Therefore **do not describe the current head as full-regression-green or compiled-green yet**.
+8. **Legacy renderer production cleanup**
+   - `src/ui_screens.cpp` is no longer compiled into the production `LapSure` target;
+   - canonical v2/Round 5 S01–S23 renderers remain linked;
+   - `src/ui_components.cpp` remains because it contains canonical shared UI primitives;
+   - strict compile/link evidence for the removal is PASS in #572.
 
-## Task 9 — legacy renderer production compilation
+9. **Inventory-only validation alignment**
+   - CI validates the actual transactional `bundle-*` layout rather than assuming top-level JSON;
+   - sibling HTML, committed history and cleanup of staging generations are checked;
+   - inventory-only remains non-stress and `INCOMPLETE`.
 
-`src/ui_screens.cpp` is still listed in the production target under `_Legacy` symbol renames while canonical S01–S23 implementations are provided by the evidence-bound v2/Round 5 translation units.
+## Remaining release gate — portable package and provenance
 
-The Round 5 plan requires **actual link/build evidence**, not source-string inference, before removing that object from the production target. `src/ui_components.cpp` must remain compiled because it contains canonical shared UI primitives even though two legacy shell functions inside it are renamed.
+Before formal pilot, run **one manual `workflow_dispatch`** on the exact final PR head. It must:
 
-Recommended closure sequence:
+1. repeat source/strict build/CTest/inventory checks;
+2. package the portable distribution;
+3. verify package integrity and expected commit provenance;
+4. upload the ZIP and checksum artifact;
+5. record the exact final commit SHA, workflow/run/job IDs, ZIP SHA-256 and `LapSure.exe` SHA-256.
 
-1. Prepare the minimal candidate that removes only `src/ui_screens.cpp` from the `LapSure` production target.
-2. Run full source regression + strict MSVC `/W4 /WX` + CTest on that exact candidate.
-3. Promote the removal only if the exact candidate links and all required gates pass; otherwise keep the known routing and record legacy compilation as deferred cleanup.
+Do not make speculative production changes after this package checkpoint. If a production-code change becomes necessary, the candidate must be revalidated and re-packaged.
 
-Do not remove the legacy renderer from the PR solely on substring/source evidence.
+## Formal real-machine validation gate
 
-## Final Round 5 compiled checkpoint
+`validation/REAL_MACHINE_MATRIX.tsv` still records Precision 5560 / 5570 / 7670 formal full-audit/runtime gates as `NOT RUN`.
 
-Before formal pilot, the exact final candidate must pass:
+Formal Precision runtime acceptance may begin only after package/provenance evidence is recorded. The pilot must include:
 
-```cmd
-run_source_tests.cmd
-```
+- exact verified package/hash used for the run;
+- HTML/JSON/inspection-identity agreement;
+- required functional and port stimulus evidence;
+- no critical false PASS;
+- offline/provider-unavailable and interrupted/recovery behavior where applicable;
+- screenshot acceptance at required resolutions/scales;
+- keyboard/focus/accessibility checks at the documented acceptance level;
+- discrepancy log with disposition of every material discrepancy.
 
-```powershell
-cmake --preset msvc-x64-ci
-cmake --build --preset build-msvc-x64-ci
-ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
-```
-
-The GitHub workflow additionally runs the inventory-only provider preflight. A manual `workflow_dispatch` also packages the portable candidate, verifies package/commit provenance and uploads the exact artifact.
-
-Record the final commit SHA, workflow/run/job IDs and package SHA-256. Do not make further speculative production changes after that checkpoint.
-
-## Real-machine validation status
-
-`validation/REAL_MACHINE_MATRIX.tsv` currently records Precision 5560 / 5570 / 7670 full-audit/runtime gates as `NOT RUN`.
-
-Hardware testing before Round 5 compiled closure may be used only as an **exploratory dry-run**. Formal Precision runtime acceptance may begin only after:
-
-- Round 5 source/compiled gates are complete;
-- branch history remains reconciled;
-- one strict Windows checkpoint passes on the exact candidate;
-- exact package/provenance evidence is recorded.
-
-The formal pilot must confirm HTML/JSON/inspection identity agreement, required functional/port evidence, no critical false PASS and disposition of every material discrepancy. Model/chassis certification still requires at least two independently validated physical units.
+A single machine does not certify a model. Model/chassis certification still requires at least two independently validated physical units.
 
 ## Evidence interpretation rule
 
-Always report proof level explicitly:
+Always state proof level explicitly:
 
 - source/contract checks;
 - compiled unit/behavioral tests;
 - integration/failure-injection tests;
-- physical runtime evidence.
+- package/provenance evidence;
+- physical runtime/visual/accessibility evidence.
 
-Never report source assertions as equivalent to compiled/runtime or physical evidence.
+Never report source or compiled assertions as equivalent to physical validation.
 
 ## CI cost-control rules
 
-- Keep PR #2 Draft during active Round 5 work and until physical acceptance policy permits otherwise.
-- Draft PR Windows jobs remain skipped.
+- Keep PR #2 Draft until physical acceptance policy permits otherwise.
+- Draft PR synchronization must not allocate a Windows build runner.
 - Documentation/design/Markdown-only changes must not allocate a Windows runner.
-- Use a remote Windows runner only for a meaningful candidate checkpoint or a Windows-only blocker.
+- Remote Windows CI is reserved for meaningful candidate checkpoints or blocking Windows-only defects.
 - Portable packaging/upload remains manual `workflow_dispatch` only.
-- No recurring/self-mutating validation workflows.
-- Do not rerun an already-proven candidate without a production-code reason.
+- No recurring or self-mutating validation workflows.
+- Do not rerun an already-proven production-source candidate without a release/provenance or production-code reason.
+
+## Branch hygiene after promotion
+
+Keep during final package/pilot closure:
+
+- `main`
+- `feature/s01-s04-visual-alignment-v2`
+
+Validation/scratch branches can be removed after their evidence is preserved in PR/history. `hotfix/public-profile-privacy` is identical to `main` at `33a8e2865c2685561b0a976f1823505102001d14`. PR #3 is already closed without merge; its branch and earlier Round 5/task scratch branches are no longer integration targets.
 
 ## Continuation rule
 
 Before every production change:
 
 1. Verify actual PR head and `main` state.
-2. Confirm the next unresolved Round 5 contract.
-3. Add/identify a failing behavioral or contract test before changing behavior where practical.
+2. Confirm whether the change is required by a remaining package/pilot discrepancy.
+3. Add or identify a failing behavioral/contract test before changing behavior where practical.
 4. Make the smallest evidence-backed change.
-5. Run focused verification, then full source/compiled regression at the required proof level.
-6. Do not mark a runtime contract closed from a source-string check alone.
-7. Preserve Draft/cost-control behavior until the formal-pilot candidate exists.
+5. Re-run only the proof level invalidated by the change, then the required final checkpoint.
+6. Keep hardware truth, publication truth and physical acceptance evidence separate.
+7. Preserve Draft/cost-control behavior until formal pilot evidence is complete.

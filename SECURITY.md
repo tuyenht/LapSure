@@ -15,6 +15,15 @@ LapSure executes low-level diagnostic workflows and may invoke optional external
 ### Current external-engine release limitation
 `tools/engine_manifest.txt` is configuration, not a cryptographic signature over itself. The repository intentionally leaves reviewed engine hashes empty, so optional third-party engines are disabled by default. A production release that enables external engines must additionally protect the engine + allowlist boundary, for example by installing under an ACL-protected location and/or validating a signed/embedded allowlist. Elevated execution from a user-writable portable directory containing a mutable engine and mutable manifest is not considered a production-trusted external-engine configuration.
 
+## Cloud/profile privacy and provenance
+- GUI audit and `--inventory-only` do not opt in to cloud network access. Cloud lookup is disabled by default at the API boundary so a missing local profile cannot silently transmit a Service Tag, model or vendor.
+- Technician `--cache-tag` / `--pre-cache` is the explicit network opt-in path. Device identifiers supplied to that command may be sent to the configured OEM gateway and must be treated as sensitive data.
+- OEM requests are bounded, percent-encoded, HTTPS-only, pinned to the configured LapSure OEM host and do not follow redirects. Responses and mutable cache files are size-bounded.
+- A remote response must return the exact requested Service Tag. LapSure does not fill a missing remote identity from the request.
+- HTTPS authenticates the transport endpoint; it is not authenticated profile provenance. Cloud responses and `profiles/cache` content therefore remain advisory and set no trusted factory truth in the current Beta.
+- `LoadFactoryProfile()` uses reviewed static profile files only. Mutable cache content is excluded from the factory-comparison path until a signed/authenticated provenance mechanism is implemented.
+- Future cloud factory truth requires both exact identity and authenticated provenance; neither a matching cache filename nor a matching unsigned JSON field is sufficient.
+
 ## Report and persistence boundary
 - Report/history paths are treated as untrusted persisted input when reopened or deleted.
 - Open/delete operations must canonicalize and remain inside the configured report/history root with an allowed artifact extension.

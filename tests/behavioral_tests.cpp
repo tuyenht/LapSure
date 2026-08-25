@@ -18,10 +18,11 @@
 #include "lap/profile.h"
 #include "lap/journal.h"
 #include "lap/session_history.h"
+#include <algorithm>
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <atomic>
 
 namespace {
 int failures = 0;
@@ -164,16 +165,36 @@ int main() {
     auto parsedProfile = lap::ParseFactoryProfileFromJson(serializedJson, &parsedCachedAt);
     Expect(parsedProfile.model == mockProfile.model && parsedProfile.serviceTag == mockProfile.serviceTag && parsedProfile.ramBytes == mockProfile.ramBytes && !parsedCachedAt.empty(), "FactoryProfile JSON serialization round-trip with cachedAt metadata succeeds");
 
-    bool cacheSaved = lap::SaveFactoryProfileToLocalCache(appDir, mockProfile, L"Dell");
-    Expect(cacheSaved, "OEM Cloud profile saves to local disk cache directory");
-    auto loadedFromCache = lap::LoadFactoryProfile(appDir + L"\\profiles", mockProfile.model, mockProfile.serviceTag);
-    Expect(loadedFromCache.loaded && loadedFromCache.exact && loadedFromCache.profile.serviceTag == L"CLOUD7420", "LoadFactoryProfile discovers and matches profile in local cache folder");
+    const auto cloudRoot = std::filesystem::temp_directory_path() / L"lapsure-cloud-privacy-tests";
+    std::filesystem::remove_all(cloudRoot, cleanupError);
+    std::filesystem::create_directories(cloudRoot / L"profiles");
+    bool cacheSaved = lap::SaveFactoryProfileToLocalCache(cloudRoot.wstring(), mockProfile, L"Dell");
+    Expect(cacheSaved, "OEM Cloud profile saves to bounded advisory cache");
+    auto loadedFromCache = lap::LoadFactoryProfile((cloudRoot / L"profiles").wstring(), mockProfile.model, mockProfile.serviceTag);
+    Expect(!loadedFromCache.loaded && !loadedFromCache.exact && !loadedFromCache.trustedProvenance,
+           "normal factory loader excludes mutable advisory cache from factory truth");
 
-    auto lookupMissing = lap::LookupFactoryProfileOnline(appDir, L"Unknown", L"Unknown", L"NONEXISTENT999", 500);
-    Expect(!lookupMissing.success && !lookupMissing.error.empty(), "OEM Cloud Lookup with unreachable/missing tag gracefully returns error without crashing");
+    const auto blockedCachedLookup = lap::LookupFactoryProfileOnline(cloudRoot.wstring(), L"Dell", mockProfile.model, mockProfile.serviceTag, 500);
+    Expect(!blockedCachedLookup.success && blockedCachedLookup.error.find(L"disabled by default") != std::wstring::npos,
+           "normal cloud API is network/cache disabled without explicit opt-in");
+    const auto explicitCachedLookup = lap::LookupFactoryProfileOnline(cloudRoot.wstring(), L"Dell", mockProfile.model, mockProfile.serviceTag, 500, true);
+    Expect(explicitCachedLookup.success && explicitCachedLookup.fromCache && explicitCachedLookup.identityMatched && !explicitCachedLookup.authenticatedProvenance,
+           "explicit pre-cache path can reuse exact cache identity without promoting authenticated provenance");
 
-    auto batchSummary = lap::RunBatchPreCache(appDir, {L"CLOUD7420", L"NONEXISTENT999"}, L"Dell", 500);
-    Expect(batchSummary.total == 2 && batchSummary.fromCache >= 1 && batchSummary.failed >= 1, "RunBatchPreCache handles mixed cached and unreachable tags with accurate accounting");
+    const auto encodedUrl = lap::BuildOemLookupUrl(L"Dell & Co", L"Precision 7/670", L"TAG +/=?");
+    Expect(!encodedUrl.empty() && encodedUrl.find(L' ') == std::wstring::npos &&
+           encodedUrl.find(L"%20") != std::wstring::npos && encodedUrl.find(L"%26") != std::wstring::npos &&
+           encodedUrl.find(L"%2B") != std::wstring::npos && encodedUrl.find(L"%2F") != std::wstring::npos,
+           "OEM lookup URL percent-encodes device identity query components");
+
+    auto lookupMissing = lap::LookupFactoryProfileOnline(cloudRoot.wstring(), L"Unknown", L"Unknown", L"NONEXISTENT999", 500);
+    Expect(!lookupMissing.success && lookupMissing.error.find(L"disabled by default") != std::wstring::npos,
+           "implicit OEM Cloud Lookup fails closed without making a network request");
+
+    auto batchSummary = lap::RunBatchPreCache(cloudRoot.wstring(), {L"CLOUD7420"}, L"Dell", 500);
+    Expect(batchSummary.total == 1 && batchSummary.succeeded == 1 && batchSummary.fromCache == 1 && batchSummary.failed == 0,
+           "explicit RunBatchPreCache reuses advisory cache deterministically without network dependency");
+    std::filesystem::remove_all(cloudRoot, cleanupError);
 
     providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
     const auto coverage=lap::BuildCoverageContract(providerReport);

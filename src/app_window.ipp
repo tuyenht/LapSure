@@ -280,11 +280,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             if (functional.manualRequired || functional.notTested) {
                 CommitManualResults(RunFunctionalIoWizard(hwnd));
             } else if (snapshot.hardware.stress.portPower.overall != L"PASS") {
-                std::wstring label = L"USB-C / USB-A port";
+                std::wstring portId;
+                std::wstring label;
                 std::wstring capability;
-                if (!snapshot.hardware.stress.chassisProfile.ports.empty() &&
-                    !SelectNextChassisPort(hwnd, snapshot.hardware.stress.chassisProfile, label, capability)) return 0;
-                CommitPortResultGuided(RunPhysicalPortProbe(hwnd, label, &gCancel));
+                if (!SelectNextChassisPort(
+                        hwnd,
+                        snapshot.hardware.stress.chassisProfile,
+                        portId,
+                        label,
+                        capability)) {
+                    return 0;
+                }
+                auto result = RunPhysicalPortProbe(hwnd, label, &gCancel);
+                result.expectedPortId = portId;
+                CommitPortResultGuided(result);
             } else {
                 OpenCurrentReport(hwnd);
             }

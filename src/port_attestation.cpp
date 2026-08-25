@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <cwchar>
+#include <utility>
 
 namespace lap {
 namespace {
@@ -36,8 +37,6 @@ SessionPortEvidence* FindExpectedPort(
 }
 
 void RefreshConfirmation(SessionPortAttestation& attestation) {
-    if (attestation.operatorConfirmed) return;
-
     bool hasRequiredPort = false;
     for (const auto& port : attestation.ports) {
         if (!port.expectedRequired) continue;
@@ -45,13 +44,22 @@ void RefreshConfirmation(SessionPortAttestation& attestation) {
         if (port.observedPresence != CapabilityTruth::Present ||
             !port.tested ||
             !IsCompletedPortVerdict(port.verdict)) {
+            attestation.operatorConfirmed = false;
+            attestation.confirmedAt.clear();
             return;
         }
     }
 
-    if (!hasRequiredPort) return;
+    if (!hasRequiredPort) {
+        attestation.operatorConfirmed = false;
+        attestation.confirmedAt.clear();
+        return;
+    }
+
+    if (!attestation.operatorConfirmed) {
+        attestation.confirmedAt = CurrentUtcTimestamp();
+    }
     attestation.operatorConfirmed = true;
-    attestation.confirmedAt = CurrentUtcTimestamp();
 }
 
 } // namespace

@@ -1,4 +1,5 @@
 #include "lap/scoring.h"
+#include "lap/decision_context.h"
 #include <iostream>
 
 namespace {
@@ -83,9 +84,28 @@ lap::AuditReport HealthyAdvisoryFixture() {
 
     return report;
 }
+
+void TestAuthorityBoundary() {
+    lap::ChassisProfile raw{};
+    raw.profileId = L"mutable-profile";
+    raw.validationStatus = L"physical-verified";
+
+    const auto resolved = lap::DecisionProfileResolver::ResolvePortable(raw, false, L"disk");
+    Expect(resolved.chassisAuthority.Level() == lap::ChassisAuthorityLevel::Advisory,
+           "mutable portable chassis cannot mint Certified authority");
+
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+    const auto certified = lap::DecisionProfileResolver::CertifiedForTest(
+        raw, L"test-only protected authority");
+    Expect(certified.chassisAuthority.Level() == lap::ChassisAuthorityLevel::Certified,
+           "test-only fixture models Certified path");
+#endif
+}
 } // namespace
 
 int main() {
+    TestAuthorityBoundary();
+
     auto report = HealthyAdvisoryFixture();
     const auto decision = lap::BuildAuditDecision(report);
 

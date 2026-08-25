@@ -175,6 +175,9 @@ int RunInventoryOnly(const std::wstring& outputDir) {
     CollectVolumeIntegrityAudit(report);
     CollectBatteryDischargeAudit(report, caps, &cancel);
     report.hardware.stress.chassisProfile = LoadChassisProfile(gDir, report.model);
+    report.hardware.stress.portAttestation = InitializeSessionPortAttestation(
+        report.hardware.stress.sessionId,
+        report.hardware.stress.chassisProfile);
     RunRuntimeValidation(report, caps, gDir);
     report.findings.push_back({L"Validation", L"Inventory-only preflight", L"COMPLETED", L"No stress stages executed",
         State::Warning, Severity::Info, L"Explicit --inventory-only mode; verdict must remain incomplete.", Dimension::Health});
@@ -291,7 +294,9 @@ void CommitSellerClaim(const SellerClaim& claim) {
 void UpsertPortResultUnlocked(const PortProbeResult& result) {
     auto& ports = gReport.hardware.stress.portPower.ports;
     for (auto& port : ports) {
-        if (port.portLabel == result.portLabel) {
+        const bool sameExpectedId = !result.expectedPortId.empty() &&
+            port.expectedPortId == result.expectedPortId;
+        if (sameExpectedId || port.portLabel == result.portLabel) {
             port = result;
             return;
         }
@@ -303,6 +308,7 @@ void CommitPortResultGuided(const PortProbeResult& result) {
     {
         std::lock_guard<std::mutex> lock(gReportMutex);
         UpsertPortResultUnlocked(result);
+        ApplyPortResultToAttestation(gReport.hardware.stress.portAttestation, result);
         ApplyPortResultToChassisProfile(gReport.hardware.stress.chassisProfile, result);
         RecalculatePortPowerSummary(gReport.hardware.stress.portPower);
     }

@@ -47,6 +47,7 @@ static State BatteryState(double health){if(health<0)return State::NotTested;if(
 
 AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,const std::wstring&,const std::atomic_bool* cancel){
  AuditReport r{};r.hardware.stress.sessionId=CreateInspectionId();r.environment=EnvironmentName(caps);
+ r.hardware.gpuInventoryStatus=caps.powershell?ProviderCollectionStatus::NotRun:ProviderCollectionStatus::Unsupported;
  if(r.hardware.stress.sessionId.empty())Add(r,L"Inspection",L"Inspection identity",L"UNAVAILABLE",L"Unique inspection identity",State::NotTested,Severity::Critical,Dimension::Evidence,L"CoCreateGuid failed; acceptance evidence cannot be correlated safely.");
  r.model=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemProductName");
  r.serviceTag=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemSerialNumber");
@@ -93,10 +94,13 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
    } else Add(r,L"Storage",L"Disk inventory",disk.error.empty()?L"No data":disk.error,L"",State::NotTested,Severity::Major,Dimension::Identity);
 
    auto gpu=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_VideoController | ForEach-Object { '{0}|{1}|{2}' -f $_.Name,$_.AdapterRAM,$_.DriverVersion }\"",20000,cancel);
-   if(gpu.launched&&!gpu.timedOut&&!gpu.output.empty()){
+   const bool gpuComplete=gpu.launched&&!gpu.timedOut&&!gpu.cancelled&&gpu.exitCode==0;
+   r.hardware.gpuInventoryStatus=gpuComplete?ProviderCollectionStatus::Complete:ProviderCollectionStatus::Failed;
+   if(gpuComplete&&!gpu.output.empty()){
       for(const auto&line:SplitLines(gpu.output)){auto q=Split(line,L'|');if(q.size()<3||q[0].empty())continue;GpuInfo g{};g.name=q[0];g.vramBytes=ParseU64(q[1],0);g.driver=q[2];r.hardware.gpus.push_back(g);Add(r,L"GPU",L"Adapter",g.name,L"",State::Info,Severity::Info,Dimension::Identity,L"Win32_VideoController; AdapterRAM may be unavailable for shared memory");}
       if(r.hardware.gpus.empty())Add(r,L"GPU",L"Adapter inventory",L"Provider returned no usable adapters",L"",State::NotTested,Severity::Major,Dimension::Identity,L"Win32_VideoController");
-   } else Add(r,L"GPU",L"Adapter inventory",gpu.error.empty()?L"No data":gpu.error,L"",State::NotTested,Severity::Major,Dimension::Identity,L"Win32_VideoController");
+   } else if(gpuComplete) Add(r,L"GPU",L"Adapter inventory",L"Provider completed with no adapter rows",L"",State::NotTested,Severity::Major,Dimension::Identity,L"Win32_VideoController");
+   else Add(r,L"GPU",L"Adapter inventory",gpu.error.empty()?L"No data":gpu.error,L"",State::NotTested,Severity::Major,Dimension::Identity,L"Win32_VideoController");
 
    auto batt=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"$s=Get-CimInstance -Namespace root/wmi -ClassName BatteryStaticData -ErrorAction SilentlyContinue|Select-Object -First 1;$f=Get-CimInstance -Namespace root/wmi -ClassName BatteryFullChargedCapacity -ErrorAction SilentlyContinue|Select-Object -First 1;$c=Get-CimInstance -Namespace root/wmi -ClassName BatteryCycleCount -ErrorAction SilentlyContinue|Select-Object -First 1;$b=Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue|Select-Object -First 1;if($s -or $f -or $b){'{0}|{1}|{2}|{3}|{4}|{5}' -f $s.DesignedCapacity,$f.FullChargedCapacity,$c.CycleCount,$s.ManufactureName,$s.SerialNumber,$b.Status}\"",20000,cancel);
    BatteryInfo bi=r.hardware.battery;bool batteryParsed=false;std::wstring batteryEvidence=L"Battery WMI typed capture";

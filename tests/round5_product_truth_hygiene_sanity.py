@@ -36,7 +36,7 @@ require("gh release download" not in BUILD.lower(),
         "build.cmd must not silently substitute a downloaded binary for a build")
 require("local build only" in BUILD.lower(),
         "build.cmd must state that it is a local source build")
-require("EXPECTED_SHA256" in SYNC and "Get-FileHash" in SYNC and "--tag" in SYNC,
+require("EXPECTED_SHA256" in SYNC and "Get-FileHash" in SYNC and 'gh release download "%RELEASE_TAG%"' in SYNC,
         "sync_release.cmd must require an explicit release tag and SHA-256 verification")
 
 # Generated evidence and mutable state must not be easy to commit accidentally.

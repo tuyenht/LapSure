@@ -9,7 +9,9 @@ bool SelectNextChassisPort(
     std::wstring& label,
     std::wstring& capability) {
     for (const auto& port : profile.ports) {
-        if (!port.required || port.tested) continue;
+        const bool completed = port.tested &&
+            (port.verdict == L"PASS" || port.verdict == L"FAIL");
+        if (!port.required || completed) continue;
 
         portId = port.id;
         label = port.label;

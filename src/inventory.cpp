@@ -110,3 +110,4 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
  }
  return r;
 }
+} // namespace lap

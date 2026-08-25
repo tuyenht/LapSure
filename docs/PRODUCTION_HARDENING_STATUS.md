@@ -1,6 +1,12 @@
 # LapSure Production Hardening — Current Status
 
-> Current verification ledger. Read this together with PR #2 and GitHub evidence before continuing implementation. The Round 4 plan is an implementation plan, not a live completion tracker.
+> Current verification ledger. Read this together with PR #2, the latest expert audit and GitHub evidence before continuing implementation. Historical checkpoint success proves the tested candidate built and passed its recorded gates; it does not prove every design contract was implemented.
+
+## Current product state
+
+**Beta 0.1.1 / production-hardening. Not production-certified. Not yet formal-pilot-ready.**
+
+PR #2 remains Draft. Do not mark Ready, merge, or claim production-ready until the Round 5 contract-closure gates and subsequent physical validation gates are complete.
 
 ## Last verified automated checkpoint
 
@@ -9,75 +15,82 @@
 - Branch: `feature/s01-s04-visual-alignment-v2`
 - Validated production-code candidate: `9ea73849666720ca59ee3b0d8279b2a53492be3d`
 - Round 4 one-shot run: `32800503199`
-- Result: **SUCCESS**
+- Result: **SUCCESS for the recorded automated checkpoint**
 
-The checkpoint completed all of the following on the generated clean candidate:
+The checkpoint proved that candidate passed the generated Round 4 RED/GREEN migration gates, full source regression, strict MSVC x64 Release `/W4 /WX`, compiled behavioral/process/trust suites, inventory-only preflight and package/provenance verification. It also removed the temporary one-shot workflow/migration helpers.
 
-1. RED-baseline assertions for hidden-control and process/trust gaps.
-2. Focused GREEN hardening gates.
-3. Full `run_source_tests.cmd` regression suite.
-4. CMake configure with the strict MSVC x64 CI preset.
-5. Release build with `/W4 /WX`.
-6. Compiled CTest behavioral/process/trust security suites.
-7. Inventory-only provider preflight while preserving `INCOMPLETE` semantics.
-8. Portable package generation and provenance/integrity verification.
-9. Push of the validated candidate to the PR branch.
-10. Removal of the temporary Round 4 one-shot workflow and migration helper scripts.
+### Important scope correction
 
-## Defect closed during the checkpoint
+The 2026-08-25 expert re-audit found that several Round 4 design contracts were not fully closed by the implementation even though the candidate compiled and the recorded tests passed. Therefore the next release blocker is **Round 5 — Contract Closure & Pilot Readiness**, not formal physical acceptance by itself.
 
-The previous Round 4 attempt failed MSVC with C4129 warnings because a Python normalization helper converted raw triple-quoted migration strings into ordinary strings. That collapsed escaped C++ engine paths and produced invalid escape sequences such as `\s`, `\g` and `\m` in generated source.
+The Round 4 success record must be kept as valid build/test evidence; it must not be overstated as proof of complete production hardening.
 
-The normalization step was changed into a guard that preserved raw-string escaping. The next checkpoint then passed the strict MSVC build and the remaining gates above. The temporary helper was removed from the validated candidate as designed.
+## Round 5 source of truth
 
-## Documentation-only alignment after the code checkpoint
+- Design: `docs/superpowers/specs/2026-08-25-contract-closure-pilot-readiness-design.md`
+- Plan: `docs/superpowers/plans/2026-08-25-contract-closure-pilot-readiness.md`
 
-Commit `e0519d138a5f9ff1b1cca27168f0feabd99ba998` rewrote `README.md` to align public claims with actual evidence and the CI cost-control policy. It did **not** modify production source.
+Work must proceed in plan order. Feature expansion is frozen until the P0 contract work is closed.
 
-The associated `windows-msvc-build` job was skipped because PR #2 remains Draft; no additional Windows build job executed for that documentation-only synchronization.
+## P0 blockers before formal pilot
 
-## Current product status
+1. **Branch reconciliation / CI hygiene** — reconcile the four `main` commits outside the PR history and do not resurrect the obsolete design-patch workflow.
+2. **Durable inspection identity** — create one immutable inspection ID before evidence collection and share it across journal/history/HTML/JSON, including inventory-only mode.
+3. **Report publication transaction** — separate hardware decision from publication/storage status; partial file-system failure must not rewrite hardware truth or expose a clean partial bundle.
+4. **Transactional bounded session history** — candidate-snapshot commit, rollback on failure, bounded/schema-validated persisted input and safe delete semantics.
+5. **External-engine/process trust closure** — reject duplicate logical allowlist entries and documented redirection/reparse cases; restrict child handle inheritance. Keep engine hashes empty until intentionally reviewed.
+6. **Cloud factory trust/privacy** — no unverified cloud/cache result may become `factoryExact`; network lookup must be privacy-conscious, bounded, encoded and opt-in/disabled by default until provenance is established.
+7. **Product truth / repo hygiene** — fix S20 unavailable/log semantics, remove unsupported UI claims, split build from release-sync behavior, ignore generated identifying artifacts and anonymize committed physical identifiers where appropriate.
 
-**Beta 0.1.1 / production-hardening. Not production-certified.**
+## P1 before final compiled candidate when safe
 
-Automated gates are not a substitute for physical validation. Missing, unavailable, stale, malformed, contradictory, timed-out, unsupported or untrusted evidence must remain explicit and must never be converted into a clean PASS/BUY.
+`src/ui_screens.cpp` is still compiled under `_Legacy` symbol renames while canonical v2 translation units provide production screen symbols. Remove obsolete legacy production compilation only after P0 work is locally green and only if symbol/link evidence shows it is safe. Batch this with the same final compiled checkpoint rather than creating a separate Windows run.
 
-## Remaining merge/release blockers
+## Real-machine validation status
 
-`validation/REAL_MACHINE_MATRIX.tsv` currently records Precision 5560, 5570 and 7670 full-audit/runtime gates as `NOT RUN`.
+`validation/REAL_MACHINE_MATRIX.tsv` currently records Precision 5560 / 5570 / 7670 full-audit/runtime gates as `NOT RUN`.
 
-Before PR #2 is marked Ready for Review or merged:
+Hardware testing before Round 5 code closure may be used as an **exploratory dry-run**, but it must not be recorded as formal runtime acceptance/certification evidence for the final candidate.
 
-- Run the reviewed physical pilot from `validation/PILOT_RUNBOOK.md` and `validation/VALIDATION_CHECKLIST.md` on a representative Precision target.
-- Confirm the full workflow completes without a critical false PASS.
-- Confirm HTML and JSON artifacts agree and retain the same inspection identity/evidence semantics.
-- Exercise required functional I/O and physical-port stimuli as applicable.
-- Disposition every material discrepancy.
-- Keep each model profile draft until at least two independently validated physical units support certification.
-- If pilot findings cause any production-code change after the validated candidate above, run a new strict Windows checkpoint on the resulting code before merge.
+Formal Precision pilot may begin only after:
 
-## Known deferred hygiene
+- Round 5 P0 tasks are complete;
+- branch history is reconciled;
+- local/source and compiled tests are green;
+- one strict Windows checkpoint passes on the exact candidate;
+- exact package/provenance evidence is recorded.
 
-`src/ui_screens.cpp` is still compiled under `_Legacy` symbol renames while runtime canonical screen symbols are supplied by the evidence-bound v2 translation units. This is a **P1 cleanup/hygiene item**, not currently demonstrated to be a runtime evidence or false-PASS defect.
+The formal pilot must then confirm HTML/JSON/inspection identity agreement, required functional/port evidence, no critical false PASS and disposition of every material discrepancy. Model/chassis certification still requires at least two independently validated physical units.
 
-Do not remove it opportunistically before physical pilot unless there is concrete evidence that it affects runtime correctness. Removing it changes the build graph and therefore requires a new strict compiled checkpoint. Prefer batching that cleanup with any pilot-driven source changes so one meaningful remote validation covers the final code candidate.
+## Evidence interpretation rule
+
+Tests must be reported by proof level:
+
+- contract/source lint;
+- compiled unit/behavioral tests;
+- integration/failure-injection tests;
+- physical runtime evidence.
+
+Do not report a large source-assertion count as equivalent to runtime behavioral coverage.
 
 ## CI cost-control rules
 
-- Keep PR #2 Draft during pilot preparation and active iteration.
+- Keep PR #2 Draft during active Round 5 work.
 - Draft PR Windows build jobs remain skipped.
 - Prefer local/source tests during iteration.
-- Use remote Windows CI only for meaningful code checkpoints.
-- Portable packaging/upload is manual `workflow_dispatch` only.
-- Do not add self-mutating recurring workflows.
+- Use remote Windows CI only for the final meaningful code checkpoint unless a blocking Windows-only defect makes an earlier run necessary.
+- Portable packaging/upload remains manual `workflow_dispatch` only.
+- No self-mutating recurring workflows.
 - Do not rerun a passing checkpoint without a production-code reason.
 
 ## Continuation rule
 
-Before making a new code change:
+Before every code change:
 
-1. Verify the actual PR head and GitHub checks.
-2. Compare that head with the validated code candidate listed above.
-3. Do not redo a completed gate merely because an older plan checkbox is unchecked.
-4. Identify whether the proposed change closes an evidence-backed P0/P1 gap or is only cosmetic churn.
-5. Preserve Draft/cost-control behavior until physical validation is ready.
+1. Verify actual PR head and `main` state.
+2. Confirm the next unchecked Round 5 task.
+3. Add/identify a failing behavioral or contract test before changing behavior where practical.
+4. Make the smallest change that closes that task without feature expansion.
+5. Run focused tests, then source regression.
+6. Do not mark the task closed from a source-string check alone when runtime behavior is the contract.
+7. Preserve Draft/cost-control behavior until the formal-pilot candidate exists.

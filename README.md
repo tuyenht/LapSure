@@ -20,14 +20,16 @@
 
 LapSure hiện ở giai đoạn **Beta 0.1.1 / production-hardening**. Mục tiêu của dự án là kiểm định laptop đã qua sử dụng bằng bằng chứng kỹ thuật có thể truy vết, thay vì suy đoán hoặc tạo trạng thái PASS khi dữ liệu chưa đủ.
 
-Bản hardening hiện tại trên PR #2 đã vượt qua checkpoint tự động gồm source regression, MSVC x64 Release strict `/W4 /WX`, CTest behavioral/security tests, inventory-only provider preflight và kiểm tra package/provenance. Tuy vậy, **đây chưa phải chứng nhận production-ready**: ma trận máy thật vẫn cần full-workflow pilot trên Precision đại diện, và profile chỉ được coi là đủ bằng chứng sau khi có tối thiểu hai máy vật lý được xác minh độc lập theo runbook.
+Candidate Round 4 `9ea73849666720ca59ee3b0d8279b2a53492be3d` đã vượt qua checkpoint tự động gồm source regression, MSVC x64 Release strict `/W4 /WX`, compiled behavioral/security tests, inventory-only provider preflight và package/provenance verification. Tuy nhiên audit chuyên sâu ngày 2026-08-25 xác định rằng **một checkpoint xanh không chứng minh mọi production-hardening contract đã được implement**. Vì vậy dự án hiện phải hoàn tất **Round 5 — Contract Closure & Pilot Readiness** trước khi lần chạy Precision tiếp theo được coi là formal runtime-acceptance pilot.
 
 Các nguyên tắc phát hành hiện tại:
 
 - Thiếu, lỗi, timeout, stale, mâu thuẫn, unsupported hoặc untrusted evidence **không được biến thành PASS/BUY**.
 - Required coverage chưa đủ thì kết luận phải giữ **INCOMPLETE / CHƯA ĐỦ DỮ LIỆU**.
 - Functional presence không đồng nghĩa với functional PASS; Wi-Fi, Bluetooth, cổng vật lý và các phép kiểm tra tương tác cần evidence/stimulus phù hợp.
-- External diagnostic engines chỉ được chạy qua trust boundary có canonical path và SHA-256 allowlist; không xác minh được thì không chạy.
+- Hardware decision và trạng thái lưu/phát hành report là hai sự thật riêng; lỗi file I/O không được dùng để giả lập hoặc sửa nghĩa chẩn đoán phần cứng.
+- External diagnostic engines chỉ được chạy qua trust boundary fail-closed; build Beta hiện không bật engine ngoài bằng hash allowlist rỗng.
+- Dữ liệu factory từ cloud/cache không được coi là exact nếu chưa có exact identity + provenance đủ tin cậy.
 - Tagged Beta là bản thử nghiệm có thể kiểm chứng, **không phải tuyên bố Stable/Production certification**.
 
 ## Bản phát hành
@@ -88,7 +90,7 @@ LapSure tách ba khái niệm thường bị trộn lẫn:
 
 Các kết luận sản phẩm được thiết kế xoay quanh `BUY`, `BUY WITH NOTES`, `INCOMPLETE` và `REJECT`; UI/report phải bảo toàn uncertainty thay vì che nó bằng phần trăm hoặc trạng thái mẫu.
 
-HTML và JSON report dùng cùng inspection identity, giữ provenance/evidence semantics và được lưu theo transaction để tránh công bố một cặp report không đồng bộ.
+HTML và JSON report phải dùng cùng một inspection identity và giữ cùng provenance/evidence semantics. **Atomic publication ở cấp cả bundle HTML+JSON+history là gate đang được đóng trong Round 5; build hiện tại chưa được mô tả như đã chứng minh transaction hoàn chỉnh ở cấp bundle.**
 
 ---
 
@@ -145,7 +147,21 @@ Workflow Windows được cố ý thiết kế để không build liên tục tr
 - Portable packaging, integrity verification và artifact upload chỉ chạy khi **manual `workflow_dispatch`**.
 - Trong quá trình phát triển, ưu tiên source tests/build cục bộ; chỉ dùng remote CI cho checkpoint có giá trị xác nhận rõ ràng.
 
-Workflow không được tự sửa code hoặc tự commit/push. One-shot migration/validation helpers chỉ được dùng như công cụ chuyển tiếp có chủ đích và phải được xóa khỏi candidate sau khi hoàn thành.
+Workflow validation không được tự sửa code hoặc tự commit/push. Round 5 ưu tiên một production-code batch được test cục bộ trước, rồi một strict Windows checkpoint có giá trị thay vì nhiều run nhỏ.
+
+---
+
+## Round 5 — Contract Closure & Pilot Readiness
+
+Source of truth:
+
+- `docs/superpowers/specs/2026-08-25-contract-closure-pilot-readiness-design.md`
+- `docs/superpowers/plans/2026-08-25-contract-closure-pilot-readiness.md`
+- `docs/PRODUCTION_HARDENING_STATUS.md`
+
+Các blocker trước formal pilot gồm: durable inspection identity/state root; report publication transaction tách khỏi hardware decision; transactional/bounded session history; external-engine/process trust closure; cloud factory trust/privacy; product-truth/repository hygiene; branch reconciliation với `main`.
+
+Không mở rộng feature scope trong vòng này.
 
 ---
 
@@ -161,9 +177,9 @@ Repo có bộ tài liệu trong `validation/`:
 - `REFERENCE_COMPARATORS.md`
 - `verify_portable_package.ps1`
 
-Trước khi nâng trạng thái từ Beta hardening lên production-ready, cần ít nhất một full runtime-acceptance workflow trên máy Precision mục tiêu với report đồng thuận, không có critical false PASS và mọi discrepancy quan trọng đã được reviewer disposition. Profile certification cần tối thiểu hai máy vật lý được xác minh độc lập.
+Các run phần cứng trước khi Round 5 code candidate vượt strict checkpoint chỉ được coi là **exploratory dry-run**. Formal Precision runtime-acceptance pilot phải dùng đúng candidate/package đã được ghi nhận SHA/provenance sau Round 5.
 
-Hiện các entry Precision 5560 / 5570 / 7670 trong real-machine matrix vẫn là **NOT RUN** cho full audit/runtime gate; vì vậy README, release notes và UI không được tuyên bố các profile này đã được chứng nhận.
+Hiện các entry Precision 5560 / 5570 / 7670 trong real-machine matrix vẫn là **NOT RUN** cho full audit/runtime gate. Sau một formal pilot đạt yêu cầu vẫn chưa đồng nghĩa profile được chứng nhận; profile certification cần tối thiểu hai máy vật lý được xác minh độc lập và mọi discrepancy quan trọng được disposition.
 
 ---
 
@@ -172,15 +188,15 @@ Hiện các entry Precision 5560 / 5570 / 7670 trong real-machine matrix vẫn l
 Xem [SECURITY.md](SECURITY.md) cho security policy và trust model. Một số nguyên tắc cốt lõi:
 
 - explicit executable path thay vì phụ thuộc PATH resolution cho security-sensitive processes;
-- canonical system PowerShell path cho privileged diagnostics;
 - external engine verification fail-closed;
 - session/history/report artifacts được coi là untrusted input khi mở lại và phải được validation/bounding phù hợp;
-- persistence failure không được thay đổi hardware decision thành một kết luận sạch giả tạo.
+- persistence/publication failure không được biến thành một clean hardware verdict giả;
+- broad administrator elevation hiện là Beta limitation và cần tiếp tục thu hẹp trong kiến trúc production dài hạn.
 
 ---
 
 ## Định hướng tiếp theo
 
-Ưu tiên tiếp theo không phải mở rộng marketing claim mà là hoàn tất real-machine evidence: chạy pilot Precision theo runbook, disposition discrepancy, xác minh report/port/profile behavior và chỉ sau đó mới cân nhắc Ready for Review/merge/release candidate.
+Ưu tiên hiện tại là **đóng Round 5 contract trước formal physical acceptance**. Sau khi P0 code đóng, local/source/compiled tests xanh và một strict Windows checkpoint xác nhận exact candidate, dự án mới chuyển sang formal Precision pilot, disposition discrepancy và sau đó mới đánh giá Ready for Review/merge/release candidate.
 
-LapSure là công cụ hỗ trợ kiểm định và quyết định mua máy; kết luận cuối cùng vẫn cần được đọc cùng evidence và giới hạn coverage của từng phiên kiểm tra.
+LapSure là công cụ hỗ trợ kiểm định và quyết định mua máy; kết luận cuối cùng luôn phải được đọc cùng evidence, coverage, publication state và giới hạn của từng phiên kiểm tra.

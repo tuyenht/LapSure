@@ -1,5 +1,6 @@
 #include "lap/scoring.h"
 #include "lap/decision_context.h"
+#include "lap/decision_policy.h"
 #include <iostream>
 
 namespace {
@@ -101,10 +102,47 @@ void TestAuthorityBoundary() {
            "test-only fixture models Certified path");
 #endif
 }
+
+void TestDiscreteGpuTruth() {
+    lap::AuditReport report{};
+    report.hardware.gpuInventoryStatus = lap::ProviderCollectionStatus::Failed;
+    auto capabilities = lap::NormalizeObservedCapabilities(report);
+    Expect(capabilities.discreteGpu.state == lap::CapabilityTruth::Unknown,
+           "failed GPU enumeration remains Unknown");
+
+    report.hardware.gpuInventoryStatus = lap::ProviderCollectionStatus::Complete;
+    report.hardware.gpus.clear();
+    capabilities = lap::NormalizeObservedCapabilities(report);
+    Expect(capabilities.discreteGpu.state == lap::CapabilityTruth::Unknown,
+           "empty successful GPU inventory is not absence proof");
+
+    lap::GpuInfo integrated{};
+    integrated.name = L"Intel Iris Xe Graphics";
+    report.hardware.gpus.push_back(integrated);
+    capabilities = lap::NormalizeObservedCapabilities(report);
+    Expect(capabilities.discreteGpu.state == lap::CapabilityTruth::AbsentConfirmed,
+           "integrated-only successful inventory confirms dGPU absence");
+
+    lap::GpuInfo discrete{};
+    discrete.name = L"NVIDIA RTX A2000 Laptop GPU";
+    report.hardware.gpus.push_back(discrete);
+    capabilities = lap::NormalizeObservedCapabilities(report);
+    Expect(capabilities.discreteGpu.state == lap::CapabilityTruth::Present,
+           "trusted inventory recognizes dGPU presence");
+
+    report.hardware.gpus.clear();
+    lap::GpuInfo ambiguous{};
+    ambiguous.name = L"Intel Arc Graphics";
+    report.hardware.gpus.push_back(ambiguous);
+    capabilities = lap::NormalizeObservedCapabilities(report);
+    Expect(capabilities.discreteGpu.state == lap::CapabilityTruth::Unknown,
+           "ambiguous GPU identity remains Unknown");
+}
 } // namespace
 
 int main() {
     TestAuthorityBoundary();
+    TestDiscreteGpuTruth();
 
     auto report = HealthyAdvisoryFixture();
     const auto decision = lap::BuildAuditDecision(report);

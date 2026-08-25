@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "model": "Precision 5560",
-  "serviceTag": "3ZJC6M3",
+  "serviceTag": "SAMPLE5560",
   "cpuContains": "i9-11950H",
   "ramBytes": 34359738368,
   "ramSpeed": 3200,
@@ -13,5 +13,5 @@
   "touchRequired": true,
   "batteryDesignWh": 86,
   "adapterW": 130,
-  "evidence": "Dell original configuration supplied for Service Tag 3ZJC6M3"
+  "evidence": "Synthetic reviewed fixture for regression/documentation; not a real device identity"
 }

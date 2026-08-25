@@ -2,94 +2,70 @@
 setlocal enabledelayedexpansion
 
 echo =======================================================
-echo          LapSure - Native Win32 Build ^& Sync
+echo          LapSure - Local Build Only
 echo =======================================================
 echo.
 
-:: 1. Check if cl.exe is in PATH
-where cl >nul 2>nul
-if %errorlevel% equ 0 goto :CHECK_CMAKE
+where cmake >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] CMake was not found.
+    echo Install CMake 3.25+ and Visual Studio 2022 Desktop C++ / Build Tools.
+    echo This script never downloads or substitutes a prebuilt LapSure.exe.
+    echo Use sync_release.cmd only when you explicitly want a verified release artifact.
+    exit /b 1
+)
 
-:: 2. Auto-detect Visual Studio 2022 / 2019 / BuildTools
+where cl >nul 2>nul
+if not errorlevel 1 goto :BUILD
+
 set "VCVARS="
 if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 if not defined VCVARS if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS=%ProgramFiles%\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"
 if not defined VCVARS if exist "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS=%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
 if not defined VCVARS if exist "%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS=%ProgramFiles%\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-if not defined VCVARS if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
-if not defined VCVARS if exist "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS=%ProgramFiles(x86)%\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 
-if defined VCVARS (
-    echo [INFO] Nap moi truong MSVC x64 tu: !VCVARS!
-    call "!VCVARS!" >nul 2>nul
-)
-
-:CHECK_CMAKE
-where cmake >nul 2>nul
-if %errorlevel% equ 0 goto :LOCAL_COMPILE
-
-:: ------------------------------------------------------------------
-:: If NO local MSVC/CMake compiler found: Fallback to GitHub Release Sync
-:: ------------------------------------------------------------------
-echo [THONG BAO] May hien tai chua cai dat CMake hoac Visual Studio C++.
-echo [INFO] Dang tu dong cap nhat ban dung moi nhat tu GitHub Release...
-echo.
-
-where gh >nul 2>nul
-if %errorlevel% equ 0 (
-    if not exist "out\download" mkdir "out\download"
-    gh release download --pattern "LapSure-windows-x64-portable.zip" --dir "out\download" --clobber
-    if %errorlevel% equ 0 (
-        echo [INFO] Dang giai nen va dong bo vao bin\LapSure.exe...
-        powershell -NoProfile -Command "Expand-Archive -LiteralPath out\download\LapSure-windows-x64-portable.zip -DestinationPath bin -Force; (Get-Item bin\LapSure.exe).LastWriteTime = Get-Date; Copy-Item bin\LapSure.exe .\LapSure.exe -Force; (Get-Item .\LapSure.exe).LastWriteTime = Get-Date"
-        echo.
-        echo =======================================================
-        echo [THANH CONG] Da dong bo ban LapSure.exe moi nhat!
-        echo Vi tri file: %CD%\bin\LapSure.exe
-        echo =======================================================
-        echo.
-        pause
-        exit /b 0
-    )
-)
-
-echo [LOI] Khong the tai ban dung tu dong.
-echo Vui long cai dat Visual Studio 2022 (Desktop C++) hoac CMake.
-echo Hoac tai file zip truc tiep tai: https://github.com/tuyenht/LapSure/releases
-echo.
-pause
-exit /b 1
-
-:LOCAL_COMPILE
-echo [INFO] Dang cau hinh CMake x64 Release...
-if not exist build mkdir build
-cmake -S . -B build -A x64
-if %errorlevel% neq 0 (
-    echo [LOI] Cau hinh CMake that bai.
-    pause
+if not defined VCVARS (
+    echo [ERROR] Visual Studio 2022 C++ x64 toolchain was not found.
+    echo No release binary was downloaded and no existing executable was replaced.
     exit /b 1
 )
 
-echo.
-echo [INFO] Dang bien dich LapSure.exe (Release)...
-cmake --build build --config Release
-if %errorlevel% neq 0 (
-    echo [LOI] Bien dich that bai.
-    pause
+echo [INFO] Loading MSVC x64 environment from: !VCVARS!
+call "!VCVARS!" >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] Could not initialize the MSVC x64 environment.
     exit /b 1
 )
 
-if exist build\Release\LapSure.exe (
-    copy /Y build\Release\LapSure.exe .\LapSure.exe >nul
-    if not exist bin mkdir bin
-    copy /Y build\Release\LapSure.exe bin\LapSure.exe >nul
-    powershell -NoProfile -Command "(Get-Item bin\LapSure.exe).LastWriteTime = Get-Date; (Get-Item .\LapSure.exe).LastWriteTime = Get-Date"
-    echo.
-    echo =======================================================
-    echo [THANH CONG] Da bien dich xong LapSure.exe!
-    echo Vi tri file: %CD%\LapSure.exe va %CD%\bin\LapSure.exe
-    echo =======================================================
+:BUILD
+echo [INFO] Configuring source with preset msvc-x64-release...
+cmake --preset msvc-x64-release
+if errorlevel 1 (
+    echo [ERROR] CMake configure failed.
+    exit /b 1
 )
 
+echo [INFO] Building Release from the current source tree...
+cmake --build --preset build-msvc-x64-release
+if errorlevel 1 (
+    echo [ERROR] Build failed.
+    exit /b 1
+)
+
+set "BUILT_EXE=out\build\msvc-x64-release\Release\LapSure.exe"
+if not exist "%BUILT_EXE%" (
+    echo [ERROR] Build command succeeded but %BUILT_EXE% was not produced.
+    exit /b 1
+)
+
+copy /Y "%BUILT_EXE%" ".\LapSure.exe" >nul
+if not exist bin mkdir bin
+copy /Y "%BUILT_EXE%" "bin\LapSure.exe" >nul
+
 echo.
-pause
+echo =======================================================
+echo [SUCCESS] LapSure.exe was built from this source tree.
+echo Source output: %CD%\%BUILT_EXE%
+echo Convenience copies: %CD%\LapSure.exe and %CD%\bin\LapSure.exe
+echo =======================================================
+exit /b 0

@@ -3,6 +3,9 @@
 /dist/
 /build/
 /LapSure.exe
+/reports/
+/session_history.tsv
+*.journal*
 /profiles/cache/
 *.pfx
 .vs/

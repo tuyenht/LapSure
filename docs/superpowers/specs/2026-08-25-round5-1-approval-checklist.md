@@ -11,7 +11,9 @@ The A+ design is ready for implementation planning only when all answers are YES
 - Are decision/coverage/authority policy versions persisted?
 - Are LapSure self-integrity failures distinct from machine REJECT?
 - Is provider trust rooted outside mutable `engine_manifest.txt`?
-- Does provider trust close private dependency and verify/execute replacement risk?
+- Is embedded provider authority explicitly scoped to the exact verified `LapSure.exe` package identity?
+- Is broader release signing/Authenticode treated as application-binary provenance rather than runtime trust-store mutation?
+- Does provider trust close private dependency/bundle and verify/execute replacement risk?
 - Do tests cover BUY, BUY WITH NOTES, INCOMPLETE and REJECT through production composition?
 - Is 5.1 split into A/B/C review tranches?
 - Is Run #592 preserved only as historical runtime/security baseline?

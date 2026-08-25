@@ -63,5 +63,7 @@ python tests\round5_cloud_privacy_sanity.py
 if errorlevel 1 exit /b 1
 python tests\round5_product_truth_hygiene_sanity.py
 if errorlevel 1 exit /b 1
+python tests\round5_legacy_renderer_compilation_sanity.py
+if errorlevel 1 exit /b 1
 python tests\ci_cost_control_policy.py
 if errorlevel 1 exit /b 1

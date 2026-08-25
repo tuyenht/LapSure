@@ -104,6 +104,18 @@ if(BUILD_TESTING)
     target_compile_options(LapSureProcessSecurityTests PRIVATE -Wall -Wextra -Wpedantic)
   endif()
   add_test(NAME LapSureProcessSecurityTests COMMAND LapSureProcessSecurityTests)
+
+  add_executable(LapSureProfileProvenanceTests
+      tests/profile_provenance_security_tests.cpp
+      src/profile.cpp src/chassis_profile.cpp)
+  target_include_directories(LapSureProfileProvenanceTests PRIVATE include)
+  target_compile_definitions(LapSureProfileProvenanceTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+  if(MSVC)
+    target_compile_options(LapSureProfileProvenanceTests PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus /utf-8)
+  else()
+    target_compile_options(LapSureProfileProvenanceTests PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
+  add_test(NAME LapSureProfileProvenanceTests COMMAND LapSureProfileProvenanceTests)
 endif()
 
 option(LAPSURE_STRICT_WARNINGS "Treat MSVC warnings as errors in CI" OFF)

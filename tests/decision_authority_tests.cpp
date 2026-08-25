@@ -1,6 +1,7 @@
 #include "lap/scoring.h"
 #include "lap/decision_context.h"
 #include "lap/decision_policy.h"
+#include "lap/port_attestation.h"
 #include <iostream>
 
 namespace {
@@ -138,11 +139,62 @@ void TestDiscreteGpuTruth() {
     Expect(capabilities.discreteGpu.state == lap::CapabilityTruth::Unknown,
            "ambiguous GPU identity remains Unknown");
 }
+
+lap::ChassisProfile TwoRequiredPortProfile() {
+    lap::ChassisProfile profile{};
+    profile.profileId = L"advisory";
+    profile.ports.push_back(
+        {L"left-tb4-1", L"Left TB4 #1", L"Left", L"USB-C", L"TB4", true, false, L"NOT TESTED"});
+    profile.ports.push_back(
+        {L"left-tb4-2", L"Left TB4 #2", L"Left", L"USB-C", L"TB4", true, false, L"NOT TESTED"});
+    return profile;
+}
+
+void TestPortAttestationCannotShrinkCoverage() {
+    const auto profile = TwoRequiredPortProfile();
+    auto attestation = lap::InitializeSessionPortAttestation(L"session-1", profile);
+
+    lap::RecordPortObservation(attestation,
+                               L"left-tb4-2",
+                               lap::CapabilityTruth::AbsentConfirmed,
+                               L"Operator reports port absent");
+
+    Expect(attestation.ports.size() == 2,
+           "operator correction preserves expected denominator");
+    Expect(lap::RequiredPortsRemaining(attestation) == 2,
+           "missing expected port remains blocking");
+    Expect(!attestation.ports[1].discrepancy.empty(),
+           "expected port absence records discrepancy");
+}
+
+void TestPortAttestationCompletesByStableId() {
+    const auto profile = TwoRequiredPortProfile();
+    auto attestation = lap::InitializeSessionPortAttestation(L"session-2", profile);
+
+    lap::PortProbeResult first{};
+    first.expectedPortId = L"left-tb4-1";
+    first.portLabel = L"Left TB4 #1";
+    first.deviceEnumerated = true;
+    first.verdict = L"PASS";
+    lap::ApplyPortResultToAttestation(attestation, first);
+
+    lap::PortProbeResult second{};
+    second.expectedPortId = L"left-tb4-2";
+    second.portLabel = L"Left TB4 #2";
+    second.deviceEnumerated = true;
+    second.verdict = L"PASS";
+    lap::ApplyPortResultToAttestation(attestation, second);
+
+    Expect(lap::RequiredPortsRemaining(attestation) == 0,
+           "required ports complete only from stable expected IDs");
+}
 } // namespace
 
 int main() {
     TestAuthorityBoundary();
     TestDiscreteGpuTruth();
+    TestPortAttestationCannotShrinkCoverage();
+    TestPortAttestationCompletesByStableId();
 
     auto report = HealthyAdvisoryFixture();
     const auto decision = lap::BuildAuditDecision(report);

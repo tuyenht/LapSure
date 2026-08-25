@@ -138,7 +138,7 @@ struct LiveLogEntry {
     std::wstring time;
     std::wstring message;
     std::wstring source;
-    int state{0}; // 0=good, 1=warn, 2=fail, 3=info
+    int state{0}; // 0=info/default, 1=warn, 2=fail, 3=info/explicit
 };
 
 // UI Helper drawing functions

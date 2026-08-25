@@ -1,341 +1,469 @@
-# Round 5.1 — Decision Authority & Happy-Path Closure Design
+# Round 5.1 A+ — Decision Authority, Capability Truth & Happy-Path Closure
 
-**Status:** Design approved in principle; implementation not started  
+**Status:** Proposed revision A+ — awaiting final approval; implementation not started  
 **Branch:** `feature/s01-s04-visual-alignment-v2`  
-**Parent candidate:** Run #592 / commit `d7944104b90f6290f8f444de572f06a90d16a676`  
-**Purpose:** Close the architectural gap between fail-closed profile provenance and a reachable, evidence-correct purchase decision.
+**Review baseline:** `df3ab209c4afba21ac42ed7bbbb2dfcb615419b6`  
+**Parent runtime/security baseline:** Run #592 / commit `d7944104b90f6290f8f444de572f06a90d16a676`  
+**Purpose:** Close the acceptance-path deadlock without weakening provenance, capability truth, provider trust or evidence semantics.
 
 ## 1. Problem statement
 
-Round 5 correctly removed mutable portable factory/chassis metadata from acceptance authority. That security fix created a second-order product problem that existing tests did not model end to end:
+Round 5 correctly removed mutable portable factory/chassis metadata from acceptance authority. That security fix exposed a second-order product problem:
 
-1. `BuildAuditDecision()` currently forces `INCOMPLETE` whenever a populated chassis profile is not `physical-verified`.
-2. `LoadDecisionChassisProfile()` intentionally downgrades mutable disk `physical-verified` to `static-unverified`.
-3. The portable package does not currently contain trusted GPU/VRAM or CPU thermal provider binaries, while production stress/coverage can require their evidence.
-4. Existing behavioral tests can manufacture an in-memory `physical-verified` profile and omit the production GPU stage, proving scoring behavior but not proving that the real production composition has a reachable healthy-machine path.
+1. scoring currently uses a mutable-text chassis status as both catalog authority and machine-session completeness;
+2. production correctly strips portable `physical-verified` authority, making clean acceptance unreachable without another authority source;
+3. GPU/VRAM and CPU thermal acceptance can require provider evidence that the portable candidate does not currently have a production-trusted path to obtain;
+4. existing tests prove scoring and security components separately, but do not prove that the secure production composition has reachable intended verdicts;
+5. capability absence is not yet represented distinctly from capability detection failure/unknown;
+6. external-engine SHA verification currently reads its expected hash from a mutable portable manifest, which is not a cryptographic trust root.
 
-The result is an acceptance-path deadlock: a physically healthy laptop can remain permanently `INCOMPLETE` even after the operator has completed every real stimulus available in the session.
+Round 5.1 A+ must preserve the governing invariant:
 
-This design must preserve the Round 5 security invariant: **no mutable portable file may self-create certification authority or clean acceptance**.
+> No mutable portable file, mutable manifest, operator action or unauthenticated network response may create reusable certification authority or trusted provider authority by self-assertion.
 
 ## 2. Goals
 
-Round 5.1 must:
+Round 5.1 A+ must:
 
-- make `BUY WITH NOTES` reachable for a healthy machine whose session evidence is complete even when the chassis catalog entry is advisory rather than certified;
-- reserve clean `BUY` for complete session evidence plus trusted/certified chassis authority and no material warnings;
-- keep `REJECT` dominant for critical failures;
-- keep `INCOMPLETE` dominant whenever required evidence for the actual machine is missing, unavailable, cancelled or untrusted;
-- make required coverage capability-aware instead of creating artificial `NOT TESTED` blockers for hardware that is not present;
-- require GPU/VRAM integrity evidence when a discrete GPU is present or explicitly claimed;
-- require reliable thermal evidence for purchase-grade stress acceptance;
-- keep factory provenance separate from machine-health acceptance;
-- add a production-composition reachability regression so CI can prove that the secure path can actually reach every intended verdict;
-- keep artifact #592 as historical runtime/security evidence, not as the final formal-acceptance package.
+- make `BUY WITH NOTES` reachable for a healthy machine with complete trustworthy session evidence even when reusable chassis authority is only advisory;
+- reserve clean `BUY` for complete evidence plus protected `Certified` chassis authority and no material warnings;
+- keep `REJECT` dominant for critical machine/seller-claim failures;
+- keep `INCOMPLETE` dominant for missing, unavailable, unknown, cancelled, inconsistent or untrusted required evidence and for LapSure self-validation/integrity failures;
+- represent capability state as `Present`, `AbsentConfirmed` or `Unknown`, never equating unknown with absent;
+- derive one immutable, versioned `RequirementSnapshot` for both coverage and decision;
+- separate factory/configuration provenance, chassis/catalog authority, session attestation and purchase-health evidence;
+- prevent operator corrections from deleting expected coverage silently;
+- replace macro-based trust routing with explicit typed decision-facing APIs;
+- replace mutable portable engine-manifest authority with a protected/embedded provider trust root before any provider can become purchase-grade evidence;
+- close verify/execute TOCTOU and provider dependency-closure risks before enabling elevated external providers;
+- version decision/coverage/authority policy in persisted reports;
+- add compiled production-composition reachability/security tests;
+- keep Run #592 as historical runtime/security/package baseline only.
 
 ## 3. Non-goals
 
-Round 5.1 will not:
+Round 5.1 A+ will not:
 
-- weaken external-engine SHA-256 verification;
-- treat an editable `.profile` file as model certification;
-- convert PnP presence into functionality;
-- fabricate missing thermal, GPU, port or provider evidence;
-- introduce silent runtime downloads;
-- redesign the complete UI system;
-- solve long-term signed cloud/profile distribution beyond the interfaces required for authority separation;
-- claim that one successful laptop session certifies an entire model family.
+- weaken fail-closed profile provenance;
+- treat editable `.profile`, JSON or manifest text as certification;
+- infer functionality from device presence alone;
+- fabricate GPU, thermal, port, network or other missing evidence;
+- silently download runtime tools;
+- allow a test fixture to establish production certification authority;
+- claim one tested machine certifies an entire model family;
+- redesign all Win32 UI internals unless physical/accessibility smoke proves a blocker;
+- complete long-term cloud signing infrastructure beyond interfaces required by the new authority model.
 
-## 4. Core model: separate session evidence from catalog authority
+## 4. Decision ordering and truth domains
 
-The decision engine must stop using one string field such as `validationStatus == "physical-verified"` as both a catalog-trust signal and a machine-session completeness signal.
+Decision precedence must be deterministic.
 
-### 4.1 Chassis catalog authority
+### 4.1 Critical machine or seller-claim failure → `REJECT`
 
-Introduce an explicit authority concept with values equivalent to:
+Trusted evidence of a release-defined critical machine failure, functional failure, stability failure, safety failure, material seller misrepresentation or required-port failure produces `REJECT`.
 
-- `None` — no recognized chassis guidance;
-- `Advisory` — mutable/static/heuristic guidance, useful for operator workflow but not certification;
-- `Certified` — protected authority from a future authenticated mechanism such as embedded/hash-pinned/signed metadata or another protected installation boundary.
+A missing provider or LapSure self-integrity failure must not be misreported as a laptop defect.
 
-A portable `.profile` file may produce at most `Advisory` authority.
+### 4.2 LapSure/evidence integrity failure → `INCOMPLETE`
 
-### 4.2 Session port attestation
+Any failure of LapSure runtime validation, decision-context integrity, required-provider trust, persisted-evidence consistency or other tool-side evidence authority makes the result invalid/incomplete, not `REJECT`.
 
-Introduce session-specific evidence representing the operator's confirmation of the actual machine's physical port inventory and the test result for each required port. This is not reusable model certification.
+### 4.3 Missing required machine evidence → `INCOMPLETE`
 
-The attestation must contain, at minimum:
+Required evidence that is not run, cancelled, unknown, unavailable, untrusted or internally inconsistent keeps the decision `INCOMPLETE`.
 
-- inspection/session identity;
-- model string used for guidance;
-- the set of physical ports presented to the operator;
-- whether each required port was confirmed present;
-- test/stimulus result for each confirmed required port;
-- explicit operator confirmation timestamp/state;
-- provenance label such as `operator-attested-session`;
-- no raw public machine identifier requirement.
+### 4.4 Complete machine evidence + advisory chassis → `BUY WITH NOTES`
 
-The attestation may be initialized from an advisory chassis profile, but the operator must be able to correct the actual port inventory before final completion.
+A healthy machine may reach `BUY WITH NOTES` when all capability-aware required evidence is complete and its actual session port inventory is fully attested/tested, even if reusable chassis/catalog authority is only advisory.
 
-### 4.3 Factory authority remains separate
+### 4.5 Complete machine evidence + certified chassis → `BUY`
 
-Factory profile authority continues to answer configuration provenance/comparison questions only. Missing authenticated factory truth must not by itself make a healthy machine `INCOMPLETE` when all purchase-safety domains are complete.
+Clean `BUY` additionally requires protected `Certified` chassis authority and no material purchase-relevant warning.
 
-Seller-claim mismatch remains independent evidence and may still create a critical `REJECT` when the seller's explicit claim conflicts with observed hardware.
+## 5. Capability truth model
 
-## 5. Verdict semantics
+Boolean presence is insufficient for conditional acceptance.
 
-Decision ordering must be explicit and deterministic.
+Introduce an explicit state equivalent to:
 
-### 5.1 REJECT
+- `Present` — trusted/native evidence establishes the capability is present;
+- `AbsentConfirmed` — the relevant detection contract completed successfully and establishes absence;
+- `Unknown` — detection failed, was unsupported, was incomplete or cannot establish presence/absence.
 
-`REJECT` wins when any release-defined critical hardware, functional, stability, port/power, seller-claim or runtime-integrity failure is present.
+Invariant:
 
-No authority or completeness upgrade can override a critical failure.
+> `Unknown` must never be treated as `AbsentConfirmed`.
 
-### 5.2 INCOMPLETE
+The model applies first to discrete GPU and should be used for other conditional domains where correctness requires it: battery, touch, camera, Wi-Fi, Bluetooth and similar hardware.
 
-`INCOMPLETE` is required when any capability-aware required domain for this machine/session is:
+## 6. Seller-claim precedence
 
-- not run;
-- cancelled;
-- unavailable where the domain is mandatory;
-- untrusted where trusted evidence is required;
-- missing required operator stimulus;
-- missing required session port attestation;
-- internally inconsistent;
-- blocked by runtime-validation failure.
+Seller claims participate before optional-capability waiver.
 
-### 5.3 BUY WITH NOTES
+For a claimed dGPU:
 
-`BUY WITH NOTES` is permitted only when:
+1. if trusted inventory shows a conflicting/missing claimed dGPU and policy classifies the mismatch critical, produce `REJECT`;
+2. otherwise, if dGPU presence is established or remains required by a non-conflicting claim, GPU/VRAM integrity evidence is required;
+3. provider absence cannot hide a proven seller mismatch by downgrading it to `INCOMPLETE`.
 
-- all capability-aware required machine/session evidence is complete;
-- there is no critical failure;
-- port/power evidence is complete for the operator-attested actual port inventory;
-- runtime validation passes;
-- chassis authority is `Advisory` or there are non-critical warnings/known limitations that must remain visible.
+The same principle applies to other material seller claims.
 
-Required reason text for the advisory-chassis path must state that the specific machine's ports were manually attested/tested in this session and that the model profile itself is not certified.
+## 7. Chassis authority model
 
-### 5.4 BUY
+Introduce explicit authority equivalent to:
 
-`BUY` requires all `BUY WITH NOTES` evidence conditions plus:
+- `None`;
+- `Advisory`;
+- `Certified`.
 
-- chassis authority is `Certified`;
-- no material warning remains that policy classifies as purchase-relevant;
-- no required coverage limitation remains.
+### 7.1 Portable input ceiling
 
-This means Round 5.1 may make `BUY WITH NOTES` reachable before a signed/certified chassis catalog exists, while preserving a stronger meaning for clean `BUY`.
+Mutable portable `.profile` data, heuristic model matching and operator-entered catalog text may produce at most `Advisory`.
 
-## 6. Capability-aware requiredness
+### 7.2 Certified authority must be minted by a trusted resolver
 
-Coverage must be derived from detected/claimed capabilities, not from a fixed stage list.
+`Certified` must not be a public caller-settable field whose value alone creates authority.
 
-### 6.1 GPU/VRAM
+Production authority must be created only by a decision-facing resolver that validates a protected trust source. Possible future sources include embedded/hash-pinned/signed metadata or another protected installation boundary.
 
-GPU/VRAM integrity is required when either:
+Raw parsers must never return production `Certified` authority.
 
-- a discrete GPU is detected by trusted/native inventory; or
-- the seller explicitly claims a discrete GPU.
+UI/operator actions must never mint reusable `Certified` authority.
 
-If a discrete GPU is required and the trusted GPU stress engine is absent, hash-invalid, cancelled or cannot produce contract-valid evidence, the decision remains `INCOMPLETE`.
+Tests that need a certified case must use an explicit test-only trusted-authority fixture/factory that cannot be invoked by production runtime paths.
 
-If no discrete GPU is present or claimed, the production stress plan must not create a required `GPU / VRAM integrity = NOT TESTED` blocker merely because the optional engine is absent.
+## 8. Factory authority remains separate
 
-### 6.2 Thermal evidence
+Factory profile authority answers configuration provenance/comparison questions only.
 
-A purchase-grade verdict (`BUY` or `BUY WITH NOTES`) requires trusted thermal evidence for every session that executes the CPU sustained-load stage. Because Quick, Standard and Deep all execute CPU load in the current product, missing trusted CPU thermal evidence keeps the purchase decision `INCOMPLETE` in all three modes.
+Missing authenticated factory truth does not by itself make a machine-health decision incomplete when all purchase-safety requirements are complete.
 
-Quick may still be used as a runtime/smoke workflow when the thermal provider is unavailable, but that smoke result cannot close formal purchase acceptance.
+Seller-claim comparison remains separate from factory authority.
 
-Round 5.1 must not invent CPU package temperature. The trusted provider must return contract-valid package-temperature evidence, or formal purchase acceptance remains `INCOMPLETE`.
+## 9. Session-specific physical port attestation
 
-This requirement is explicit and must not be inferred merely from whether a provider binary happens to exist.
+Session attestation is evidence for the current inspected machine only; it is not reusable model certification.
 
-### 6.3 Other optional capabilities
+### 9.1 Preserve expected and observed inventories separately
 
-The same pattern applies to touch, battery, camera, Bluetooth, Wi-Fi and other conditional domains: hardware that is not present must not create a missing-evidence blocker, while detected/claimed required hardware must be tested to the level defined by the coverage contract.
+Do not mutate/delete the expected advisory inventory when the operator observes something different.
 
-## 7. Trusted diagnostic provider strategy
+Persist at least:
 
-Provider integration is a release input, not a reason to weaken coverage.
+- expected/advisory inventory;
+- observed/attested inventory;
+- per-port presence confirmation;
+- per-port requiredness for this `RequirementSnapshot`;
+- stimulus/test result;
+- discrepancy status when expected and observed differ;
+- operator correction reason;
+- timestamp;
+- current inspection/session identity;
+- provenance such as `operator-attested-session`.
 
-### 7.1 GPU engine
+### 9.2 No edit-away coverage
 
-The current supported integration contract for `memtest_vulkan.exe` may be retained only if a specific reviewed binary is deliberately supplied with:
+If an expected required port is not observed, record an explicit discrepancy such as `EXPECTED_PORT_NOT_OBSERVED`; do not silently remove it and recompute a smaller denominator.
 
-- reviewed license/distribution compatibility;
-- exact SHA-256 in `tools/engine_manifest.txt`;
-- package inclusion only when the expected binary and non-empty matching manifest entry are both present;
-- launch-time re-verification through the existing trust boundary;
-- provenance recorded in the generated package metadata.
+Operator additions/removals/corrections must be auditable and must not gain reusable catalog authority.
 
-No third-party binary is to be downloaded automatically at runtime.
+### 9.3 No cross-session promotion
 
-### 7.2 CPU thermal provider
+Attestation from history/reopened reports is untrusted persisted evidence until explicitly validated and must not automatically become current-session acceptance evidence.
 
-The `lhm_bridge.exe` path remains subject to the same release discipline: reviewed source/binary provenance, licensing, explicit package inclusion, manifest hash pinning and launch-time verification.
+## 10. Versioned `RequirementSnapshot`
 
-Until such a provider is supplied, a Precision session whose acceptance policy requires reliable CPU thermal evidence must remain `INCOMPLETE`.
+Create one immutable requirement snapshot after evidence normalization and seller-claim comparison.
 
-### 7.3 Deterministic CI fixtures
+Inputs include:
 
-CI must not depend on downloading third-party binaries. Reachability/security tests should use repository-built deterministic fixture executables with generated test manifests inside isolated temporary package roots. These fixtures prove production composition and trust semantics without pretending to validate real GPU/thermal hardware.
+- normalized observed capabilities;
+- seller claim;
+- inspection mode;
+- chassis guidance/authority;
+- policy versions;
+- release-defined mandatory domains.
 
-## 8. Production architecture
+The snapshot records each domain as at least:
 
-### 8.1 Remove decision routing by preprocessor substitution
+- `Required`;
+- `NotApplicable`;
+- optionally `ConditionalBlocked` when requiredness cannot be resolved because capability state is `Unknown`.
 
-The production app should stop depending on `#define LoadFactoryProfile ...` / `#define LoadChassisProfile ...` substitution as the trust boundary.
+Both `BuildCoverageContract()` and `BuildAuditDecision()` must consume the same snapshot. Neither may independently recompute requiredness from mutable report contents.
 
-Introduce explicit typed decision-facing APIs/services. Exact names may vary, but the architecture should contain equivalents of:
+## 11. Policy versioning
 
-- `DecisionProfileResolver` — returns factory/chassis data plus authority;
-- `CapabilityRequirementPolicy` — determines which domains/stages are mandatory for the observed/claimed machine;
-- `SessionPortAttestation` — session-local physical-port inventory/stimulus truth;
-- `DecisionContext` — immutable inputs consumed by coverage/scoring.
+Persist explicit version fields with every report/bundle, equivalent to:
 
-Raw loaders remain available to tooling/tests only as advisory parsers.
+- `decisionPolicyVersion`;
+- `coveragePolicyVersion`;
+- `authorityPolicyVersion`.
 
-### 8.2 Scoring consumes authority, not mutable strings
+Reports must remain interpretable after later policy changes.
 
-`BuildAuditDecision()` must not compare portable text such as `validationStatus == "physical-verified"` to decide acceptance authority.
+A policy version must change when verdict semantics or requiredness semantics materially change.
 
-It should consume explicit typed authority and completeness values from `DecisionContext`.
+## 12. GPU/VRAM requiredness
 
-### 8.3 Coverage and decision share one requirement policy
+GPU/VRAM integrity is required when:
 
-`BuildCoverageContract()` and `BuildAuditDecision()` must derive requiredness from the same `CapabilityRequirementPolicy` so the UI/report cannot say a domain is optional while scoring silently blocks on it, or vice versa.
+- discrete GPU state is `Present`; or
+- a non-rejected seller claim still requires a discrete GPU.
 
-## 9. Report and UI semantics
+If dGPU state is `Unknown`, the system may not waive GPU evidence merely because the GPU list is empty.
 
-Reports and UI must expose the distinction rather than hiding it.
+If dGPU state is `AbsentConfirmed` and there is no unresolved dGPU claim, GPU/VRAM stress is `NotApplicable` and must not create artificial incompleteness.
 
-Recommended visible fields:
+When GPU/VRAM is required, missing/untrusted/cancelled/invalid GPU stress evidence keeps the decision `INCOMPLETE`.
 
-- **Factory authority:** Unknown / Advisory / Authenticated;
-- **Chassis authority:** None / Advisory / Certified;
-- **Physical port evidence:** Not attested / Partially attested / Session-attested complete;
-- **Required capability coverage:** Complete / Partial with explicit missing domains.
+## 13. Thermal requiredness
 
-For `BUY WITH NOTES` caused only by advisory chassis authority, the reason must be explicit and non-alarming:
+Any purchase-grade verdict after CPU sustained-load execution requires contract-valid trusted CPU thermal evidence.
 
-> All required ports on this specific machine were operator-attested and passed stimulus testing. The reusable model/chassis catalog entry is advisory, not certified.
+Current Quick/Standard/Deep modes all execute CPU load, so absent trusted CPU thermal evidence prevents `BUY` and `BUY WITH NOTES` in those modes.
 
-The UI must never label session attestation as model certification.
+Quick may still be used for runtime smoke, but it cannot close purchase acceptance without the required thermal evidence.
 
-## 10. Production-path reachability tests
+No synthetic or inferred package temperature is permitted.
 
-A new compiled suite must exercise the same decision-safe composition used by production rather than constructing an impossible privileged in-memory state.
+## 14. Provider trust root — portable Beta
 
-Minimum required cases:
+`tools/engine_manifest.txt` is configuration/provenance text, not a production trust root.
 
-1. **Healthy certified path** → `BUY`.
-2. **Healthy advisory chassis + complete session port attestation** → `BUY WITH NOTES`.
-3. **Advisory chassis + one required port untested** → `INCOMPLETE`.
-4. **Discrete GPU detected + trusted GPU engine unavailable** → `INCOMPLETE`.
-5. **No discrete GPU present/claimed + GPU engine unavailable** → GPU stage not required and must not create artificial incompleteness.
-6. **CPU load executed + trusted thermal evidence unavailable** → `INCOMPLETE`.
-7. **Mutable chassis file self-declares certified/physical-verified** → authority remains `Advisory`.
-8. **Critical hardware/functional/stability failure** → `REJECT` regardless of authority.
-9. **Factory provenance unavailable but all purchase-safety evidence complete** → does not alone force `INCOMPLETE`.
-10. **Seller claim mismatch that policy marks critical** → `REJECT` independent of factory authority.
+Before enabling an external provider for purchase-grade evidence, expected provider identity must come from a protected authority, preferably an allowlist generated at build time and embedded/compiled into `LapSure.exe` for the portable Beta.
 
-The suite must verify both final verdict and the reason/coverage fields that explain it.
+The protected provider record should bind at least:
 
-## 11. Physical-pilot strategy
+- logical provider name;
+- expected SHA-256 of executable;
+- expected provider version/build identity where practical;
+- expected hashes/identities of private loadable dependencies or a bundle digest;
+- provenance/license metadata identifier.
 
-Artifact #592 is preserved as a **runtime/security smoke baseline**. It is not promoted as the final formal-acceptance candidate after this architectural finding.
+`engine_manifest.txt` may remain human-readable package metadata, but changing it must not change runtime trust authority.
 
-Round 5.1 validation sequence:
+## 15. Provider dependency closure
 
-1. source/unit policy tests;
-2. strict MSVC `/W4 /WX` compile/link;
-3. all existing security/process/report/history tests;
-4. production-path reachability suite;
-5. inventory transactional preflight;
-6. package/provenance checkpoint on the exact Round 5.1 head;
-7. one short physical smoke session on a Precision machine;
-8. only after smoke closure, full formal physical acceptance matrix.
+Hashing only the top-level `.exe` is insufficient when the provider can load writable private DLLs/sidecars/configuration that affect execution.
 
-A physical smoke may legitimately end `INCOMPLETE` if required trusted GPU/thermal providers have not yet been integrated; that result validates fail-closed behavior but does not close purchase-decision acceptance.
+The trust design must either:
 
-## 12. DPI and accessibility acceptance correction
+- verify the complete private provider bundle/dependency set; or
+- execute from a release-controlled provider layout whose loadable dependency boundary is explicitly constrained and verified.
 
-The pilot matrix must represent the actual Precision display families instead of relying primarily on 16:9 desktop modes.
+Provider output parsing/contract validation remains separate from binary trust.
 
-Required matrix should include:
+## 16. Verify/execute TOCTOU closure
 
-- compatibility viewport: 1366×768 at 100/125/150%;
-- Precision FHD+ native class: 1920×1200 at 100/125/150%;
-- Precision UHD+ native class: 3840×2400 at 150/200/225% where hardware permits;
-- 1920×1080 retained only as an optional compatibility regression.
+Re-verification immediately before process launch is necessary but not sufficient if a writable provider file can be replaced between hashing and `CreateProcess`.
 
-Accessibility smoke must happen before the full expensive hardware matrix. Custom-drawn primary controls must have a demonstrable keyboard/focus/accessibility path; failures are recorded as discrepancies rather than inferred PASS.
+Round 5.1B must implement and test a Windows-safe execution boundary, with preference for:
 
-Full UI Automation implementation is outside this design unless the smoke shows that the current accessibility contract is not reachable.
+- opening provider artifacts with sharing semantics that prevent replacement/write/delete during verification/execution;
+- hashing the exact opened artifact/bundle;
+- retaining the protective handle(s) across process creation where Windows semantics support it;
 
-## 13. Documentation and package-state policy
+or an equivalently protected isolated execution root that is copied, ACL-protected and reverified before launch.
 
-Live release state must not be embedded in static README text in a way that becomes stale inside a frozen artifact.
+The final implementation choice must have a regression/failure-injection test; no design may assume the race is negligible because the app is elevated.
+
+## 17. Production typed architecture
+
+Remove trust-sensitive preprocessor substitution such as `#define LoadFactoryProfile ...` and `#define LoadChassisProfile ...` from the production decision route.
+
+Introduce explicit typed services/components equivalent to:
+
+- `EvidenceNormalizer`;
+- `ObservedCapabilities`;
+- `DecisionProfileResolver`;
+- `CapabilityRequirementPolicy`;
+- `RequirementSnapshot`;
+- `SessionPortAttestation`;
+- immutable `DecisionContext`.
+
+Raw loaders remain advisory/tooling parsers and cannot mint authority.
+
+## 18. Report/UI semantics
+
+Expose the distinctions rather than hiding them.
+
+Recommended report/UI fields:
+
+- Factory authority: Unknown / Advisory / Authenticated;
+- Chassis authority: None / Advisory / Certified;
+- Physical port evidence: Not attested / Partial / Session-attested complete;
+- Capability state for conditional hardware: Present / Absent confirmed / Unknown;
+- Required capability coverage: Complete / Partial with explicit missing domains;
+- policy versions used for the decision.
+
+For advisory-chassis `BUY WITH NOTES`, reason text must clearly say that this specific machine's ports were attested/tested while the reusable chassis catalog is not certified.
+
+Session attestation must never be labeled as model certification.
+
+## 19. Production-path reachability/security tests
+
+A compiled suite must exercise the same typed production composition, not manufacture an impossible privileged state.
+
+Minimum cases:
+
+1. healthy test-only trusted certified authority + complete evidence → `BUY`;
+2. healthy advisory chassis + complete current-session port attestation → `BUY WITH NOTES`;
+3. advisory chassis + expected required port absent/untested → `INCOMPLETE`;
+4. operator attempts to delete an expected required port → discrepancy retained, no clean acceptance;
+5. dGPU `Present` + trusted GPU provider unavailable → `INCOMPLETE`;
+6. dGPU `Unknown` + provider unavailable → `INCOMPLETE`, never waived as absent;
+7. dGPU `AbsentConfirmed` + no claim → GPU test `NotApplicable` and no artificial blocker;
+8. claimed dGPU contradicted by trusted inventory → critical seller mismatch `REJECT` where policy defines it critical;
+9. CPU load + thermal evidence unavailable/untrusted → `INCOMPLETE`;
+10. mutable chassis file self-declares certified/physical-verified → authority remains `Advisory`;
+11. unauthenticated factory provenance absent while purchase-safety evidence is complete → factory absence alone does not block;
+12. critical hardware/functional/stability failure → `REJECT`;
+13. LapSure runtime/self-validation failure → `INCOMPLETE`/invalid result, not machine `REJECT`;
+14. mutable portable engine manifest changed together with engine → provider still rejected because authority is embedded/protected;
+15. provider executable/dependency replacement at the execution boundary → launch blocked;
+16. coverage and decision consume the same requirement snapshot and report the same requiredness/reasons;
+17. persisted policy versions round-trip through JSON/HTML/session history where applicable.
+
+## 20. Implementation decomposition
+
+Round 5.1 is intentionally split into three reviewable tranches.
+
+### Round 5.1A — Decision Authority Core
+
+Scope:
+
+- authority types/resolver boundary;
+- `Present / AbsentConfirmed / Unknown` capability truth;
+- seller-claim precedence;
+- `RequirementSnapshot` + policy versions;
+- session port attestation with anti-edit-away semantics;
+- immutable `DecisionContext`;
+- one requiredness source for coverage + scoring;
+- `BUY WITH NOTES` advisory-session path;
+- runtime-validation semantics;
+- remove macro trust routing;
+- production-path RED/GREEN reachability tests.
+
+5.1A does **not** enable third-party GPU/thermal binaries.
+
+### Round 5.1B — Trusted Provider Execution
+
+Scope:
+
+- license/provenance review for selected GPU/thermal providers;
+- embedded/protected provider trust root;
+- full provider dependency/bundle closure;
+- TOCTOU-safe Windows execution boundary;
+- exact provider/package provenance;
+- deterministic security/failure-injection tests;
+- integration of trusted GPU/thermal evidence.
+
+No silent runtime download.
+
+### Round 5.1C — Acceptance & Release Closure
+
+Scope:
+
+- report/UI authority/capability/policy semantics;
+- validation matrix and DPI/accessibility correction;
+- exact package/provenance candidate;
+- short Precision smoke;
+- full formal physical acceptance after smoke closure;
+- main branch protection/equivalent ruleset;
+- final review/Ready/Merge/final-main package.
+
+## 21. Review baseline and PR strategy
+
+PR #2 is already a large historical hardening PR. Do not create unnecessary branch churn solely to simulate a sub-PR when the current workflow is scoped to PRs targeting `main`.
+
+Use commit `df3ab209c4afba21ac42ed7bbbb2dfcb615419b6` as the logical Round 5.1 review baseline.
+
+Review each tranche using bounded compare ranges from that baseline/tranche checkpoint instead of re-reviewing the entire PR history.
+
+PR #2 remains Draft until Round 5.1 plus physical acceptance closes.
+
+## 22. Physical-pilot strategy
+
+Artifact #592 remains a runtime/security/package smoke baseline, not the final formal-acceptance candidate.
+
+Validation order after implementation:
+
+1. 5.1A source/unit/reachability/security tests;
+2. strict MSVC `/W4 /WX` checkpoint;
+3. 5.1B provider trust/security tests and integration when providers are ready;
+4. inventory transactional preflight;
+5. exact package/provenance checkpoint;
+6. short Precision smoke;
+7. accessibility smoke before expensive full display matrix;
+8. full formal physical acceptance only if no unresolved P0/P1 blocker.
+
+If provider integration is incomplete, smoke may legitimately remain `INCOMPLETE`; that validates fail-closed runtime behavior but cannot close purchase acceptance.
+
+## 23. DPI/accessibility acceptance
+
+Use Precision-representative targets:
+
+- 1366×768 at 100/125/150% for compatibility viewport;
+- 1920×1200 at 100/125/150% for FHD+ Precision class;
+- 3840×2400 at 150/200/225% where hardware permits for UHD+ Precision class;
+- 1920×1080 as optional compatibility regression, not the primary Precision target.
+
+Run keyboard/focus/accessibility smoke before the full matrix. Accessibility failures are discrepancies, never inferred PASS.
+
+Full UI Automation work is conditional on smoke evidence unless independently elevated to a blocker.
+
+## 24. Documentation/package-state policy
 
 Use:
 
-- `README.md` / product docs for stable policy and architecture;
-- GitHub Issue/PR metadata for current gate state;
-- generated `BUILD_INFO.txt` / package provenance for exact artifact state;
+- README/product docs for stable policy;
+- GitHub PR/issues for live gate state;
+- generated `BUILD_INFO.txt`/provenance for exact artifact state;
 - validation records for physical evidence.
 
-The package verifier must continue to bind the artifact to an exact commit.
+Do not embed volatile current-run instructions in frozen runtime packages as if they were timeless policy.
 
-Package slimming into separate runtime and validation kits is a post-Round-5.1 optimization unless package content itself blocks pilot usability or trust.
+Package slimming remains post-5.1 unless package content creates a usability/trust blocker.
 
-## 14. Repository/release governance
+## 25. Repository/release governance
 
-Before final merge to `main`:
+Before final merge:
 
-- `main` must have branch protection or an equivalent ruleset that prevents accidental direct/force pushes and requires PR-based integration;
-- required checks must be configured so they do not defeat the existing Draft/cost-control policy;
-- PR #2 remains Draft until Round 5.1 package plus physical acceptance permits Ready;
-- no merge/rebase/squash decision may invalidate exact provenance without an explicit final-main package checkpoint.
+- protect `main` or apply an equivalent ruleset;
+- prevent force push and branch deletion;
+- require PR-based integration;
+- require conversation resolution where applicable;
+- configure checks without defeating Draft/cost-control policy;
+- preserve exact provenance across merge strategy and run a final-main package checkpoint.
 
-## 15. Migration plan
+## 26. Acceptance criteria
 
-Implementation should proceed in narrow, independently testable slices:
+Round 5.1 is complete only when:
 
-1. introduce authority/requirement/session-attestation data types without changing verdicts;
-2. add RED reachability tests that demonstrate the current deadlock;
-3. route production through typed decision-facing APIs and remove macro trust substitution;
-4. make coverage/scoring capability-aware;
-5. implement advisory-session-attested `BUY WITH NOTES` semantics;
-6. integrate provider packaging only after provenance/licensing review;
-7. update report/UI reason fields and validation matrix;
-8. run strict compiled/security checkpoint;
-9. create a new exact package/provenance candidate;
-10. run smoke pilot, then full physical acceptance.
+- mutable portable profile data cannot grant `Certified` authority;
+- `Certified` can only be minted from a protected production authority source;
+- capability `Unknown` cannot be treated as absent;
+- seller-claim critical mismatch precedence is deterministic;
+- operator port correction cannot silently shrink required coverage;
+- coverage and scoring share one immutable `RequirementSnapshot`;
+- decision/coverage/authority policy versions are persisted;
+- healthy advisory-chassis + complete session evidence can reach `BUY WITH NOTES`;
+- clean `BUY` remains reserved for protected certified authority + complete evidence;
+- LapSure self-integrity failures yield incomplete/invalid results rather than laptop rejection;
+- dGPU/thermal requiredness remains fail-closed;
+- purchase-grade external-provider trust is rooted outside mutable portable manifest text;
+- provider dependency closure and verify/execute race are addressed and tested before enabling elevated providers;
+- compiled production reachability/security tests cover intended verdicts and trust failures;
+- no previous profile-provenance regression is weakened;
+- a new exact package is generated after production changes;
+- short smoke precedes full physical acceptance;
+- `main` governance is protected before merge.
 
-Each slice must preserve the existing fail-closed profile provenance regression.
+## 27. Proposed design decision
 
-## 16. Acceptance criteria for Round 5.1 design implementation
+Adopt **Round 5.1 A+ — Decision Authority, Capability Truth & Happy-Path Closure**:
 
-Round 5.1 is implementation-complete only when all of the following are true:
+> A specific laptop with complete trustworthy session evidence may reach `BUY WITH NOTES` when reusable chassis guidance is only advisory. Clean `BUY` requires protected certified chassis authority. Capability unknown is never absence. Missing required dGPU/thermal evidence remains `INCOMPLETE`. Machine failures and LapSure self-integrity failures remain separate truths. External provider trust must be anchored outside mutable portable manifest text before provider evidence can become purchase-grade authority.
 
-- no mutable portable profile can grant `Certified` authority;
-- a healthy advisory-chassis machine with complete session-specific port evidence can reach `BUY WITH NOTES` in the production composition;
-- clean `BUY` remains reserved for certified authority plus complete evidence;
-- discrete-GPU requiredness is capability-aware and missing trusted GPU stress evidence blocks acceptance;
-- absent discrete GPU does not create a fake required GPU stage;
-- CPU-load sessions cannot produce a purchase-grade verdict without trusted thermal evidence;
-- coverage and decision consume the same requirement policy;
-- production path no longer relies on preprocessor substitution for trust-sensitive loaders;
-- compiled reachability/security tests cover all intended verdict classes;
-- reports explain authority, session attestation and missing capability evidence without conflating them;
-- #592 remains historical/smoke evidence and a new package is created for formal acceptance;
-- `main` release governance is protected before final merge.
-
-## 17. Design decision
-
-Adopt **Decision Authority & Happy-Path Closure**:
-
-> A specific laptop that has complete, trustworthy session evidence may reach `BUY WITH NOTES` even when its reusable chassis profile is only advisory. Clean `BUY` requires certified chassis authority. Missing required dGPU/thermal evidence remains `INCOMPLETE`; security gates are not relaxed to manufacture a positive verdict.
+This revision is proposed for final approval before implementation planning.

@@ -2,7 +2,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_H = (ROOT / "include/lap/report.h").read_text(encoding="utf-8")
-REPORT_CPP = (ROOT / "src/report.cpp").read_text(encoding="utf-8")
+REPORT_CPP = "\n".join([
+    (ROOT / "src/report.cpp").read_text(encoding="utf-8"),
+    (ROOT / "src/report_publication.cpp").read_text(encoding="utf-8"),
+])
 MAIN = (ROOT / "src/main.cpp").read_text(encoding="utf-8")
 
 
@@ -21,6 +24,8 @@ require(".staging-" in REPORT_CPP or "staging" in REPORT_CPP.lower(),
         "bundle publication must use a staging boundary")
 require("MoveFileExW" in REPORT_CPP,
         "bundle publication must use an explicit final publication move")
+require("CommitSessionHistoryBundle" in REPORT_CPP,
+        "history may be committed only by the bundle publication boundary")
 
 require("MarkReportPersistenceIncomplete" not in MAIN,
         "file I/O failure must not rewrite hardware AuditDecision")

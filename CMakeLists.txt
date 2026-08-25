@@ -68,6 +68,16 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME LapSureReportPublicationTests COMMAND LapSureReportPublicationTests)
 
+  add_executable(LapSureSessionHistoryTests
+      tests/session_history_tests.cpp
+      src/session_history.cpp src/journal.cpp)
+  target_include_directories(LapSureSessionHistoryTests PRIVATE include)
+  target_compile_definitions(LapSureSessionHistoryTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX LAPSURE_ENABLE_TEST_HOOKS)
+  if(MSVC)
+    target_compile_options(LapSureSessionHistoryTests PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus /utf-8)
+  endif()
+  add_test(NAME LapSureSessionHistoryTests COMMAND LapSureSessionHistoryTests)
+
   add_executable(LapSureTrustSecurityTests tests/trust_security_tests.cpp src/trust.cpp src/process.cpp)
   target_include_directories(LapSureTrustSecurityTests PRIVATE include)
   target_compile_definitions(LapSureTrustSecurityTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)

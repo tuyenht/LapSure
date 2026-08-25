@@ -28,7 +28,7 @@ Round 5.1 must:
 - keep `INCOMPLETE` dominant whenever required evidence for the actual machine is missing, unavailable, cancelled or untrusted;
 - make required coverage capability-aware instead of creating artificial `NOT TESTED` blockers for hardware that is not present;
 - require GPU/VRAM integrity evidence when a discrete GPU is present or explicitly claimed;
-- require reliable thermal evidence for purchase-grade stress acceptance where the capability policy says it is mandatory;
+- require reliable thermal evidence for purchase-grade stress acceptance;
 - keep factory provenance separate from machine-health acceptance;
 - add a production-composition reachability regression so CI can prove that the secure path can actually reach every intended verdict;
 - keep artifact #592 as historical runtime/security evidence, not as the final formal-acceptance package.
@@ -145,11 +145,13 @@ If no discrete GPU is present or claimed, the production stress plan must not cr
 
 ### 6.2 Thermal evidence
 
-Thermal evidence is required for purchase-grade stress acceptance on hardware for which stress is run and policy marks reliable thermal observation mandatory.
+A purchase-grade verdict (`BUY` or `BUY WITH NOTES`) requires trusted thermal evidence for every session that executes the CPU sustained-load stage. Because Quick, Standard and Deep all execute CPU load in the current product, missing trusted CPU thermal evidence keeps the purchase decision `INCOMPLETE` in all three modes.
 
-Round 5.1 must not invent CPU package temperature. A trusted provider must either provide the required evidence or the decision remains `INCOMPLETE` when thermal coverage is mandatory.
+Quick may still be used as a runtime/smoke workflow when the thermal provider is unavailable, but that smoke result cannot close formal purchase acceptance.
 
-The policy must be represented explicitly, not inferred from whether a provider happened to be installed.
+Round 5.1 must not invent CPU package temperature. The trusted provider must return contract-valid package-temperature evidence, or formal purchase acceptance remains `INCOMPLETE`.
+
+This requirement is explicit and must not be inferred merely from whether a provider binary happens to exist.
 
 ### 6.3 Other optional capabilities
 
@@ -234,7 +236,7 @@ Minimum required cases:
 3. **Advisory chassis + one required port untested** → `INCOMPLETE`.
 4. **Discrete GPU detected + trusted GPU engine unavailable** → `INCOMPLETE`.
 5. **No discrete GPU present/claimed + GPU engine unavailable** → GPU stage not required and must not create artificial incompleteness.
-6. **Mandatory thermal evidence unavailable** → `INCOMPLETE`.
+6. **CPU load executed + trusted thermal evidence unavailable** → `INCOMPLETE`.
 7. **Mutable chassis file self-declares certified/physical-verified** → authority remains `Advisory`.
 8. **Critical hardware/functional/stability failure** → `REJECT` regardless of authority.
 9. **Factory provenance unavailable but all purchase-safety evidence complete** → does not alone force `INCOMPLETE`.
@@ -324,7 +326,7 @@ Round 5.1 is implementation-complete only when all of the following are true:
 - clean `BUY` remains reserved for certified authority plus complete evidence;
 - discrete-GPU requiredness is capability-aware and missing trusted GPU stress evidence blocks acceptance;
 - absent discrete GPU does not create a fake required GPU stage;
-- mandatory thermal evidence remains fail-closed;
+- CPU-load sessions cannot produce a purchase-grade verdict without trusted thermal evidence;
 - coverage and decision consume the same requirement policy;
 - production path no longer relies on preprocessor substitution for trust-sensitive loaders;
 - compiled reachability/security tests cover all intended verdict classes;

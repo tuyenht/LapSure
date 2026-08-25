@@ -53,8 +53,22 @@ jobs:
           $out = ".\out\inventory-preflight"
           $process = Start-Process -FilePath ".\out\build\msvc-x64-ci\Release\LapSure.exe" -ArgumentList @("--inventory-only", "--output", $out) -WindowStyle Hidden -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Inventory-only preflight exited $($process.ExitCode)" }
-          $json = Get-ChildItem -LiteralPath $out -Filter "*.json" | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
-          if (!$json) { throw "Inventory-only JSON report was not created" }
+
+          # PublishReportBundle atomically moves a complete generation into bundle-<token>.
+          # Validate the public bundle layout instead of assuming artifacts live at output-root top level.
+          $json = Get-ChildItem -LiteralPath $out -Filter "*.json" -File -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (!$json) { throw "Inventory-only JSON report was not created in a published bundle" }
+          if (!$json.Directory.Name.StartsWith("bundle-")) { throw "Inventory-only JSON is not inside a published bundle directory" }
+
+          $html = Get-ChildItem -LiteralPath $json.Directory.FullName -Filter "*.html" -File | Select-Object -First 1
+          if (!$html) { throw "Inventory-only published bundle is missing its HTML sibling" }
+
+          $staging = Get-ChildItem -LiteralPath $out -Directory -Filter ".staging-*" -ErrorAction SilentlyContinue
+          if ($staging) { throw "Inventory-only publication left a staging directory behind" }
+
+          $history = Join-Path $out "session_history.tsv"
+          if (!(Test-Path -LiteralPath $history -PathType Leaf)) { throw "Inventory-only publication did not commit session history" }
+
           $report = Get-Content -LiteralPath $json.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
           if ($report.hardware.stress.completed) { throw "Inventory-only preflight incorrectly completed stress" }
           if ($report.hardware.stress.stages.Count -ne 0) { throw "Inventory-only preflight emitted stress stages" }

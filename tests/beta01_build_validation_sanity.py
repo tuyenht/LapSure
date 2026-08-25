@@ -37,7 +37,11 @@ checks=[
 ("Inventory-only CLI declared","--inventory-only" in main and "RunInventoryOnly" in main),
 ("Inventory-only excludes stress","int RunInventoryOnly" in main and "void Fill" in main and "RunStressSession" not in main[main.index("int RunInventoryOnly"):main.index("void Fill")]),
 ("Inventory-only uses transactional publication","PublishReportBundle(report, outputRoot)" in main),
-("Inventory-only exercised in CI","Inventory-only provider preflight" in wf and "--inventory-only" in wf),
+("Inventory-only CI follows transactional bundle layout",
+ "Inventory-only provider preflight" in wf and "--inventory-only" in wf and
+ 'Filter "*.json" -File -Recurse' in wf and 'StartsWith("bundle-")' in wf and
+ 'Filter "*.html" -File' in wf and 'Filter ".staging-*"' in wf and
+ '"session_history.tsv"' in wf),
 ("Validation matrix",(R/"validation/REAL_MACHINE_MATRIX.tsv").exists()),
 ("Validation checklist",(R/"validation/VALIDATION_CHECKLIST.md").exists()),
 ("Pilot runbook",(R/"validation/PILOT_RUNBOOK.md").exists()),

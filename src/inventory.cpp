@@ -2,6 +2,7 @@
 #include "lap/process.h"
 #include "lap/hardware.h"
 #include <windows.h>
+#include <objbase.h>
 #include <intrin.h>
 #include <sstream>
 #include <algorithm>
@@ -32,10 +33,21 @@ static std::wstring DellServiceTagToExpressCode(const std::wstring& tag) {
     return std::to_wstring(val);
 }
 
+static std::wstring CreateInspectionId() {
+    GUID id{};
+    if (FAILED(CoCreateGuid(&id))) return L"";
+    wchar_t buffer[40]{};
+    if (StringFromGUID2(id, buffer, 40) <= 0) return L"";
+    std::wstring value(buffer);
+    if (value.size() > 2 && value.front() == L'{' && value.back() == L'}') value = value.substr(1, value.size() - 2);
+    return value;
+}
+
 static State BatteryState(double health){if(health<0)return State::NotTested;if(health>=85)return State::Pass;if(health>=80)return State::Good;if(health>=70)return State::Warning;return State::Fail;}
 
 AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,const std::wstring&,const std::atomic_bool* cancel){
- AuditReport r{};r.environment=EnvironmentName(caps);
+ AuditReport r{};r.hardware.stress.sessionId=CreateInspectionId();r.environment=EnvironmentName(caps);
+ if(r.hardware.stress.sessionId.empty())Add(r,L"Inspection",L"Inspection identity",L"UNAVAILABLE",L"Unique inspection identity",State::NotTested,Severity::Critical,Dimension::Evidence,L"CoCreateGuid failed; acceptance evidence cannot be correlated safely.");
  r.model=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemProductName");
  r.serviceTag=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemSerialNumber");
  if(r.serviceTag.empty()&&caps.powershell){auto id=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"(Get-CimInstance Win32_BIOS|Select-Object -First 1).SerialNumber\"",10000,cancel);auto lines=SplitLines(id.output);if(id.launched&&!id.timedOut&&!lines.empty())r.serviceTag=lines.front();}
@@ -98,4 +110,3 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
  }
  return r;
 }
-} // namespace lap

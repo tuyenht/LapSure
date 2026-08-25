@@ -167,6 +167,22 @@ void TestPortAttestationCannotShrinkCoverage() {
            "expected port absence records discrepancy");
 }
 
+void TestPortAttestationRejectsLabelOnlyIdentity() {
+    const auto profile = TwoRequiredPortProfile();
+    auto attestation = lap::InitializeSessionPortAttestation(L"session-label", profile);
+
+    lap::PortProbeResult labelOnly{};
+    labelOnly.portLabel = L"Left TB4 #1";
+    labelOnly.deviceEnumerated = true;
+    labelOnly.verdict = L"PASS";
+    lap::ApplyPortResultToAttestation(attestation, labelOnly);
+
+    Expect(lap::RequiredPortsRemaining(attestation) == 2,
+           "label-only result cannot satisfy expected port coverage");
+    Expect(!attestation.ports[0].tested,
+           "label-only result leaves expected row untested");
+}
+
 void TestPortAttestationCompletesByStableId() {
     const auto profile = TwoRequiredPortProfile();
     auto attestation = lap::InitializeSessionPortAttestation(L"session-2", profile);
@@ -187,6 +203,19 @@ void TestPortAttestationCompletesByStableId() {
 
     Expect(lap::RequiredPortsRemaining(attestation) == 0,
            "required ports complete only from stable expected IDs");
+    Expect(attestation.operatorConfirmed && !attestation.confirmedAt.empty(),
+           "complete required port evidence confirms the session attestation");
+
+    lap::RecordPortObservation(attestation,
+                               L"left-tb4-2",
+                               lap::CapabilityTruth::AbsentConfirmed,
+                               L"Operator correction after probe");
+    Expect(lap::RequiredPortsRemaining(attestation) == 1,
+           "later expected-port absence reopens required coverage");
+    Expect(!attestation.operatorConfirmed && attestation.confirmedAt.empty(),
+           "later expected-port absence revokes stale confirmation");
+    Expect(attestation.ports.size() == 2,
+           "later correction still preserves expected denominator");
 }
 } // namespace
 
@@ -194,6 +223,7 @@ int main() {
     TestAuthorityBoundary();
     TestDiscreteGpuTruth();
     TestPortAttestationCannotShrinkCoverage();
+    TestPortAttestationRejectsLabelOnlyIdentity();
     TestPortAttestationCompletesByStableId();
 
     auto report = HealthyAdvisoryFixture();

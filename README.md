@@ -3,161 +3,184 @@
 <div align="center">
 
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20WinPE-blue?style=for-the-badge&logo=windows)
-![Build](https://img.shields.io/badge/MSVC-C%2B%2B20%20Strict%20%2FW4%20%2FWX-brightgreen?style=for-the-badge&logo=visualstudio)
-![CI](https://img.shields.io/github/actions/workflow/status/tuyenht/LapSure/windows-msvc-build.yml?branch=main&style=for-the-badge&label=GitHub%20CI)
-![Tests](https://img.shields.io/badge/tests-193%2F193%20PASSED-success?style=for-the-badge&logo=checkmarx)
+![Build](https://img.shields.io/badge/MSVC-C%2B%2B20%20%2FW4%20%2FWX-brightgreen?style=for-the-badge&logo=visualstudio)
+![CI](https://img.shields.io/github/actions/workflow/status/tuyenht/LapSure/windows-msvc-build.yml?branch=main&style=for-the-badge&label=Windows%20CI)
 ![Release](https://img.shields.io/github/v/release/tuyenht/LapSure?style=for-the-badge&color=orange)
 ![License](https://img.shields.io/badge/license-Proprietary%20%2F%20All%20Rights%20Reserved-lightgrey?style=for-the-badge)
 
-**Phần mềm Kiểm định, Chẩn đoán & Pháp y Laptop Chuyên nghiệp dành cho Windows và WinPE**
+**Laptop Verification & Diagnostics for Windows / WinPE**
 
-> *"Kiểm đúng máy. Biết đúng tình trạng. Mua đúng giá."*
-
-[Tải về Bản phát hành](#-tải-về-bản-phát-hành--downloads) • [Kiến trúc Dashboard](#-giao-diện-professional-dashboard-23-màn-hình) • [Tính năng Nổi bật](#-tính-năng-nổi-bật) • [Hệ sinh thái Hỗ trợ](#-hỗ-trợ-chuyên-sâu-các-dòng-máy) • [Hướng dẫn Sử dụng](#-hướng-dẫn-sử-dụng) • [Quy trình Build](#-hướng-dẫn-build-từ-mã-nguồn)
+> **Kiểm đúng máy. Biết đúng tình trạng. Mua đúng giá.**
 
 </div>
 
 ---
 
-## 📥 Tải về Bản phát hành / Downloads
+## Trạng thái dự án
 
-Tất cả các bản dựng đều được biên dịch tự động qua GitHub Actions MSVC x64 Native Pipeline với chữ ký Checksum SHA-256 xác thực:
+LapSure hiện ở giai đoạn **Beta 0.1.1 / production-hardening**. Mục tiêu của dự án là kiểm định laptop đã qua sử dụng bằng bằng chứng kỹ thuật có thể truy vết, thay vì suy đoán hoặc tạo trạng thái PASS khi dữ liệu chưa đủ.
 
-| Phiên bản | Trạng thái | Gói tải về Portable (.zip) | Ghi chú phát hành |
-| :--- | :--- | :--- | :--- |
-| **v0.1.1-Beta (Mới nhất)** | 🟢 Stable Release | [👉 **LapSure-windows-x64-portable.zip**](https://github.com/tuyenht/LapSure/releases/download/v0.1.1-beta/LapSure-windows-x64-portable.zip) | Ra mắt **Professional Dashboard** (23 màn hình Win32 native, C01–C12 Design System, Per-Monitor V2 DPI Scaling, 100% 0-Defect Audit) |
-| **v0.1.0-Beta** | ⚪ Archive | [👉 **LapSure-windows-x64-portable.zip**](https://github.com/tuyenht/LapSure/releases/download/v0.1.0-beta/LapSure-windows-x64-portable.zip) | Bản thử nghiệm Core Engine ban đầu (Dell fleet, Base36, PnP Code 43 audit, Battery telemetry) |
+Bản hardening hiện tại trên PR #2 đã vượt qua checkpoint tự động gồm source regression, MSVC x64 Release strict `/W4 /WX`, CTest behavioral/security tests, inventory-only provider preflight và kiểm tra package/provenance. Tuy vậy, **đây chưa phải chứng nhận production-ready**: ma trận máy thật vẫn cần full-workflow pilot trên Precision đại diện, và profile chỉ được coi là đủ bằng chứng sau khi có tối thiểu hai máy vật lý được xác minh độc lập theo runbook.
 
-🔗 **Trang tổng hợp tất cả các phiên bản (Releases Page)**:  
-👉 **[https://github.com/tuyenht/LapSure/releases](https://github.com/tuyenht/LapSure/releases)**
+Các nguyên tắc phát hành hiện tại:
 
----
+- Thiếu, lỗi, timeout, stale, mâu thuẫn, unsupported hoặc untrusted evidence **không được biến thành PASS/BUY**.
+- Required coverage chưa đủ thì kết luận phải giữ **INCOMPLETE / CHƯA ĐỦ DỮ LIỆU**.
+- Functional presence không đồng nghĩa với functional PASS; Wi-Fi, Bluetooth, cổng vật lý và các phép kiểm tra tương tác cần evidence/stimulus phù hợp.
+- External diagnostic engines chỉ được chạy qua trust boundary có canonical path và SHA-256 allowlist; không xác minh được thì không chạy.
+- Tagged Beta là bản thử nghiệm có thể kiểm chứng, **không phải tuyên bố Stable/Production certification**.
 
-## 🖥️ Giao diện Professional Dashboard (23 Màn hình)
+## Bản phát hành
 
-LapSure sở hữu giao diện đồ họa **Native Win32 C++20 Professional Dashboard** tối ưu hoàn hảo cho kỹ thuật viên và người mua máy:
+| Phiên bản | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| **v0.1.1-beta** | Beta / validation | Evidence-correctness, behavioral regression gates, runtime/port coverage semantics và portable package verification. |
+| **v0.1.0-beta** | Archive | Core diagnostic engine ban đầu. |
 
-* **Không phụ thuộc Framework cồng kềnh**: 100% Pure Win32 GDI double-buffered, khởi chạy tức thì trong 0.2 giây cả trên Windows 11 lẫn môi trường cứu hộ USB WinPE.
-* **Chuẩn Design System 4px Scale & Per-Monitor V2 DPI Awareness**: Tự động hiển thị sắc nét từ màn hình laptop HD 1366x768 đến màn hình 4K 200% scaling mà không bị mờ hay vỡ layout.
-* **12 Thành phần Tái sử dụng (C01–C12 Reusable Component Library)**:
-  * **C01 App Shell**: Layout 3 vùng tiêu chuẩn (Sidebar 240px, Content canvas, Status footer).
-  * **C02 Sidebar & Grouped Navigation**: 4 nhóm điều hướng chuẩn mực (*Quy trình, Chi tiết thiết bị, Đánh giá & Hồ sơ, Hệ thống*).
-  * **C03 Page Header**: Tiêu đề trang kèm thẻ trạng thái và mã định danh phiên kiểm tra.
-  * **C04 Status Badge**: Thẻ trạng thái 3 cấp độ kết hợp màu sắc, biểu tượng và chữ tiếng Việt chuẩn hóa.
-  * **C05 Metric Card & KPI**: Thẻ số liệu lớn hiển thị sức khỏe pin, độ mòn SSD, nhiệt độ và xung nhịp.
-  * **C06 Progress & Coverage**: Thanh tiến trình kép phân biệt rõ ràng giữa *Tiến độ thời gian* và *Mức độ bao phủ bằng chứng*.
-  * **C07 Guided Stepper**: Hướng dẫn từng bước kiểm tra tuần tự có kiểm soát rủi ro.
-  * **C08 Evidence Row**: Hàng đối chiếu bằng chứng kỹ thuật với dấu thời gian và nguồn dữ liệu.
-  * **C09 Data Table**: Bảng dữ liệu đa cột hỗ trợ phông chữ Monospace cho địa chỉ thanh ghi và mã Serial.
-  * **C10 Next Action Panel**: Khung hướng dẫn hành động tiếp theo thông minh.
-  * **C11 Dialog Confirmation**: Hộp thoại xác nhận thao tác quan trọng có cảnh báo rủi ro.
-  * **C12 Empty / Error State**: Giao diện hiển thị rõ ràng khi thiếu dữ liệu hoặc không có quyền truy cập.
+Xem các gói đã gắn tag tại [GitHub Releases](https://github.com/tuyenht/LapSure/releases). Nhánh/PR hardening mới hơn tag không được xem là release cho tới khi các gate phát hành tương ứng hoàn tất.
 
 ---
 
-## 🌟 Tính năng Nổi bật
+## LapSure kiểm tra những gì?
 
-LapSure được thiết kế theo triết lý **"Zero-Blind, Zero-Defect, Không bao giờ cấp PASS giả"**, cung cấp bằng chứng kỹ thuật trực quan và minh bạch:
+### 1. Nhận diện và đối chiếu cấu hình
 
-### 1. Nhận diện & Đối chiếu Cấu hình Chi tiết
-- **Bộ xử lý (CPU)**: Tên chip đầy đủ, xung nhịp, số nhân/luồng.
-- **Bộ nhớ (RAM)**: Chi tiết từng thanh DIMM cắm trên bo mạch (Hãng sản xuất, Part Number, Serial Number, Bus thực tế/Bus thiết kế).
-- **Ổ lưu trữ (NVMe/SSD)**: Đọc dữ liệu SMART, sức khỏe phần trăm tuổi thọ còn lại (Endurance), nhiệt độ, chu kỳ bật/tắt (Power Cycles), số giờ hoạt động (Power-On Hours), số lần sập nguồn đột ngột (Unsafe Shutdowns).
-- **Đồ họa (GPU)**: Nhận diện cả iGPU tích hợp và dGPU rời (NVIDIA/AMD), dung lượng VRAM, phiên bản Driver, VBIOS, nhiệt độ, công suất (W).
-- **Màn hình**: Đọc trực tiếp bộ mã **EDID Descriptor** từ phần cứng màn hình (độ phân giải gốc native, tần số quét Hz, tên mã tấm nền panel) — chống chiêu trò ép độ phân giải ảo qua phần mềm.
-- **Bảo mật & Firmware**: Kiểm tra trạng thái TPM 2.0, Secure Boot, phiên bản BIOS/SMBIOS.
+- CPU, RAM/DIMM, storage, GPU, BIOS/SMBIOS và Service Tag khi provider hỗ trợ.
+- Native EDID để xác minh màn hình, độ phân giải gốc và evidence liên quan thay vì dùng current desktop resolution làm bằng chứng panel.
+- Seller Claim để đối chiếu cấu hình người bán quảng cáo với phần cứng thực tế.
+- Model/chassis profile được dùng như kỳ vọng tham chiếu; profile thiếu hoặc chưa được chứng nhận không tự tạo PASS.
 
-### 2. Pháp y & Bảo vệ Người Mua Used Laptop
-- **Quét mã lỗi Driver ẩn (PnP Yellow Bang Detector)**: Quét toàn bộ cây thiết bị qua Windows SetupAPI & Configuration Manager:
-  - Phát hiện `Code 43` (`CM_PROB_FAILED_POST_START` — lỗi chết chip GPU dGPU đóng lại chân/hấp chip) $	o$ **Lập tức ra phán quyết `REJECT (KHÔNG NÊN MUA)`**.
-  - Phát hiện `Code 10` (lỗi khởi động thiết bị), `Code 28` (thiếu driver), `Code 22` (bị cố tình tắt).
-- **Kiểm tra An toàn Hệ thống tệp (Filesystem Dirty-Bit Integrity)**:
-  - Gửi lệnh Win32 `FSCTL_IS_VOLUME_DIRTY` quét toàn bộ phân vùng ổ đĩa (C:, D:...).
-  - Phát hiện phân vùng bị cờ DIRTY do BSOD crash, sập nguồn đột ngột hoặc hỏng sector metadata.
-- **Đo Tốc độ Xả Pin thời gian thực (Controlled Battery Discharge Telemetry)**:
-  - Đọc công suất xả tức thời (mW / W), dung lượng thực tế còn lại (mWh), điện áp (V) từ ngăn xếp `root/wmi:BatteryStatus`.
-  - Tự động phát hiện pin tụt áp đột ngột hoặc cell pin bị chập/ăn nguồn (> 65W).
-- **Đối chiếu Cam kết Người bán (Seller Claim Form)**:
-  - So sánh cấu hình người bán quảng cáo (Model, CPU, RAM, Ổ cứng, Giá tiền, Ngày bảo hành) với phần cứng thực tế. Bất kỳ sai lệch nào đều kích hoạt bằng chứng cảnh báo nghiêm trọng.
-- **Kiểm tra Ngoại hình 6 Điểm Vật lý**:
-  - Bản lề & khung vỏ (Hinges & Chassis)
-  - Móp méo, cong vênh do rơi rớt
-  - Vết can thiệp ốc vít, rách tem bảo hành
-  - Dấu vết vào nước, ẩm mốc (Liquid damage)
-  - Phồng pin, kênh trackpad
-  - Sạc zin theo máy & đúng công suất
+### 2. Storage, pin và sức khỏe phần cứng
 
-### 3. Bộ Wizard Tương tác Trực quan 100% Tiếng Việt
-- ⌨️ **Bàn phím Ma trận 68 phím ANSI**: Theo dõi thời gian thực từng nút bấm với giao diện GDI double-buffered chống giật, đếm tỷ lệ % hoàn tất và chỉ điểm phím liệt.
-- 🖱️ **Lưới Cảm ứng Trackpad 80 ô**: Kiểm tra toàn bộ diện tích cảm ứng, click trái, click phải và cuộn 2 ngón tay (Two-finger scroll).
-- 🖥️ **Phân loại Khuyết tật Màn hình 5 Cấp độ**: Hiển thị tuần tự qua 6 nền màu chuẩn (Đỏ, Xanh lá, Xanh dương, Trắng, Đen, Xám) để phát hiện điểm chết (Dead pixel), hở sáng (Backlight bleed), ố vàng, sọc chỉ, đốm phản quang.
-- 🔊 **Loa Stereo Trái/Phải (L/R)**: Phát âm tần số chuẩn 660Hz tách biệt 2 kênh để xác nhận loa không bị rè, không bị chập kênh.
-- 📷 **Thiết bị Ngoại vi Tự động**: Kiểm tra luồng khung hình Camera (Media Foundation), Microphone (WaveIn PCM), card mạng Wi-Fi và Bluetooth.
+- Windows Storage Management reliability counters cho health/operational state, nhiệt độ, wear và error evidence khi khả dụng.
+- SMART/NVMe enrichment qua engine đã allowlist khi được đóng gói và xác minh.
+- Battery design/full-charge capacity, wear, cycle evidence và fallback có ghi rõ nguồn khi provider chính không đọc được.
+- Event/forensics evidence cho WHEA, storage/display errors, unexpected restart và các tín hiệu ổn định khác mà Windows cung cấp.
 
-### 4. Cơ sở Dữ liệu Điểm chuẩn Silicon CPU (Silicon Baseline DB)
-- Tích hợp sẵn bảng điểm chuẩn tham chiếu `baselines/cpu_microbench.tsv` cho các dòng chip phổ biến:
-  - **Intel Core H-Series**: i7-11800H, i7-11850H, i9-11900H, i9-11950H, i7-10750H, i7-12700H, i7-12800H, i9-12900H, i7-13700H, i9-13900H.
-  - **Intel Core P/U-Series**: i7-1165G7, i7-1185G7, i5-1135G7, i5-1145G7, i7-1260P, i7-1280P, i5-1240P, i5-1250P.
-  - **AMD Ryzen Pro & Mobile**: Ryzen 7 5800U, Ryzen 7 PRO 5850U, Ryzen 5 5600U, Ryzen 5 PRO 5650U, Ryzen 7 6800U, Ryzen 7 PRO 6850U.
-- Nếu điểm bài test Microbench thấp hơn mức sàn $	o$ Báo động **`BELOW BASELINE` (CPU bị bóp xung/thermal throttle do keo khô hoặc tản nhiệt hỏng)**.
+### 3. Kiểm tra chức năng có tương tác
+
+- Bàn phím, touchpad/click/scroll, màn hình và phân loại lỗi hiển thị.
+- Camera, microphone và stereo audio.
+- Wi-Fi và Bluetooth với semantics bảo thủ: phát hiện radio/device chỉ là presence evidence, không tự động chứng minh chức năng hoàn chỉnh.
+- Ngoại hình/an toàn vật lý: chassis, bản lề, dấu va đập/can thiệp, chất lỏng/ăn mòn, pin phồng và an toàn nguồn/sạc.
+
+### 4. Ports & Power
+
+LapSure lưu evidence theo từng phép thử cổng/nguồn. Controller hoặc host-router presence không được dùng thay cho bằng chứng thiết bị/stimulus thực tế. Khi không thể chứng minh tốc độ, DP Alt Mode, Thunderbolt/USB4 path hoặc công suất adapter một cách đáng tin cậy, kết quả phải giữ unknown/not-tested thay vì tự suy diễn.
+
+### 5. Stress & Stability
+
+- Bounded CPU sustained-load stage.
+- Online partial-coverage RAM integrity test; không tuyên bố thay thế pre-boot memory diagnostics.
+- GPU/VRAM stage khi trusted engine phù hợp có mặt.
+- Event deltas và telemetry được gắn vào từng stress stage.
+- Cancellation, timeout, crash/reboot/interrupted-session recovery không được chuyển thành clean PASS.
 
 ---
 
-## 💻 Hỗ trợ Chuyên sâu các Dòng máy
+## Evidence-first decision model
 
-### Hệ sinh thái Dell Toàn diện
-1. **Dell Latitude**: 7490, 7400, 7410, 7420, 7430, 5400, 5410, 5420, 5430, 3420.
-2. **Dell XPS**: XPS 13 (9300, 9310, 9320 Plus), XPS 15 (9500, 9510, 9520), XPS 17 (9710).
-3. **Dell Precision Workstation**: 3560, 5550, 5560, 5570, 7550, 7560, 7670.
-4. **Dell Inspiron & Vostro**: Vostro 5410, Inspiron 14/15/16.
-5. **Dell Gaming**: G15 5511 (Thunderbolt 4, Killer 2.5G LAN, HDMI 2.1).
-6. **Dell Universal Architecture Engine**: Tự động nhận diện và sinh layout cổng cho bất kỳ máy Dell nào kể cả khi chưa có profile tĩnh.
-7. **Dell Base36 Express Service Code**: Tự động chuyển đổi Service Tag sang Express Service Code và sinh link tra cứu trực tiếp trên Dell Support Portal.
+LapSure tách ba khái niệm thường bị trộn lẫn:
 
-### Hệ sinh thái Lenovo ThinkPad
-- **ThinkPad X1 Carbon**: Gen 9, Gen 10.
-- **ThinkPad T-Series**: T14 Gen 2 (Intel), T14s Gen 2, T14 Gen 3.
-- **ThinkPad P-Series**: P1 Gen 4 Workstation.
+1. **Evidence** — dữ liệu thật thu được từ provider, thao tác người dùng hoặc artifact đã lưu.
+2. **Coverage** — required domain nào đã đủ bằng chứng, partial hoặc chưa test.
+3. **Decision** — kết luận mua/không mua chỉ được tạo sau khi coverage và severity cho phép.
+
+Các kết luận sản phẩm được thiết kế xoay quanh `BUY`, `BUY WITH NOTES`, `INCOMPLETE` và `REJECT`; UI/report phải bảo toàn uncertainty thay vì che nó bằng phần trăm hoặc trạng thái mẫu.
+
+HTML và JSON report dùng cùng inspection identity, giữ provenance/evidence semantics và được lưu theo transaction để tránh công bố một cặp report không đồng bộ.
 
 ---
 
-## 🚀 Hướng dẫn Sử dụng
+## Professional Dashboard
 
-1. Tải file [**`LapSure-windows-x64-portable.zip`**](https://github.com/tuyenht/LapSure/releases/download/v0.1.0-beta/LapSure-windows-x64-portable.zip) và giải nén ra thư mục bất kỳ (hoặc chép vào USB mang đi).
-2. Nhấp chuột phải vào `LapSure.exe` và chọn **Run as administrator** (Chạy với quyền Quản trị viên để phần mềm đọc được bảng điều khiển phần cứng từ Ring-0/WMI/SetupAPI).
-3. Chọn chế độ kiểm tra:
-   - **Nhanh (Quick - khuyên dùng)**: 60 giây kiểm tra tổng thể.
-   - **Tiêu chuẩn (Standard)**: 3 phút kiểm tra độ ổn định.
-   - **Chuyên sâu (Deep)**: Kiểm tra toàn diện bộ nhớ RAM và VRAM.
-4. Nhấn **BẮT ĐẦU KIỂM TRA** để hệ thống tự động quét toàn bộ.
-5. Sau khi quét xong, nhấn **TIẾP TỤC BƯỚC KẾ** để thực hiện các bài test tương tác (Màn hình, Bàn phím, Trackpad, Loa, Cổng cắm, Ngoại hình).
-6. Nhấn **XEM KẾT QUẢ** để mở báo cáo kỹ thuật `audit_report.html` đẹp mắt, chi tiết.
+Ứng dụng sử dụng native Win32/C++20 và hệ thống màn hình evidence-bound S01–S23. Các thành phần giao diện chính gồm app shell, grouped navigation, page header, status badge, metric cards, progress/coverage, guided stepper, evidence rows, data table, next-action panel, confirmation dialog và explicit empty/error states.
+
+Mục tiêu thiết kế là:
+
+- dữ liệu runtime động, không dùng sample hardware/fixed percentage/pre-filled PASS;
+- status không chỉ dựa vào màu;
+- DPI-aware Win32 rendering;
+- CTA/hit-test chỉ hoạt động khi control tương ứng thực sự được render;
+- lịch sử phiên, export và interrupted recovery lấy từ artifact/journal đã persisted thay vì dữ liệu demo.
 
 ---
 
-## 🛠️ Hướng dẫn Build từ Mã nguồn
+## Build từ source
 
-### Yêu cầu Môi trường:
-- Windows 10/11 x64
-- Visual Studio 2022 (MSVC Toolset v143+) có cài đặt CMake và C++20 Desktop Development.
+Yêu cầu Windows với Visual Studio 2022/MSVC và CMake đủ mới theo `CMakePresets.json`.
 
-### Lệnh Build:
-Mở **x64 Native Tools Command Prompt for VS 2022** tại thư mục dự án và chạy:
-```cmd
-cmake --preset build-msvc-x64-release
+Build Release để phát triển cục bộ:
+
+```powershell
+cmake --preset msvc-x64-release
 cmake --build --preset build-msvc-x64-release
 ```
 
-### Chạy Bộ Kiểm thử Hồi quy (Regression Suite):
+Chạy source regression:
+
 ```cmd
 run_source_tests.cmd
 ```
-*Tất cả 37 Sanity Tests và 17 Behavioral Tests sẽ được tự động thực thi.*
+
+Checkpoint strict tương đương CI:
+
+```powershell
+cmake --preset msvc-x64-ci
+cmake --build --preset build-msvc-x64-ci
+ctest --test-dir out/build/msvc-x64-ci -C Release --output-on-failure
+```
+
+Không bỏ `/W4 /WX`, không tắt test hoặc hạ evidence gate chỉ để làm build xanh.
 
 ---
 
-## 📄 Bản quyền & Tác giả
+## GitHub Actions & kiểm soát chi phí
 
-- **Tác giả & Kiến trúc sư trưởng**: TuyenHT (LapSure Core Engineering Team)
-- **Repo chính thức**: [https://github.com/tuyenht/LapSure](https://github.com/tuyenht/LapSure)
-- **Bản quyền**: © 2026 LapSure Project. All rights reserved.
+Workflow Windows được cố ý thiết kế để không build liên tục trong lúc phát triển:
+
+- PR ở trạng thái **Draft** không cấp Windows build runner thông thường.
+- `docs/**`, `design/**` và Markdown-only changes được bỏ qua.
+- Các run superseded được cancel bằng concurrency policy.
+- Portable packaging, integrity verification và artifact upload chỉ chạy khi **manual `workflow_dispatch`**.
+- Trong quá trình phát triển, ưu tiên source tests/build cục bộ; chỉ dùng remote CI cho checkpoint có giá trị xác nhận rõ ràng.
+
+Workflow không được tự sửa code hoặc tự commit/push. One-shot migration/validation helpers chỉ được dùng như công cụ chuyển tiếp có chủ đích và phải được xóa khỏi candidate sau khi hoàn thành.
+
+---
+
+## Real-machine validation gate
+
+Repo có bộ tài liệu trong `validation/`:
+
+- `PILOT_RUNBOOK.md`
+- `VALIDATION_CHECKLIST.md`
+- `REAL_MACHINE_MATRIX.tsv`
+- `SESSION_RECORD_TEMPLATE.md`
+- `DISCREPANCY_LOG_TEMPLATE.tsv`
+- `REFERENCE_COMPARATORS.md`
+- `verify_portable_package.ps1`
+
+Trước khi nâng trạng thái từ Beta hardening lên production-ready, cần ít nhất một full runtime-acceptance workflow trên máy Precision mục tiêu với report đồng thuận, không có critical false PASS và mọi discrepancy quan trọng đã được reviewer disposition. Profile certification cần tối thiểu hai máy vật lý được xác minh độc lập.
+
+Hiện các entry Precision 5560 / 5570 / 7670 trong real-machine matrix vẫn là **NOT RUN** cho full audit/runtime gate; vì vậy README, release notes và UI không được tuyên bố các profile này đã được chứng nhận.
+
+---
+
+## Security & trust
+
+Xem [SECURITY.md](SECURITY.md) cho security policy và trust model. Một số nguyên tắc cốt lõi:
+
+- explicit executable path thay vì phụ thuộc PATH resolution cho security-sensitive processes;
+- canonical system PowerShell path cho privileged diagnostics;
+- external engine verification fail-closed;
+- session/history/report artifacts được coi là untrusted input khi mở lại và phải được validation/bounding phù hợp;
+- persistence failure không được thay đổi hardware decision thành một kết luận sạch giả tạo.
+
+---
+
+## Định hướng tiếp theo
+
+Ưu tiên tiếp theo không phải mở rộng marketing claim mà là hoàn tất real-machine evidence: chạy pilot Precision theo runbook, disposition discrepancy, xác minh report/port/profile behavior và chỉ sau đó mới cân nhắc Ready for Review/merge/release candidate.
+
+LapSure là công cụ hỗ trợ kiểm định và quyết định mua máy; kết luận cuối cùng vẫn cần được đọc cùng evidence và giới hạn coverage của từng phiên kiểm tra.

@@ -123,24 +123,25 @@ ProfileLoadResult LoadFactoryProfile(const std::wstring& dir,
         }
     };
 
-    // Only reviewed static files directly under profiles/ participate in factory truth.
-    // Mutable cache content is intentionally excluded from this loader.
+    // Only top-level static files are parsed. Portable files remain mutable and
+    // therefore cannot become trusted factory truth without authenticated/hash-pinned provenance.
     scanDir(root);
 
     if (exactMatches == 1) {
         out.profile = std::move(matched);
-        out.exact = true;
-        out.trustedProvenance = true;
-        out.loaded = true;
+        out.exact = false;
+        out.trustedProvenance = false;
+        out.loaded = false;
         out.source = std::move(matchedSource);
+        out.error = L"Exact identity matched an unsigned portable static profile; advisory only, Generic Audit mode.";
         return out;
     }
     if (exactMatches > 1) {
-        out.error = L"Ambiguous exact Service Tag profile; multiple reviewed profiles match.";
+        out.error = L"Ambiguous exact Service Tag profile; multiple static profiles match; Generic Audit mode.";
         return out;
     }
 
-    out.error = L"No reviewed exact Service Tag profile; Generic Audit mode";
+    out.error = L"No authenticated exact Service Tag profile; Generic Audit mode";
     return out;
 }
 } // namespace lap

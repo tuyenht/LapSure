@@ -53,6 +53,19 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME LapSureBehaviorTests COMMAND LapSureBehaviorTests)
 
+  add_executable(LapSureReportPublicationTests
+      tests/report_publication_tests.cpp
+      src/report.cpp src/session_history.cpp src/journal.cpp
+      src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/runtime_validation.cpp
+      src/orchestrator.cpp src/functional.cpp src/process.cpp src/hardware.cpp src/baseline.cpp)
+  target_include_directories(LapSureReportPublicationTests PRIVATE include)
+  target_compile_definitions(LapSureReportPublicationTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX LAPSURE_ENABLE_TEST_HOOKS)
+  target_link_libraries(LapSureReportPublicationTests PRIVATE user32 advapi32 shell32 shlwapi bcrypt)
+  if(MSVC)
+    target_compile_options(LapSureReportPublicationTests PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus /utf-8)
+  endif()
+  add_test(NAME LapSureReportPublicationTests COMMAND LapSureReportPublicationTests)
+
   add_executable(LapSureTrustSecurityTests tests/trust_security_tests.cpp src/trust.cpp src/process.cpp)
   target_include_directories(LapSureTrustSecurityTests PRIVATE include)
   target_compile_definitions(LapSureTrustSecurityTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)

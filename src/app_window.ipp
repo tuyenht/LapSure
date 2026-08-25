@@ -383,7 +383,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 
         // S04: pause/resume and cancel/restart controls use the same rail geometry as the current renderer family.
         if (gCurrentTab == MainTab::AutoAudit) {
-            const int rightPanelW = std::clamp((client.right - client.left) * 26 / 100,
+            const int clientWidth = static_cast<int>(client.right - client.left);
+            const int rightPanelW = std::clamp(clientWidth * 26 / 100,
                                                UiMetrics::Scale(260, dpi), UiMetrics::Scale(340, dpi));
             const int rightX = client.right - rightPanelW - UiMetrics::Scale(20, dpi);
             const int mainW = rightX - layout.contentRect.left - UiMetrics::Scale(32, dpi);

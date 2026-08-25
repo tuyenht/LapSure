@@ -1,6 +1,8 @@
 #include "lap/process.h"
 #include "lap/trust.h"
 #include <windows.h>
+#include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -37,10 +39,22 @@ int ChildMode(int argc, wchar_t** argv) {
     }
     return 0;
 }
+
+int HandleChildMode(int argc, wchar_t** argv) {
+    if (argc != 3) return 61;
+    wchar_t* end = nullptr;
+    const auto raw = _wcstoui64(argv[2], &end, 10);
+    if (!end || *end != L'\0') return 62;
+    const HANDLE candidate = reinterpret_cast<HANDLE>(static_cast<uintptr_t>(raw));
+    DWORD available = 0;
+    if (PeekNamedPipe(candidate, nullptr, 0, nullptr, &available, nullptr)) return 63;
+    return GetLastError() == ERROR_INVALID_HANDLE ? 0 : 64;
 }
+} // namespace
 
 int wmain(int argc, wchar_t** argv) {
     if (argc > 1 && std::wstring(argv[1]) == L"--argv-child") return ChildMode(argc, argv);
+    if (argc > 1 && std::wstring(argv[1]) == L"--handle-child") return HandleChildMode(argc, argv);
     if (argc > 1 && std::wstring(argv[1]) == L"--sleep-child") { Sleep(3000); return 0; }
 
     namespace fs = std::filesystem;
@@ -63,6 +77,20 @@ int wmain(int argc, wchar_t** argv) {
     auto explicitRun = lap::RunProcessCaptureExecutable(copied.wstring(), args, 10000, nullptr);
     Expect(explicitRun.launched && !explicitRun.timedOut && explicitRun.exitCode == 0,
            "explicit executable API preserves empty/space/quote/backslash argv");
+
+    SECURITY_ATTRIBUTES inheritable{sizeof(inheritable), nullptr, TRUE};
+    HANDLE sentinelRead = nullptr, sentinelWrite = nullptr;
+    const bool sentinelCreated = CreatePipe(&sentinelRead, &sentinelWrite, &inheritable, 0) != FALSE;
+    Expect(sentinelCreated, "inheritable sentinel pipe created in parent");
+    if (sentinelCreated) {
+        const auto raw = static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(sentinelRead));
+        auto handleRun = lap::RunProcessCaptureExecutable(
+            copied.wstring(), {L"--handle-child", std::to_wstring(raw)}, 10000, nullptr);
+        Expect(handleRun.launched && !handleRun.timedOut && handleRun.exitCode == 0,
+               "unlisted inheritable parent handle is not inherited by child");
+        CloseHandle(sentinelWrite);
+        CloseHandle(sentinelRead);
+    }
 
     auto timeoutRun = lap::RunProcessCaptureExecutable(copied.wstring(), {L"--sleep-child"}, 200, nullptr);
     Expect(timeoutRun.launched && timeoutRun.timedOut, "explicit executable API preserves timeout termination");

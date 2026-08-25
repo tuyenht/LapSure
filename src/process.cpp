@@ -119,71 +119,129 @@ std::wstring BuildCommandLine(const std::wstring& executablePath, const std::vec
     }
     return line;
 }
-}
+} // namespace
 
 ProcessResult RunProcessCaptureExecutable(const std::wstring& executablePath,
                                           const std::vector<std::wstring>& arguments,
                                           unsigned timeoutMs,
                                           const std::atomic_bool* cancel) {
-    ProcessResult r{};
+    ProcessResult result{};
     const auto started = std::chrono::steady_clock::now();
     if (executablePath.empty() || !IsRegularFile(executablePath)) {
-        r.error = L"Executable path is empty, missing, or not a regular file.";
-        return r;
+        result.error = L"Executable path is empty, missing, or not a regular file.";
+        return result;
     }
 
-    SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
+    SECURITY_ATTRIBUTES inheritable{sizeof(inheritable), nullptr, TRUE};
     HANDLE readPipe = nullptr, writePipe = nullptr;
-    if (!CreatePipe(&readPipe, &writePipe, &sa, 0)) {
-        r.error = L"CreatePipe failed";
-        return r;
+    if (!CreatePipe(&readPipe, &writePipe, &inheritable, 0)) {
+        result.error = L"CreatePipe failed";
+        return result;
     }
     if (!SetHandleInformation(readPipe, HANDLE_FLAG_INHERIT, 0)) {
         CloseHandle(writePipe);
         CloseHandle(readPipe);
-        r.error = L"SetHandleInformation failed: " + std::to_wstring(GetLastError());
-        return r;
+        result.error = L"SetHandleInformation failed: " + std::to_wstring(GetLastError());
+        return result;
     }
 
-    STARTUPINFOW si{};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-    si.hStdOutput = writePipe;
-    si.hStdError = writePipe;
-    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-    si.wShowWindow = SW_HIDE;
-    PROCESS_INFORMATION pi{};
+    HANDLE nullInput = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                   &inheritable, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (nullInput == INVALID_HANDLE_VALUE) {
+        CloseHandle(writePipe);
+        CloseHandle(readPipe);
+        result.error = L"Could not open explicit child stdin: " + std::to_wstring(GetLastError());
+        return result;
+    }
+
+    STARTUPINFOEXW startup{};
+    startup.StartupInfo.cb = sizeof(startup);
+    startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    startup.StartupInfo.hStdOutput = writePipe;
+    startup.StartupInfo.hStdError = writePipe;
+    startup.StartupInfo.hStdInput = nullInput;
+    startup.StartupInfo.wShowWindow = SW_HIDE;
+
+    SIZE_T attributeBytes = 0;
+    (void)InitializeProcThreadAttributeList(nullptr, 1, 0, &attributeBytes);
+    if (attributeBytes == 0) {
+        CloseHandle(nullInput);
+        CloseHandle(writePipe);
+        CloseHandle(readPipe);
+        result.error = L"Could not size process attribute list: " + std::to_wstring(GetLastError());
+        return result;
+    }
+    startup.lpAttributeList = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(
+        HeapAlloc(GetProcessHeap(), 0, attributeBytes));
+    if (!startup.lpAttributeList) {
+        CloseHandle(nullInput);
+        CloseHandle(writePipe);
+        CloseHandle(readPipe);
+        result.error = L"Could not allocate process attribute list.";
+        return result;
+    }
+    if (!InitializeProcThreadAttributeList(startup.lpAttributeList, 1, 0, &attributeBytes)) {
+        HeapFree(GetProcessHeap(), 0, startup.lpAttributeList);
+        startup.lpAttributeList = nullptr;
+        CloseHandle(nullInput);
+        CloseHandle(writePipe);
+        CloseHandle(readPipe);
+        result.error = L"Could not initialize process attribute list: " + std::to_wstring(GetLastError());
+        return result;
+    }
+
+    HANDLE inheritedHandles[] = {writePipe, nullInput};
+    if (!UpdateProcThreadAttribute(startup.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+                                   inheritedHandles, sizeof(inheritedHandles), nullptr, nullptr)) {
+        DeleteProcThreadAttributeList(startup.lpAttributeList);
+        HeapFree(GetProcessHeap(), 0, startup.lpAttributeList);
+        startup.lpAttributeList = nullptr;
+        CloseHandle(nullInput);
+        CloseHandle(writePipe);
+        CloseHandle(readPipe);
+        result.error = L"Could not restrict child handle inheritance: " + std::to_wstring(GetLastError());
+        return result;
+    }
+
+    PROCESS_INFORMATION process{};
     auto commandLine = BuildCommandLine(executablePath, arguments);
-    std::vector<wchar_t> cmd(commandLine.begin(), commandLine.end());
-    cmd.push_back(L'\0');
+    std::vector<wchar_t> commandBuffer(commandLine.begin(), commandLine.end());
+    commandBuffer.push_back(L'\0');
 
     HANDLE job = CreateJobObjectW(nullptr, nullptr);
     if (job) {
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION ji{};
-        ji.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &ji, sizeof(ji))) {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits))) {
             CloseHandle(job);
             job = nullptr;
         }
     }
 
-    BOOL ok = CreateProcessW(executablePath.c_str(), cmd.data(), nullptr, nullptr, TRUE,
-                             CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr, nullptr, &si, &pi);
+    const DWORD creationFlags = CREATE_NO_WINDOW | CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT;
+    const BOOL created = CreateProcessW(executablePath.c_str(), commandBuffer.data(), nullptr, nullptr, TRUE,
+                                        creationFlags, nullptr, nullptr, &startup.StartupInfo, &process);
+
+    DeleteProcThreadAttributeList(startup.lpAttributeList);
+    HeapFree(GetProcessHeap(), 0, startup.lpAttributeList);
+    startup.lpAttributeList = nullptr;
+    CloseHandle(nullInput);
     CloseHandle(writePipe);
     writePipe = nullptr;
-    if (!ok) {
+
+    if (!created) {
         if (job) CloseHandle(job);
         CloseHandle(readPipe);
-        r.error = L"CreateProcess failed: " + std::to_wstring(GetLastError());
-        return r;
+        result.error = L"CreateProcess failed: " + std::to_wstring(GetLastError());
+        return result;
     }
 
-    r.launched = true;
+    result.launched = true;
     bool assignedJob = false;
-    if (job) assignedJob = AssignProcessToJobObject(job, pi.hProcess) != FALSE;
-    if (ResumeThread(pi.hThread) == static_cast<DWORD>(-1)) {
-        r.error = L"ResumeThread failed: " + std::to_wstring(GetLastError());
-        TerminateProcess(pi.hProcess, 0xDEAD);
+    if (job) assignedJob = AssignProcessToJobObject(job, process.hProcess) != FALSE;
+    if (ResumeThread(process.hThread) == static_cast<DWORD>(-1)) {
+        result.error = L"ResumeThread failed: " + std::to_wstring(GetLastError());
+        TerminateProcess(process.hProcess, 0xDEAD);
     }
 
     std::string bytes;
@@ -191,35 +249,35 @@ ProcessResult RunProcessCaptureExecutable(const std::wstring& executablePath,
 
     DWORD wait = WAIT_TIMEOUT;
     for (;;) {
-        wait = WaitForSingleObject(pi.hProcess, 100);
+        wait = WaitForSingleObject(process.hProcess, 100);
         if (wait == WAIT_OBJECT_0) break;
         if (wait == WAIT_FAILED) {
-            r.error = L"WaitForSingleObject failed: " + std::to_wstring(GetLastError());
-            r.timedOut = true;
+            result.error = L"WaitForSingleObject failed: " + std::to_wstring(GetLastError());
+            result.timedOut = true;
             break;
         }
         if (cancel && cancel->load()) {
-            r.cancelled = true;
+            result.cancelled = true;
             break;
         }
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - started).count();
         if (timeoutMs && elapsed >= timeoutMs) {
-            r.timedOut = true;
+            result.timedOut = true;
             break;
         }
     }
 
-    if (r.cancelled || r.timedOut) {
+    if (result.cancelled || result.timedOut) {
         if (job && assignedJob) TerminateJobObject(job, 0xDEAD);
-        else TerminateProcess(pi.hProcess, 0xDEAD);
-        WaitForSingleObject(pi.hProcess, 3000);
+        else TerminateProcess(process.hProcess, 0xDEAD);
+        WaitForSingleObject(process.hProcess, 3000);
     }
 
     DWORD code = 0;
-    if (GetExitCodeProcess(pi.hProcess, &code)) r.exitCode = code;
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
+    if (GetExitCodeProcess(process.hProcess, &code)) result.exitCode = code;
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
     if (job) CloseHandle(job);
 
     if (reader.joinable()) {
@@ -229,27 +287,27 @@ ProcessResult RunProcessCaptureExecutable(const std::wstring& executablePath,
     }
     CloseHandle(readPipe);
 
-    r.output = DecodeBytes(bytes);
-    r.elapsedMs = static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(
+    result.output = DecodeBytes(bytes);
+    result.elapsedMs = static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started).count());
-    return r;
+    return result;
 }
 
 ProcessResult RunProcessCapture(const std::wstring& commandLine,
                                 unsigned timeoutMs,
                                 const std::atomic_bool* cancel) {
-    ProcessResult r{};
+    ProcessResult result{};
     if (commandLine.empty()) {
-        r.error = L"Command line is empty.";
-        return r;
+        result.error = L"Command line is empty.";
+        return result;
     }
 
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(commandLine.c_str(), &argc);
     if (!argv || argc <= 0) {
         if (argv) LocalFree(argv);
-        r.error = L"CommandLineToArgvW failed: " + std::to_wstring(GetLastError());
-        return r;
+        result.error = L"CommandLineToArgvW failed: " + std::to_wstring(GetLastError());
+        return result;
     }
 
     const std::wstring executablePath = ResolveExecutableForLegacy(argv[0]);
@@ -259,9 +317,9 @@ ProcessResult RunProcessCapture(const std::wstring& commandLine,
     LocalFree(argv);
 
     if (executablePath.empty()) {
-        r.error = L"Executable could not be resolved to a concrete file path.";
-        return r;
+        result.error = L"Executable could not be resolved to a concrete file path.";
+        return result;
     }
     return RunProcessCaptureExecutable(executablePath, arguments, timeoutMs, cancel);
 }
-}
+} // namespace lap

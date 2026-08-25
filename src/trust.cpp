@@ -41,6 +41,24 @@ bool IsWithinRoot(const std::filesystem::path& root, const std::filesystem::path
     return true;
 }
 
+bool IsReparsePoint(const std::filesystem::path& path) {
+    const DWORD attrs = GetFileAttributesW(path.wstring().c_str());
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
+
+bool HasReparseUnderRoot(const std::filesystem::path& root,
+                         const std::filesystem::path& relative,
+                         std::filesystem::path& offending) {
+    if (IsReparsePoint(root)) { offending = root; return true; }
+    auto current = root;
+    for (const auto& part : relative) {
+        if (part.empty() || part == L".") continue;
+        current /= part;
+        if (IsReparsePoint(current)) { offending = current; return true; }
+    }
+    return false;
+}
+
 std::wstring HashFile(const std::wstring& path) {
     BCRYPT_ALG_HANDLE alg = nullptr;
     BCRYPT_HASH_HANDLE hash = nullptr;
@@ -84,84 +102,130 @@ std::wstring HashFile(const std::wstring& path) {
     for (auto b : digest) ss << std::setw(2) << static_cast<unsigned>(b);
     return Lower(ss.str());
 }
-}
+} // namespace
 
 EngineTrust VerifyEngine(const std::wstring& appDir,
                          const std::wstring& relativePath,
                          const std::wstring& logicalName) {
-    EngineTrust t{};
+    EngineTrust trust{};
     namespace fs = std::filesystem;
     const fs::path rel(relativePath);
+    if (appDir.empty() || logicalName.empty()) {
+        trust.reason = L"Application root and engine logical name are required.";
+        return trust;
+    }
     if (relativePath.empty() || rel.is_absolute() || rel.has_root_name() || rel.has_root_directory()) {
-        t.reason = L"Engine path must be relative to the LapSure application root.";
-        return t;
+        trust.reason = L"Engine path must be relative to the LapSure application root.";
+        return trust;
     }
     for (const auto& part : rel) {
         if (part == L"..") {
-            t.reason = L"Engine path traversal outside the LapSure application root is blocked.";
-            return t;
+            trust.reason = L"Engine path traversal outside the LapSure application root is blocked.";
+            return trust;
         }
     }
 
     std::error_code ec;
-    const auto root = fs::weakly_canonical(fs::absolute(fs::path(appDir), ec), ec);
-    if (ec || root.empty()) {
-        t.reason = L"Application root canonicalization failed.";
-        return t;
+    const auto absoluteRoot = fs::absolute(fs::path(appDir), ec);
+    if (ec || absoluteRoot.empty()) {
+        trust.reason = L"Application root resolution failed.";
+        return trust;
     }
+    ec.clear();
+    const auto root = fs::weakly_canonical(absoluteRoot, ec);
+    if (ec || root.empty()) {
+        trust.reason = L"Application root canonicalization failed.";
+        return trust;
+    }
+
+    // Reject a redirected application root and every reparse component below it.
+    // A mutable symlink/junction boundary must never be accepted merely because its
+    // final canonical target still happens to remain under the application root.
+    if (Lower(absoluteRoot.lexically_normal().wstring()) != Lower(root.lexically_normal().wstring())) {
+        trust.reason = L"Application root contains path redirection/reparse semantics.";
+        return trust;
+    }
+    fs::path offending;
+    if (HasReparseUnderRoot(root, rel, offending)) {
+        trust.reason = L"Engine path contains a reparse point and is not trusted.";
+        return trust;
+    }
+
+    ec.clear();
     const auto candidate = fs::weakly_canonical(root / rel, ec);
     if (ec || candidate.empty()) {
-        t.reason = L"Engine path canonicalization failed.";
-        return t;
+        trust.reason = L"Engine path canonicalization failed.";
+        return trust;
     }
     if (!IsWithinRoot(root, candidate)) {
-        t.reason = L"Engine resolved outside the LapSure application root.";
-        return t;
+        trust.reason = L"Engine resolved outside the LapSure application root.";
+        return trust;
     }
     if (!fs::is_regular_file(candidate, ec) || ec) {
-        t.reason = L"Engine file not found or is not a regular file.";
-        return t;
+        trust.reason = L"Engine file not found or is not a regular file.";
+        return trust;
     }
-    t.fileExists = true;
-    t.resolvedPath = candidate.wstring();
+    trust.fileExists = true;
+    trust.resolvedPath = candidate.wstring();
 
-    t.sha256 = HashFile(t.resolvedPath);
-    if (t.sha256.empty()) {
-        t.reason = L"SHA-256 calculation failed.";
-        return t;
+    const fs::path manifestRel = fs::path(L"tools") / L"engine_manifest.txt";
+    if (HasReparseUnderRoot(root, manifestRel, offending)) {
+        trust.reason = L"Trust manifest path contains a reparse point and is not trusted.";
+        return trust;
+    }
+    ec.clear();
+    const auto manifest = fs::weakly_canonical(root / manifestRel, ec);
+    if (ec || manifest.empty() || !IsWithinRoot(root, manifest) || !fs::is_regular_file(manifest, ec) || ec) {
+        trust.reason = L"Trust manifest missing, redirected, or not a regular file.";
+        return trust;
     }
 
-    const auto manifest = root / L"tools" / L"engine_manifest.txt";
-    std::wifstream f(manifest);
-    if (!f) {
-        t.reason = L"Trust manifest missing.";
-        return t;
+    trust.sha256 = HashFile(trust.resolvedPath);
+    if (trust.sha256.empty()) {
+        trust.reason = L"SHA-256 calculation failed.";
+        return trust;
     }
+
+    std::wifstream file(manifest);
+    if (!file) {
+        trust.reason = L"Trust manifest missing.";
+        return trust;
+    }
+    size_t logicalMatches = 0;
+    std::wstring matchedHash;
     std::wstring line;
-    while (std::getline(f, line)) {
+    while (std::getline(file, line)) {
+        Trim(line);
         if (line.empty() || line[0] == L'#') continue;
-        const auto p = line.find(L'=');
-        if (p == std::wstring::npos) continue;
-        auto name = line.substr(0, p), expected = line.substr(p + 1);
+        const auto separator = line.find(L'=');
+        if (separator == std::wstring::npos) continue;
+        auto name = line.substr(0, separator);
+        auto expected = line.substr(separator + 1);
         Trim(name);
         Trim(expected);
-        if (Lower(name) == Lower(logicalName)) {
-            t.manifestEntry = true;
-            t.expectedSha256 = Lower(expected);
-            break;
-        }
+        if (Lower(name) != Lower(logicalName)) continue;
+        ++logicalMatches;
+        if (logicalMatches == 1) matchedHash = Lower(expected);
     }
-    if (!t.manifestEntry) {
-        t.reason = L"No allowlist entry for engine.";
-        return t;
+
+    if (logicalMatches == 0) {
+        trust.reason = L"No allowlist entry for engine.";
+        return trust;
     }
-    if (!IsSha256Hex(t.expectedSha256)) {
-        t.reason = L"Allowlist SHA-256 is not configured or invalid.";
-        return t;
+    if (logicalMatches > 1) {
+        trust.reason = L"Allowlist contains duplicate entries for the engine logical name.";
+        return trust;
     }
-    t.hashMatches = Lower(t.sha256) == Lower(t.expectedSha256);
-    t.reason = t.hashMatches ? L"Trusted engine hash matched." : L"Engine hash mismatch.";
-    return t;
+
+    trust.manifestEntry = true;
+    trust.expectedSha256 = std::move(matchedHash);
+    if (!IsSha256Hex(trust.expectedSha256)) {
+        trust.reason = L"Allowlist SHA-256 is not configured or invalid.";
+        return trust;
+    }
+    trust.hashMatches = Lower(trust.sha256) == Lower(trust.expectedSha256);
+    trust.reason = trust.hashMatches ? L"Trusted engine hash matched." : L"Engine hash mismatch.";
+    return trust;
 }
 
 TrustedEngineRun RunTrustedEngineCapture(const std::wstring& appDir,
@@ -181,4 +245,4 @@ TrustedEngineRun RunTrustedEngineCapture(const std::wstring& appDir,
     out.process = RunProcessCaptureExecutable(out.trust.resolvedPath, arguments, timeoutMs, cancel);
     return out;
 }
-}
+} // namespace lap

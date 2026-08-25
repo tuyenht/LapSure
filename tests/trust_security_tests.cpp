@@ -21,6 +21,17 @@ bool CreateFileSymlink(const std::filesystem::path& link, const std::filesystem:
     }
     return false;
 }
+
+bool CreateDirectorySymlink(const std::filesystem::path& link, const std::filesystem::path& target) {
+    constexpr DWORD kDirectory = SYMBOLIC_LINK_FLAG_DIRECTORY;
+    constexpr DWORD kAllowUnprivilegedCreate = 0x2;
+    if (CreateSymbolicLinkW(link.wstring().c_str(), target.wstring().c_str(),
+                            kDirectory | kAllowUnprivilegedCreate)) return true;
+    if (GetLastError() == ERROR_INVALID_PARAMETER) {
+        return CreateSymbolicLinkW(link.wstring().c_str(), target.wstring().c_str(), kDirectory) != FALSE;
+    }
+    return false;
+}
 } // namespace
 
 int main() {
@@ -29,7 +40,8 @@ int main() {
     const auto base = fs::temp_directory_path() / L"lapsure-trust-security-tests";
     const auto outside = base.parent_path() / L"lapsure-trust-outside.exe";
     const auto outsideManifest = base.parent_path() / L"lapsure-trust-outside-manifest.txt";
-    fs::remove_all(base, ec); fs::remove(outside, ec); fs::remove(outsideManifest, ec);
+    const auto redirectedRoot = base.parent_path() / L"lapsure-trust-root-link";
+    fs::remove_all(base, ec); fs::remove(outside, ec); fs::remove(outsideManifest, ec); fs::remove(redirectedRoot, ec);
     fs::create_directories(base / L"tools", ec);
     if (ec) { std::cerr << "FAIL could not create trust test directory\n"; return 1; }
 
@@ -51,6 +63,15 @@ int main() {
     { std::wofstream f(manifest, std::ios::trunc); f << L"probe=" << unconfigured.sha256 << L"\n"; }
     auto trusted = lap::VerifyEngine(base.wstring(), L"tools\\probe.exe", L"probe");
     Expect(trusted.hashMatches, "matching SHA-256 trusts reviewed bundled engine");
+
+    if (CreateDirectorySymlink(redirectedRoot, base)) {
+        auto redirected = lap::VerifyEngine(redirectedRoot.wstring(), L"tools\\probe.exe", L"probe");
+        Expect(!redirected.hashMatches && redirected.reason.find(L"reparse") != std::wstring::npos,
+               "application root reparse redirection is rejected explicitly");
+        fs::remove(redirectedRoot, ec);
+    } else {
+        std::cout << "SKIP application-root reparse fixture unavailable on this Windows policy\n";
+    }
 
     { std::wofstream f(manifest, std::ios::trunc);
       f << L"probe=" << unconfigured.sha256 << L"\n";
@@ -101,6 +122,6 @@ int main() {
         std::cout << "SKIP manifest reparse behavioral fixture unavailable on this Windows policy\n";
     }
 
-    fs::remove_all(base, ec); fs::remove(outside, ec); fs::remove(outsideManifest, ec);
+    fs::remove_all(base, ec); fs::remove(outside, ec); fs::remove(outsideManifest, ec); fs::remove(redirectedRoot, ec);
     return failures == 0 ? 0 : 1;
 }

@@ -46,6 +46,25 @@ bool IsReparsePoint(const std::filesystem::path& path) {
     return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
 }
 
+bool HasReparsePathComponents(const std::filesystem::path& absolutePath,
+                              std::filesystem::path& offending) {
+    const auto normalized = absolutePath.lexically_normal();
+    auto current = normalized.root_path();
+    if (!current.empty() && IsReparsePoint(current)) {
+        offending = current;
+        return true;
+    }
+    for (const auto& part : normalized.relative_path()) {
+        if (part.empty() || part == L".") continue;
+        current /= part;
+        if (IsReparsePoint(current)) {
+            offending = current;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool HasReparseUnderRoot(const std::filesystem::path& root,
                          const std::filesystem::path& relative,
                          std::filesystem::path& offending) {
@@ -131,21 +150,25 @@ EngineTrust VerifyEngine(const std::wstring& appDir,
         trust.reason = L"Application root resolution failed.";
         return trust;
     }
+
+    // Inspect the caller-supplied absolute path itself for symlink/junction/reparse
+    // components. Do not infer reparse semantics by comparing textual canonical
+    // spellings: Windows can legitimately normalize the same directory to a
+    // different short/long-path representation.
+    fs::path offending;
+    const auto normalizedAbsoluteRoot = absoluteRoot.lexically_normal();
+    if (HasReparsePathComponents(normalizedAbsoluteRoot, offending)) {
+        trust.reason = L"Application root contains path redirection/reparse semantics.";
+        return trust;
+    }
+
     ec.clear();
-    const auto root = fs::weakly_canonical(absoluteRoot, ec);
+    const auto root = fs::weakly_canonical(normalizedAbsoluteRoot, ec);
     if (ec || root.empty()) {
         trust.reason = L"Application root canonicalization failed.";
         return trust;
     }
 
-    // Reject a redirected application root and every reparse component below it.
-    // A mutable symlink/junction boundary must never be accepted merely because its
-    // final canonical target still happens to remain under the application root.
-    if (Lower(absoluteRoot.lexically_normal().wstring()) != Lower(root.lexically_normal().wstring())) {
-        trust.reason = L"Application root contains path redirection/reparse semantics.";
-        return trust;
-    }
-    fs::path offending;
     if (HasReparseUnderRoot(root, rel, offending)) {
         trust.reason = L"Engine path contains a reparse point and is not trusted.";
         return trust;

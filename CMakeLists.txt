@@ -62,7 +62,7 @@ if(BUILD_TESTING)
       tests/report_publication_tests.cpp
       src/report.cpp src/report_publication.cpp src/session_history.cpp src/journal.cpp
       src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/runtime_validation.cpp
-      src/orchestrator.cpp src/functional.cpp src/process.cpp src/hardware.cpp src/baseline.cpp
+      src/orchestrator.cpp src/functional.cpp src/process.cpp src/trust.cpp src/hardware.cpp src/baseline.cpp
       src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/edid.cpp src/inventory.cpp
       src/forensics.cpp src/functional_io.cpp src/acquisition.cpp src/devpkey_defs.cpp)
   target_include_directories(LapSureReportPublicationTests PRIVATE include)

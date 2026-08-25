@@ -1,5 +1,6 @@
 #include "lap/engines.h"
 #include "lap/process.h"
+#include "lap/trust.h"
 #include "lap/hardware.h"
 #include <windows.h>
 #include <winioctl.h>
@@ -76,14 +77,17 @@ void CollectWindowsStorageReliability(AuditReport&r,const Capabilities&c,const s
 
 void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,const std::wstring&dir,const std::atomic_bool* cancel){
  if(!c.smartctl){const bool native=!r.hardware.storage.empty()&&std::all_of(r.hardware.storage.begin(),r.hardware.storage.end(),[](const auto&d){return d.reliabilityReadable;});Add(r,L"Storage",L"Advanced SMART/NVMe log",L"smartctl unavailable",L"Advanced controller log",State::NotTested,native?Severity::Minor:Severity::Critical,Dimension::Health,native?L"Advanced enrichment unavailable; native reliability evidence remains available":L"No storage-health provider available");return;}
- std::wstring exe=L"\""+dir+L"\\tools\\smartctl.exe\"";
- auto scan=RunProcessCapture(exe+L" --scan-open",15000,cancel);
- if(!scan.launched||scan.timedOut||scan.output.empty()){Add(r,L"Storage",L"SMART device scan",scan.error.empty()?L"No devices returned":scan.error,L"Detected storage",State::Warning,Severity::Major,Dimension::Health);return;}
+ auto scanRun=RunTrustedEngineCapture(dir,L"tools\\smartctl.exe",L"smartctl",{L"--scan-open"},15000,cancel);
+ if(!scanRun.trust.hashMatches){Add(r,L"Storage",L"SMART trust gate",scanRun.trust.reason,L"Trusted smartctl SHA-256",State::NotTested,Severity::Critical,Dimension::Evidence,L"Execution blocked before launch");return;}
+ const auto& scan=scanRun.process;
+ if(!scan.launched||scan.timedOut||scan.output.empty()){Add(r,L"Storage",L"SMART device scan",scan.error.empty()?L"No devices returned":scan.error,L"Detected storage",State::Warning,Severity::Major,Dimension::Health,L"Trusted smartctl SHA256="+scanRun.trust.sha256);return;}
  std::vector<std::wstring> devices;for(auto&line:SplitLines(scan.output)){auto d=FirstToken(line);if(!d.empty()&&d[0]==L'/')devices.push_back(d);}
- Add(r,L"Storage",L"SMART devices",std::to_wstring(devices.size())+L" device(s)",L"Detected storage",devices.empty()?State::Warning:State::Pass,Severity::Major,Dimension::Identity,L"smartctl --scan-open");
+ Add(r,L"Storage",L"SMART devices",std::to_wstring(devices.size())+L" device(s)",L"Detected storage",devices.empty()?State::Warning:State::Pass,Severity::Major,Dimension::Identity,L"trusted smartctl --scan-open; SHA256="+scanRun.trust.sha256);
  for(const auto&dev:devices){
-   auto pr=RunProcessCapture(exe+L" -a -j \""+dev+L"\"",30000,cancel);
-   if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"Storage",L"SMART "+dev,L"Could not read",L"Readable SMART",State::Warning,Severity::Critical,Dimension::Health);continue;}
+   auto run=RunTrustedEngineCapture(dir,L"tools\\smartctl.exe",L"smartctl",{L"-a",L"-j",dev},30000,cancel);
+   if(!run.trust.hashMatches){Add(r,L"Storage",L"SMART "+dev,run.trust.reason,L"Trusted smartctl SHA-256",State::NotTested,Severity::Critical,Dimension::Evidence,L"Engine changed or trust gate failed before device query");continue;}
+   const auto& pr=run.process;
+   if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"Storage",L"SMART "+dev,pr.error.empty()?L"Could not read":pr.error,L"Readable SMART",State::Warning,Severity::Critical,Dimension::Health,L"Trusted smartctl SHA256="+run.trust.sha256);continue;}
    StorageDevice parsed{};std::wstring parseError;if(!ParseSmartctlHealthJson(pr.output,parsed,parseError)){Add(r,L"Storage",L"SMART "+dev,parseError,L"Explicit SMART health schema",State::NotTested,Severity::Critical,Dimension::Health,L"smartctl JSON rejected");continue;}
    auto model=parsed.model,serial=parsed.serialNumber,fw=parsed.firmware;auto crit=parsed.criticalWarning,used=parsed.percentageUsed,spare=parsed.availableSpare,spareTh=parsed.spareThreshold;
    auto media=parsed.mediaErrors,errlog=parsed.errorLogEntries,unsafe=parsed.unsafeShutdowns,hours=parsed.powerOnHours,cycles=parsed.powerCycles;
@@ -95,29 +99,32 @@ void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,co
    sd->approxDataReadTB=NvmeDataUnitsToTB(readUnits);sd->approxDataWrittenTB=NvmeDataUnitsToTB(writeUnits);
 
    State health=(!smart||crit>0||media>0)?State::Fail:(used>=20?State::Warning:(used>=10?State::Good:State::Pass));
-   Add(r,L"Storage",L"Identity "+dev,sd->model+L" | SN "+sd->serialNumber+L" | FW "+sd->firmware,L"",State::Info,Severity::Info,Dimension::Identity);
+   Add(r,L"Storage",L"Identity "+dev,sd->model+L" | SN "+sd->serialNumber+L" | FW "+sd->firmware,L"",State::Info,Severity::Info,Dimension::Identity,L"trusted smartctl SHA256="+run.trust.sha256);
    std::wstringstream h;h<<L"SMART="<<(smart?L"PASS":L"FAIL")<<L" | Endurance remaining="<<Fmt(sd->enduranceRemaining,L"%")<<L" | Used="<<Fmt(used,L"%")<<L" | Critical="<<Fmt(crit)<<L" | MediaErrors="<<Fmt(media)<<L" | Spare="<<Fmt(spare,L"%")<<L" | Temp="<<Fmt(temp,L" C");
-   Add(r,L"Storage",L"Health "+dev,h.str(),L"Critical=0; MediaErrors=0",health,Severity::Critical,Dimension::Health,L"smartctl JSON");
+   Add(r,L"Storage",L"Health "+dev,h.str(),L"Critical=0; MediaErrors=0",health,Severity::Critical,Dimension::Health,L"smartctl JSON; trusted SHA256="+run.trust.sha256);
    std::wstringstream u;u<<L"Power-on "<<Fmt(hours,L" h")<<L" | Cycles "<<Fmt(cycles)<<L" | Unsafe shutdowns "<<Fmt(unsafe)<<L" | Read "<<Fmt1(sd->approxDataReadTB,L" TB")<<L" | Written "<<Fmt1(sd->approxDataWrittenTB,L" TB")<<L" | Error log "<<Fmt(errlog);
-   Add(r,L"Storage",L"Usage "+dev,u.str(),L"",State::Info,Severity::Info,Dimension::Usage);
+   Add(r,L"Storage",L"Usage "+dev,u.str(),L"",State::Info,Severity::Info,Dimension::Usage,L"trusted smartctl SHA256="+run.trust.sha256);
  }
 }
 
 void CollectNvidia(AuditReport&r,const FactoryProfile&p,const Capabilities&c,const std::wstring&dir,const std::atomic_bool* cancel){
  if(!c.nvidiaSmi){Add(r,L"GPU",L"NVIDIA telemetry",L"nvidia-smi unavailable",L"GPU/VRAM telemetry",State::NotTested,Severity::Major,Dimension::Health);return;}
- std::wstring exe=L"\""+dir+L"\\tools\\nvidia-smi.exe\"";
- auto pr=RunProcessCapture(exe+L" --query-gpu=name,serial,uuid,vbios_version,driver_version,memory.total,temperature.gpu,temperature.gpu.tlimit,pstate,power.draw,power.limit,utilization.gpu,utilization.memory --format=csv,noheader,nounits",15000,cancel);
- if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"GPU",L"NVIDIA telemetry",pr.error.empty()?L"No output":pr.error,L"",State::Warning,Severity::Major,Dimension::Health);return;}
+ auto run=RunTrustedEngineCapture(dir,L"tools\\nvidia-smi.exe",L"nvidia_smi",
+   {L"--query-gpu=name,serial,uuid,vbios_version,driver_version,memory.total,temperature.gpu,temperature.gpu.tlimit,pstate,power.draw,power.limit,utilization.gpu,utilization.memory",L"--format=csv,noheader,nounits"},15000,cancel);
+ if(!run.trust.hashMatches){Add(r,L"GPU",L"NVIDIA trust gate",run.trust.reason,L"Trusted nvidia-smi SHA-256",State::NotTested,Severity::Major,Dimension::Evidence,L"Execution blocked before launch");return;}
+ const auto& pr=run.process;
+ if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"GPU",L"NVIDIA telemetry",pr.error.empty()?L"No output":pr.error,L"",State::Warning,Severity::Major,Dimension::Health,L"Trusted nvidia-smi SHA256="+run.trust.sha256);return;}
+ size_t parsed=0;
  for(const auto&line:SplitLines(pr.output)){
-   GpuInfo g{};if(!ParseNvidiaCsvLine(line,g))continue;auto*existing=MatchGpu(r,g.name);*existing=g;
+   GpuInfo g{};if(!ParseNvidiaCsvLine(line,g))continue;++parsed;auto*existing=MatchGpu(r,g.name);*existing=g;
    State factory=p.gpuContains.empty()?State::Info:(ContainsI(g.name,p.gpuContains)?State::Pass:State::Fail);
-   Add(r,L"GPU",L"Adapter",g.name,p.gpuContains,factory,p.gpuContains.empty()?Severity::Info:Severity::Critical,p.gpuContains.empty()?Dimension::Identity:Dimension::Factory,L"nvidia-smi");
+   Add(r,L"GPU",L"Adapter",g.name,p.gpuContains,factory,p.gpuContains.empty()?Severity::Info:Severity::Critical,p.gpuContains.empty()?Dimension::Identity:Dimension::Factory,L"trusted nvidia-smi SHA256="+run.trust.sha256);
    std::wstringstream d;d<<Fmt1((double)g.vramBytes/(1024.0*1024.0*1024.0),L" GiB")<<L" VRAM | Driver "<<g.driver<<L" | VBIOS "<<g.vbios;
-   Add(r,L"GPU",L"Identity / VRAM",d.str(),p.gpuVramBytes?Fmt1((double)p.gpuVramBytes/(1024.0*1024.0*1024.0),L" GiB"):L"",State::Info,Severity::Major,Dimension::Identity);
+   Add(r,L"GPU",L"Identity / VRAM",d.str(),p.gpuVramBytes?Fmt1((double)p.gpuVramBytes/(1024.0*1024.0*1024.0),L" GiB"):L"",State::Info,Severity::Major,Dimension::Identity,L"trusted nvidia-smi SHA256="+run.trust.sha256);
    std::wstringstream t;t<<L"Temp "<<Fmt1(g.temperatureC,L" C")<<L" / limit "<<Fmt1(g.tempLimitC,L" C")<<L" | "<<g.pstate<<L" | Power "<<Fmt1(g.powerW,L" W")<<L" / "<<Fmt1(g.powerLimitW,L" W")<<L" | GPU "<<Fmt1(g.gpuUtilPercent,L"%")<<L" | VRAM "<<Fmt1(g.memoryUtilPercent,L"%");
-   Add(r,L"GPU",L"Live telemetry",t.str(),L"",State::Info,Severity::Info,Dimension::Usage,L"nvidia-smi");
+   Add(r,L"GPU",L"Live telemetry",t.str(),L"",State::Info,Severity::Info,Dimension::Usage,L"trusted nvidia-smi SHA256="+run.trust.sha256);
  }
- if(r.hardware.gpus.empty())Add(r,L"GPU",L"NVIDIA parse",L"Output present but no valid CSV row parsed",L"",State::Warning,Severity::Major,Dimension::Evidence,pr.output);
+ if(!parsed)Add(r,L"GPU",L"NVIDIA parse",L"Output present but no valid CSV row parsed",L"",State::Warning,Severity::Major,Dimension::Evidence,pr.output);
 }
 
 

@@ -2561,14 +2561,14 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             }
             return 0;
         case VK_LEFT:
-            if (gFocusIndex == 1) {
+            if (gFocusIndex == 1 && (gCurrentTab == MainTab::Dashboard || gCurrentTab == MainTab::NewSession)) {
                 if (gSelectedMode == L"Deep") gSelectedMode = L"Standard";
                 else if (gSelectedMode == L"Standard") gSelectedMode = L"Quick";
                 InvalidateRect(h, nullptr, FALSE);
             }
             return 0;
         case VK_RIGHT:
-            if (gFocusIndex == 1) {
+            if (gFocusIndex == 1 && (gCurrentTab == MainTab::Dashboard || gCurrentTab == MainTab::NewSession)) {
                 if (gSelectedMode == L"Quick") gSelectedMode = L"Standard";
                 else if (gSelectedMode == L"Standard") gSelectedMode = L"Deep";
                 InvalidateRect(h, nullptr, FALSE);
@@ -2578,18 +2578,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         case VK_SPACE: {
             const int actionFocus = gFocusIndex;
             if (actionFocus == 2) {
-                // Focus selects the visible top-level CTA; the current screen still
-                // decides whether that CTA is an audit action. No global StartAudit.
-                switch (gCurrentTab) {
-                case MainTab::Dashboard:
-                case MainTab::AutoAudit:
-                case MainTab::NewSession:
-                case MainTab::Stress:
-                    StartAudit(h);
-                    break;
-                default:
-                    break;
-                }
+                // Focus slot 2 belongs to the S01 top-level Start/Stop button only.
+                // Other screens must never inherit this invisible operation target.
+                if (gCurrentTab == MainTab::Dashboard) StartAudit(h);
                 return 0;
             }
             if (actionFocus != 3) return 0;
@@ -2722,25 +2713,27 @@ static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             return 0;
         }
 
-        // 2. Start / Stop Button Click
-        int btnW = UiMetrics::Scale(230, dpi);
-        int btnH = UiMetrics::Scale(40, dpi);
+        // 2–3. S01 top mode strip and Start/Stop button. These hit regions exist
+        // only when the Dashboard renderer actually draws the matching controls.
         int modeY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
-        RECT btnRect{ cr.right - btnW - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi), cr.right - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi) + btnH };
-        if (x >= btnRect.left && x <= btnRect.right && y >= btnRect.top && y <= btnRect.bottom) {
-            StartAudit(h);
-            return 0;
-        }
+        if (gCurrentTab == MainTab::Dashboard) {
+            int btnW = UiMetrics::Scale(230, dpi);
+            int btnH = UiMetrics::Scale(40, dpi);
+            RECT btnRect{ cr.right - btnW - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi), cr.right - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi) + btnH };
+            if (x >= btnRect.left && x <= btnRect.right && y >= btnRect.top && y <= btnRect.bottom) {
+                StartAudit(h);
+                return 0;
+            }
 
-        // 3. Mode Pills Click (with DPI-scaled gap)
-        int mX = layout.contentRect.left + UiMetrics::Scale(134, dpi);
-        int pillW = UiMetrics::Scale(80, dpi);
-        int pillH = UiMetrics::Scale(28, dpi);
-        int gap = UiMetrics::Scale(6, dpi);
-        if (y >= modeY && y <= modeY + pillH) {
-            if (x >= mX && x <= mX + pillW) { gSelectedMode = L"Quick"; InvalidateRect(h, nullptr, FALSE); }
-            else if (x >= mX + pillW + gap && x <= mX + (pillW + gap) * 2) { gSelectedMode = L"Standard"; InvalidateRect(h, nullptr, FALSE); }
-            else if (x >= mX + (pillW + gap) * 2 && x <= mX + (pillW + gap) * 3) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
+            int mX = layout.contentRect.left + UiMetrics::Scale(134, dpi);
+            int pillW = UiMetrics::Scale(80, dpi);
+            int pillH = UiMetrics::Scale(28, dpi);
+            int gap = UiMetrics::Scale(6, dpi);
+            if (y >= modeY && y <= modeY + pillH) {
+                if (x >= mX && x <= mX + pillW) { gSelectedMode = L"Quick"; InvalidateRect(h, nullptr, FALSE); }
+                else if (x >= mX + pillW + gap && x <= mX + (pillW + gap) * 2) { gSelectedMode = L"Standard"; InvalidateRect(h, nullptr, FALSE); }
+                else if (x >= mX + (pillW + gap) * 2 && x <= mX + (pillW + gap) * 3) { gSelectedMode = L"Deep"; InvalidateRect(h, nullptr, FALSE); }
+            }
         }
 
         // 3.1 S01 Dashboard Specific Click Hit-Tests

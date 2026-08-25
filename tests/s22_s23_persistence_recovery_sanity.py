@@ -40,8 +40,8 @@ assert "InterruptedSessionInfo" in JOURNAL_H
 assert "ReadInterruptedStressJournal" in JOURNAL
 assert "DiscardInterruptedStressJournal" in JOURNAL
 assert "ArchiveInterruptedSession" in HISTORY
-assert 'e->status = L"INTERRUPTED"' in HISTORY
-assert 'e->verdict = L"INCOMPLETE"' in HISTORY
+assert 'entry->status = L"INTERRUPTED"' in HISTORY
+assert 'entry->verdict = L"INCOMPLETE"' in HISTORY
 assert "Không có PASS từ phiên này" in HISTORY
 assert "ArchiveInterruptedSession(stateRoot, stateRoot)" in MAIN
 assert "DiscardInterruptedStressJournal(gReportOutputDir)" in MAIN

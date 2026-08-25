@@ -11,12 +11,13 @@ pre=(R/"CMakePresets.json").read_text(encoding="utf-8")
 wf=(R/".github/workflows/windows-msvc-build.yml").read_text(encoding="utf-8")
 pack=(R/"package_portable.ps1").read_text(encoding="utf-8")
 verify=(R/"validation/verify_portable_package.ps1").read_text(encoding="utf-8")
+audit_worker=main[main.index("void AuditWorkerCore"):main.index("void AuditWorker(HWND")]
 checks=[
 ("Runtime validation model","struct RuntimeValidationSummary" in m),
 ("Runtime validation implementation","RunRuntimeValidation" in rv),
 ("MSVC identity","_MSC_VER" in rv),
 ("Optional provider remains warning","Optional trusted provider not configured" in rv),
-("Runtime gate wired after stress","RunRuntimeValidation(report" in main and "RunStressSession(report" in main and main.index("RunRuntimeValidation(report") > main.index("RunStressSession(report")),
+("Runtime gate wired after stress","RunRuntimeValidation(report" in audit_worker and "RunStressSession(report" in audit_worker and audit_worker.index("RunRuntimeValidation(report") > audit_worker.index("RunStressSession(report")),
 ("Runtime gate reported","Xác thực chương trình và báo cáo" in rep),
 ("MSVC /W4","/W4" in cm),
 ("MSVC permissive off","/permissive-" in cm),

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "model": "Precision 5560",
+  "serviceTag": "SAMPLE5560",
+  "cpuContains": "i9-11950H",
+  "ramBytes": 34359738368,
+  "ramSpeed": 3200,
+  "gpuContains": "RTX A2000",
+  "gpuVramBytes": 4294967296,
+  "diskMinBytes": 966367641600,
+  "displayWidth": 3840,
+  "displayHeight": 2400,
+  "touchRequired": true,
+  "batteryDesignWh": 86,
+  "adapterW": 130,
+  "evidence": "Synthetic reviewed fixture for regression/documentation; not a real device identity"
+}

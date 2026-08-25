@@ -53,5 +53,7 @@ python tests\round5_inspection_identity_sanity.py
 if errorlevel 1 exit /b 1
 python tests\round5_report_publication_sanity.py
 if errorlevel 1 exit /b 1
+python tests\round5_app_entry_sanity.py
+if errorlevel 1 exit /b 1
 python tests\ci_cost_control_policy.py
 if errorlevel 1 exit /b 1

@@ -403,6 +403,83 @@ void TestTask5FactoryAuthorityAndFrozenMetadata() {
                !decision.discreteGpuCapability.empty(),
            "decision persists authority and capability metadata labels");
 }
+void TestCrossSessionPortAuthorityIsRevoked() {
+    auto report = HealthyAdvisoryFixture();
+    report.hardware.stress.sessionId = L"session-A";
+    report.hardware.stress.portAttestation = lap::InitializeSessionPortAttestation(
+        report.hardware.stress.sessionId,
+        report.hardware.stress.chassisProfile);
+
+    lap::PortProbeResult probePass{};
+    probePass.expectedPortId = L"tb4-left-1";
+    probePass.portLabel = L"TB4 left 1";
+    probePass.deviceEnumerated = true;
+    probePass.confidence = lap::Confidence::High;
+    probePass.verdict = L"PASS";
+    probePass.evidence = L"Operator probe PASS in session A";
+    lap::ApplyPortResultToAttestation(report.hardware.stress.portAttestation, probePass);
+
+    Expect(report.hardware.stress.portAttestation.operatorConfirmed &&
+               !report.hardware.stress.portAttestation.confirmedAt.empty(),
+           "attestation is confirmed in matching session A");
+
+    // Switch report stress session to session-B without changing attestation sessionId
+    report.hardware.stress.sessionId = L"session-B";
+
+    const auto context = lap::BuildDecisionContext(report);
+
+    Expect(context.portAttestation.ports.size() == report.hardware.stress.chassisProfile.ports.size(),
+           "cross-session invalidation preserves expected denominator");
+    Expect(!context.portAttestation.ports.empty() &&
+               context.portAttestation.ports[0].expectedPortId == L"tb4-left-1",
+           "cross-session invalidation preserves expectedPortId values");
+    Expect(context.portAttestation.ports[0].expectedRequired == true,
+           "cross-session invalidation preserves expectedRequired flags");
+    Expect(context.portAttestation.operatorConfirmed == false,
+           "cross-session mismatch revokes operatorConfirmed");
+    Expect(context.portAttestation.confirmedAt.empty(),
+           "cross-session mismatch clears confirmedAt");
+    Expect(context.portAttestation.ports[0].observedPresence == lap::CapabilityTruth::Unknown,
+           "cross-session mismatch sets observedPresence to Unknown");
+    Expect(context.portAttestation.ports[0].tested == false,
+           "cross-session mismatch resets tested to false");
+    Expect(context.portAttestation.ports[0].verdict == L"NOT TESTED",
+           "cross-session mismatch resets verdict to NOT TESTED");
+    Expect(lap::RequiredPortsRemaining(context.portAttestation) > 0,
+           "cross-session mismatch leaves required ports remaining");
+
+    const auto decision = lap::BuildAuditDecision(report, context);
+    Expect(decision.overall == L"INCOMPLETE",
+           "cross-session port mismatch produces INCOMPLETE verdict");
+    Expect(decision.overall != L"BUY" && decision.overall != L"BUY WITH NOTES",
+           "cross-session port mismatch explicitly forbids BUY and BUY WITH NOTES");
+
+    // Stale-failure subcase: Old session A contains a required port FAIL
+    auto staleFailReport = HealthyAdvisoryFixture();
+    staleFailReport.hardware.stress.sessionId = L"session-A";
+    staleFailReport.hardware.stress.portAttestation = lap::InitializeSessionPortAttestation(
+        staleFailReport.hardware.stress.sessionId,
+        staleFailReport.hardware.stress.chassisProfile);
+
+    lap::PortProbeResult probeFail{};
+    probeFail.expectedPortId = L"tb4-left-1";
+    probeFail.portLabel = L"TB4 left 1";
+    probeFail.deviceEnumerated = false;
+    probeFail.confidence = lap::Confidence::High;
+    probeFail.verdict = L"FAIL";
+    probeFail.evidence = L"Operator probe FAIL in old session";
+    lap::ApplyPortResultToAttestation(staleFailReport.hardware.stress.portAttestation, probeFail);
+
+    // Switch report stress session to session-B
+    staleFailReport.hardware.stress.sessionId = L"session-B";
+    const auto staleFailContext = lap::BuildDecisionContext(staleFailReport);
+    const auto staleFailDecision = lap::BuildAuditDecision(staleFailReport, staleFailContext);
+
+    Expect(staleFailDecision.overall == L"INCOMPLETE",
+           "stale old-session FAIL is invalidated and does not manufacture REJECT for session B");
+    Expect(staleFailDecision.overall != L"REJECT",
+           "stale old-session port FAIL must not produce REJECT without independent machine failure");
+}
 } // namespace
 
 int main() {
@@ -416,6 +493,7 @@ int main() {
     TestTask5RequirementSnapshotRequiredness();
     TestTask5VerdictLattice();
     TestTask5FactoryAuthorityAndFrozenMetadata();
+    TestCrossSessionPortAuthorityIsRevoked();
 
     auto report = HealthyAdvisoryFixture();
     const auto decision = lap::BuildAuditDecision(report);

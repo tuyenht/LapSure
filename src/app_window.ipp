@@ -167,7 +167,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
                 PostMessageW(hwnd, WM_COMMAND, 1208, 0);
                 break;
             case MainTab::PortsPower:
-                PostMessageW(hwnd, WM_COMMAND, 1207, 0);
+                PostMessageW(hwnd, WM_COMMAND, 1300, 0);
                 break;
             case MainTab::Display:
                 PostMessageW(hwnd, WM_COMMAND, 1201, 0);
@@ -277,9 +277,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
                 snapshot = gReport;
             }
             const auto& functional = snapshot.hardware.stress.functional;
+            const auto requiredPortsRemaining =
+                RequiredPortsRemaining(snapshot.hardware.stress.portAttestation);
             if (functional.manualRequired || functional.notTested) {
                 CommitManualResults(RunFunctionalIoWizard(hwnd));
-            } else if (snapshot.hardware.stress.portPower.overall != L"PASS") {
+            } else if (requiredPortsRemaining > 0) {
                 std::wstring portId;
                 std::wstring label;
                 std::wstring capability;
@@ -467,7 +469,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         const RailAction railActions[] = {
             {MainTab::SellerClaim, 240, 1209, false},
             {MainTab::PhysicalSafety, 310, 1208, false},
-            {MainTab::PortsPower, 280, 1207, false},
+            {MainTab::PortsPower, 280, 1300, false},
             {MainTab::Stress, 280, 0, true},
         };
         for (const auto& railAction : railActions) {

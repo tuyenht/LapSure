@@ -109,7 +109,9 @@ AuditDecision BuildAuditDecision(const AuditReport&r){
         d.reasons.push_back(L"Functional Test Center still contains manual or untested items.");
     }
     if(r.hardware.stress.runtimeValidation.failed>0){
-        d.overall=L"INCOMPLETE";d.coverage=L"PARTIAL";d.confidence=Confidence::Low;
+        if(d.overall!=L"REJECT")d.overall=L"INCOMPLETE";
+        d.coverage=L"PARTIAL";
+        if(d.overall!=L"REJECT")d.confidence=Confidence::Low;
         d.reasons.push_back(L"Runtime validation failed; this build cannot issue an acceptance verdict.");
     }else if(r.hardware.stress.runtimeValidation.notRun>0||r.hardware.stress.runtimeValidation.overall==L"NOT RUN"){
         if(d.overall==L"BUY"||d.overall==L"BUY WITH NOTES")d.overall=L"INCOMPLETE";

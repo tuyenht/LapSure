@@ -11,7 +11,7 @@ RequirementDisposition RequirementSnapshot::StateOf(std::wstring_view id) const 
 }
 
 bool RequirementSnapshot::IsRequired(std::wstring_view id) const {
-    return StateOf(id) == RequirementDisposition::Required;
+    return StateOf(id) != RequirementDisposition::NotApplicable;
 }
 
 ChassisAuthorityEvidence::ChassisAuthorityEvidence(ChassisAuthorityLevel level,

@@ -43,7 +43,7 @@ include(CTest)
 if(BUILD_TESTING)
   add_executable(LapSureBehaviorTests
       tests/behavioral_tests.cpp
-      src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/devpkey_defs.cpp
+      src/scoring.cpp src/decision_context.cpp src/decision_policy.cpp src/chassis_profile.cpp src/port_power.cpp src/devpkey_defs.cpp
       src/stress.cpp src/process.cpp src/telemetry.cpp src/sensors.cpp src/trust.cpp
       src/journal.cpp src/session_history.cpp src/baseline.cpp src/hardware.cpp)
   target_sources(LapSureBehaviorTests PRIVATE src/engines.cpp src/cloud_lookup.cpp)
@@ -61,7 +61,7 @@ if(BUILD_TESTING)
   add_executable(LapSureReportPublicationTests
       tests/report_publication_tests.cpp
       src/report.cpp src/report_publication.cpp src/session_history.cpp src/journal.cpp
-      src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/port_attestation.cpp src/runtime_validation.cpp
+      src/scoring.cpp src/decision_context.cpp src/decision_policy.cpp src/chassis_profile.cpp src/port_power.cpp src/port_attestation.cpp src/runtime_validation.cpp
       src/orchestrator.cpp src/functional.cpp src/process.cpp src/trust.cpp src/hardware.cpp src/baseline.cpp
       src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/edid.cpp src/inventory.cpp
       src/forensics.cpp src/functional_io.cpp src/acquisition.cpp src/devpkey_defs.cpp)

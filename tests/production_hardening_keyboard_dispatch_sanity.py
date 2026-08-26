@@ -21,7 +21,7 @@ required = {
 for name, token in required.items():
     assert token in MAIN, f"missing keyboard route for {name}"
 
-for command in ["1209", "1208", "1207", "1201", "1212", "1213"]:
+for command in ["1209", "1208", "1201", "1212", "1213"]:
     assert f"WM_COMMAND, {command}, 0" in MAIN, f"missing focused command {command}"
 
 assert "gCurrentTab = MainTab::ExportShare;" in MAIN
@@ -42,8 +42,15 @@ assert "gCurrentTab == MainTab::Dashboard" in focus2
 assert "StartAudit(hwnd);" in focus2
 for hidden in ["MainTab::AutoAudit", "MainTab::NewSession", "MainTab::Stress"]:
     assert hidden not in focus2, f"focus-2 still activates an invisible top CTA on {hidden}"
+
 assert "case MainTab::Memory:" in keyboard
 assert "case MainTab::SessionHistory:" not in keyboard
 assert "case MainTab::InterruptedRecovery:" not in keyboard
+
+ports_start = keyboard.index("case MainTab::PortsPower:")
+ports_end = keyboard.index("case MainTab::Display:", ports_start)
+ports_route = keyboard[ports_start:ports_end]
+assert "WM_COMMAND, 1300, 0" in ports_route, "Ports & Power must use guided stable-ID continuation"
+assert "WM_COMMAND, 1207, 0" not in ports_route, "Ports & Power primary route must not use generic label-only probing"
 
 print("Production hardening keyboard dispatch sanity: OK")

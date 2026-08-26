@@ -51,7 +51,7 @@ if(BUILD_TESTING)
       src/environment.cpp src/profile.cpp src/edid.cpp src/inventory.cpp src/forensics.cpp
       src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/orchestrator.cpp src/port_attestation.cpp src/runtime_validation.cpp src/report.cpp src/report_publication.cpp)
   target_include_directories(LapSureBehaviorTests PRIVATE include)
-  target_compile_definitions(LapSureBehaviorTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+  target_compile_definitions(LapSureBehaviorTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX LAPSURE_ENABLE_TEST_HOOKS)
   target_link_libraries(LapSureBehaviorTests PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm winhttp mf mfplat mfreadwrite mfuuid wlanapi bthprops uuid)
   if(MSVC)
     target_compile_options(LapSureBehaviorTests PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus /utf-8)

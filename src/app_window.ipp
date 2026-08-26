@@ -277,28 +277,59 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
                 snapshot = gReport;
             }
             const auto& functional = snapshot.hardware.stress.functional;
-            const auto requiredPortsRemaining =
-                RequiredPortsRemaining(snapshot.hardware.stress.portAttestation);
-            if (functional.manualRequired || functional.notTested) {
-                CommitManualResults(RunFunctionalIoWizard(hwnd));
-            } else if (requiredPortsRemaining > 0) {
-                std::wstring portId;
-                std::wstring label;
-                std::wstring capability;
-                if (!SelectNextChassisPort(
-                        hwnd,
-                        snapshot.hardware.stress.chassisProfile,
-                        portId,
-                        label,
-                        capability)) {
-                    return 0;
+            const auto requiredPortsRemaining = RequiredPortsRemaining(snapshot.hardware.stress.portAttestation);
+
+            auto isMissing = [&](const wchar_t* fid) -> bool {
+                for (const auto& item : functional.items) {
+                    if (item.id == fid) return item.status == FunctionalStatus::NotTested || item.status == FunctionalStatus::ManualRequired;
                 }
+                return true;
+            };
+
+            bool funcVisual = isMissing(L"display_visual");
+            bool funcKb = isMissing(L"keyboard_function");
+            bool funcSpk = isMissing(L"speaker_function");
+            bool funcIo = isMissing(L"camera_function") || isMissing(L"mic_function") || isMissing(L"wifi_function") || isMissing(L"bluetooth_function");
+            bool physicalMissing = isMissing(L"physical_chassis") || isMissing(L"physical_hinge") || isMissing(L"physical_tamper") || isMissing(L"physical_liquid") || isMissing(L"physical_battery") || isMissing(L"physical_charger");
+
+            if (funcVisual) {
+                if (gCurrentTab != MainTab::Functional) { gCurrentTab = MainTab::Functional; gTableScrollOffset = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
+                PostMessageW(hwnd, WM_COMMAND, 1201, 0); return 0;
+            }
+            if (funcKb) {
+                if (gCurrentTab != MainTab::Functional) { gCurrentTab = MainTab::Functional; gTableScrollOffset = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
+                PostMessageW(hwnd, WM_COMMAND, 1202, 0); return 0;
+            }
+            if (funcSpk) {
+                if (gCurrentTab != MainTab::Functional) { gCurrentTab = MainTab::Functional; gTableScrollOffset = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
+                PostMessageW(hwnd, WM_COMMAND, 1204, 0); return 0;
+            }
+            if (funcIo) {
+                if (gCurrentTab != MainTab::Functional) { gCurrentTab = MainTab::Functional; gTableScrollOffset = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
+                PostMessageW(hwnd, WM_COMMAND, 1206, 0); return 0;
+            }
+            if (physicalMissing) {
+                if (gCurrentTab != MainTab::PhysicalSafety) { gCurrentTab = MainTab::PhysicalSafety; gTableScrollOffset = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
+                PostMessageW(hwnd, WM_COMMAND, 1208, 0); return 0;
+            }
+            if (requiredPortsRemaining > 0) {
+                if (gCurrentTab != MainTab::PortsPower) { gCurrentTab = MainTab::PortsPower; gTableScrollOffset = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
+                std::wstring portId, label, capability;
+                if (!SelectNextChassisPort(hwnd, snapshot.hardware.stress.chassisProfile, portId, label, capability)) return 0;
                 auto result = RunPhysicalPortProbe(hwnd, label, &gCancel);
                 result.expectedPortId = portId;
                 CommitPortResultGuided(result);
-            } else {
-                OpenCurrentReport(hwnd);
+                return 0;
             }
+            
+            if (gCurrentTab != MainTab::Reports) {
+                gCurrentTab = MainTab::Reports;
+                gTableScrollOffset = 0;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+
+            OpenCurrentReport(hwnd);
             return 0;
         }
         return 0;
@@ -331,33 +362,112 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             return 0;
         }
 
-        // 2–3. S01 top mode strip and Start/Stop button. These hit regions exist only on Dashboard.
+        // 2–3. S01 top mode strip, Start/Stop button, and domain card deep linking.
         const int modeY = layout.contentRect.top + UiMetrics::Scale(70, dpi);
         if (gCurrentTab == MainTab::Dashboard) {
-            const int buttonW = UiMetrics::Scale(230, dpi);
-            const int buttonH = UiMetrics::Scale(40, dpi);
-            const RECT startButton{client.right - buttonW - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi),
-                                   client.right - UiMetrics::Scale(24, dpi), modeY - UiMetrics::Scale(2, dpi) + buttonH};
-            if (PtInRect(&startButton, POINT{x, y})) {
-                StartAudit(hwnd);
-                return 0;
-            }
+            const int pad = UiMetrics::Scale(24, dpi);
+            const int gap = UiMetrics::Scale(10, dpi);
+            const int rightPanelW = UiMetrics::Scale(260, dpi);
+            const int rightX = client.right - rightPanelW - pad;
+            const int mainW = rightX - layout.contentRect.left - UiMetrics::Scale(36, dpi);
             const int firstX = layout.contentRect.left + UiMetrics::Scale(134, dpi);
             const int pillW = UiMetrics::Scale(80, dpi);
             const int pillH = UiMetrics::Scale(28, dpi);
-            const int gap = UiMetrics::Scale(6, dpi);
+            const int pillGap = UiMetrics::Scale(6, dpi);
             if (y >= modeY && y <= modeY + pillH) {
                 if (x >= firstX && x <= firstX + pillW) gSelectedMode = L"Quick";
-                else if (x >= firstX + pillW + gap && x <= firstX + 2 * pillW + gap) gSelectedMode = L"Standard";
-                else if (x >= firstX + 2 * (pillW + gap) && x <= firstX + 3 * pillW + 2 * gap) gSelectedMode = L"Deep";
+                else if (x >= firstX + pillW + pillGap && x <= firstX + 2 * pillW + pillGap) gSelectedMode = L"Standard";
+                else if (x >= firstX + 2 * (pillW + pillGap) && x <= firstX + 3 * pillW + 2 * pillGap) gSelectedMode = L"Deep";
                 InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+
+            // 4 Top KPI Cards on S01:
+            const int kpiY = modeY + UiMetrics::Scale(44, dpi);
+            const int kpiW = (mainW - 3 * gap) / 4;
+            const int kpiH = UiMetrics::Scale(82, dpi);
+            for (int k = 0; k < 4; ++k) {
+                const int kX = layout.contentRect.left + pad + k * (kpiW + gap);
+                const RECT kRect{kX, kpiY, kX + kpiW, kpiY + kpiH};
+                if (PtInRect(&kRect, POINT{x, y})) {
+                    if (k == 0) gCurrentTab = MainTab::Reports; // KẾT LUẬN
+                    else if (k == 1) gCurrentTab = MainTab::AutoAudit; // KIỂM TRA TỰ ĐỘNG
+                    else if (k == 2) gCurrentTab = MainTab::Reports; // CẢNH BÁO / FINDINGS -> Xem ngay chi tiết cảnh báo!
+                    else if (k == 3) gCurrentTab = MainTab::Reports; // LỖI NGHIÊM TRỌNG
+                    gTableScrollOffset = 0;
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                    return 0;
+                }
+            }
+
+            // Right Rail: Coverage card & Factory card
+            const RECT coverageCard{ rightX, kpiY, client.right - pad, kpiY + UiMetrics::Scale(140, dpi) };
+            if (PtInRect(&coverageCard, POINT{x, y})) {
+                gCurrentTab = MainTab::Reports;
+                gTableScrollOffset = 0;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+
+            const RECT factoryCard{ rightX, coverageCard.bottom + gap, client.right - pad,
+                                  coverageCard.bottom + UiMetrics::Scale(85, dpi) };
+            if (PtInRect(&factoryCard, POINT{x, y})) {
+                gCurrentTab = MainTab::FactoryProfileMatch;
+                gTableScrollOffset = 0;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+
+            const RECT stepCard{ rightX, factoryCard.bottom + gap, client.right - pad, layout.contentRect.bottom - UiMetrics::Scale(20, dpi) };
+            const RECT nextBtn{ stepCard.left + UiMetrics::Scale(12, dpi), stepCard.bottom - UiMetrics::Scale(40, dpi),
+                                stepCard.right - UiMetrics::Scale(12, dpi), stepCard.bottom - UiMetrics::Scale(10, dpi) };
+            if (PtInRect(&nextBtn, POINT{x, y})) {
+                if (gRunning) {
+                    StartAudit(hwnd); // toggle stop
+                } else if (gAuditCompletedItems == 0) {
+                    gInShopWizardMode = true;
+                    StartAudit(hwnd);
+                } else {
+                    gCurrentTab = MainTab::Functional; // Chuyển sang Bước 2: Kiểm tra Chức năng!
+                }
+                gTableScrollOffset = 0;
+                InvalidateRect(hwnd, nullptr, FALSE);
+                return 0;
+            }
+
+            // 6 Core Hardware Pillars hit-testing on S01:
+            const int gridY = kpiY + UiMetrics::Scale(82, dpi) + UiMetrics::Scale(14, dpi);
+            const int startGridY = gridY + UiMetrics::Scale(26, dpi);
+            const int cardCols = 2;
+            const int cellW = (mainW - gap) / 2;
+            const int cellH = UiMetrics::Scale(86, dpi);
+            for (int i = 0; i < 6; ++i) {
+                const int row = i / cardCols;
+                const int col = i % cardCols;
+                const int cardX = layout.contentRect.left + pad + col * (cellW + gap);
+                const int cardY = startGridY + row * (cellH + UiMetrics::Scale(10, dpi));
+                const RECT card{cardX, cardY, cardX + cellW, cardY + cellH};
+                if (PtInRect(&card, POINT{x, y})) {
+                    switch (i) {
+                    case 0: gCurrentTab = MainTab::Storage; break; // 💾 SSD
+                    case 1: gCurrentTab = MainTab::Memory; break; // 🧠 RAM
+                    case 2: gCurrentTab = MainTab::Battery; break; // 🔋 PIN
+                    case 3: gCurrentTab = MainTab::Display; break; // 🖥️ MÀN HÌNH
+                    case 4: gCurrentTab = MainTab::SystemInfo; break; // ⚡ CPU
+                    case 5: gCurrentTab = MainTab::SystemInfo; break; // 🎮 GPU
+                    default: break;
+                    }
+                    gTableScrollOffset = 0;
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                    return 0;
+                }
             }
         }
 
         // S02: purpose/mode selection and visible start action.
         if (gCurrentTab == MainTab::NewSession) {
             const int rightPanelW = UiMetrics::Scale(300, dpi);
-            const int leftW = client.right - client.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+            const int leftW = layout.contentRect.right - layout.contentRect.left - UiMetrics::Scale(48, dpi) - rightPanelW;
             int currentY = layout.contentRect.top + UiMetrics::Scale(94, dpi);
             const int startX = layout.contentRect.left + UiMetrics::Scale(24, dpi);
             for (int purpose = 0; purpose < 3; ++purpose) {
@@ -392,7 +502,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             }
         }
 
-        // S04: pause/resume and cancel/restart controls use the same rail geometry as the current renderer family.
+        // S04: pause/resume, cancel/restart controls, and stage row deep-linking.
         if (gCurrentTab == MainTab::AutoAudit) {
             const int clientWidth = static_cast<int>(client.right - client.left);
             const int rightPanelW = std::clamp(clientWidth * 26 / 100,
@@ -428,18 +538,91 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
                     gPaused = false;
                     gSessionLifecycleState = CanonicalUiState::Cancelled;
                     PostStatus(hwnd, L"Đã yêu cầu hủy kiểm tra...");
-                } else {
+                } else if (gAuditCompletedItems == 0) {
                     StartAudit(hwnd);
+                } else {
+                    gCurrentTab = MainTab::Functional;
                 }
                 InvalidateRect(hwnd, nullptr, FALSE);
                 return 0;
+            }
+
+            // S04 Accordion controls and Stage row expansion:
+            const int listTop = top + progressH + UiMetrics::Scale(10, dpi);
+            const int logHeight = UiMetrics::Scale(116, dpi);
+            const int logGap = UiMetrics::Scale(9, dpi);
+            const int listBottom = client.bottom - logHeight - logGap - UiMetrics::Scale(18, dpi);
+            const RECT listCard{layout.contentRect.left + UiMetrics::Scale(24, dpi), listTop,
+                                layout.contentRect.left + UiMetrics::Scale(24, dpi) + mainW, listBottom};
+            if (PtInRect(&listCard, POINT{x, y})) {
+                // Check [🔽 Mở rộng tất cả] and [🔼 Thu gọn]
+                const int expBtnW = UiMetrics::Scale(115, dpi);
+                const int colBtnW = UiMetrics::Scale(90, dpi);
+                const int btnH = UiMetrics::Scale(20, dpi);
+                const RECT expAllBtn{ listCard.right - expBtnW - colBtnW - UiMetrics::Scale(14, dpi), listCard.top + UiMetrics::Scale(5, dpi),
+                                      listCard.right - colBtnW - UiMetrics::Scale(10, dpi), listCard.top + UiMetrics::Scale(5, dpi) + btnH };
+                const RECT colAllBtn{ listCard.right - colBtnW - UiMetrics::Scale(6, dpi), listCard.top + UiMetrics::Scale(5, dpi),
+                                      listCard.right - UiMetrics::Scale(6, dpi), listCard.top + UiMetrics::Scale(5, dpi) + btnH };
+
+                if (PtInRect(&expAllBtn, POINT{x, y})) {
+                    gExpandedAutoStage = 99;
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                    return 0;
+                }
+                if (PtInRect(&colAllBtn, POINT{x, y})) {
+                    gExpandedAutoStage = -1;
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                    return 0;
+                }
+
+                int rowY = listCard.top + UiMetrics::Scale(30, dpi) + UiMetrics::Scale(2, dpi);
+                for (int i = 0; i < 9; ++i) {
+                    if (rowY >= listCard.bottom - UiMetrics::Scale(28, dpi)) break;
+                    const bool isExpanded = (gExpandedAutoStage == 99) || (gExpandedAutoStage == i);
+                    const int rowHeight = isExpanded ? UiMetrics::Scale(78, dpi) : UiMetrics::Scale(34, dpi);
+                    const RECT row{listCard.left + UiMetrics::Scale(6, dpi), rowY,
+                                   listCard.right - UiMetrics::Scale(6, dpi), rowY + rowHeight};
+
+                    if (isExpanded) {
+                        RECT headerRow{ row.left, row.top, row.right, row.top + UiMetrics::Scale(34, dpi) };
+                        RECT detailBox{ row.left + UiMetrics::Scale(10, dpi), headerRow.bottom,
+                                        row.right - UiMetrics::Scale(10, dpi), row.bottom - UiMetrics::Scale(4, dpi) };
+                        RECT jumpBtn{ detailBox.right - UiMetrics::Scale(125, dpi), detailBox.top + UiMetrics::Scale(2, dpi),
+                                      detailBox.right, detailBox.bottom - UiMetrics::Scale(2, dpi) };
+                        
+                        if (PtInRect(&jumpBtn, POINT{x, y})) {
+                            switch (i) {
+                                case 0: gCurrentTab = MainTab::SystemInfo; gReturnToAutoAudit = true; break;
+                                case 1: gCurrentTab = MainTab::SystemInfo; gReturnToAutoAudit = true; break;
+                                case 2: gCurrentTab = MainTab::Memory; gReturnToAutoAudit = true; break;
+                                case 3: gCurrentTab = MainTab::Storage; gReturnToAutoAudit = true; break;
+                                case 4: gCurrentTab = MainTab::SystemInfo; gReturnToAutoAudit = true; break;
+                                case 5: gCurrentTab = MainTab::Battery; gReturnToAutoAudit = true; break;
+                                case 6: gCurrentTab = MainTab::Network; gReturnToAutoAudit = true; break;
+                                case 7: gCurrentTab = MainTab::LogsEvents; gReturnToAutoAudit = true; break;
+                                case 8: gCurrentTab = MainTab::Stress; gReturnToAutoAudit = true; break;
+                            }
+                            gTableScrollOffset = 0;
+                            InvalidateRect(hwnd, nullptr, FALSE);
+                            return 0;
+                        }
+                    }
+
+                    if (PtInRect(&row, POINT{x, y})) {
+                        // Toggle accordion expansion on click
+                        gExpandedAutoStage = (gExpandedAutoStage == i ? -1 : i);
+                        InvalidateRect(hwnd, nullptr, FALSE);
+                        return 0;
+                    }
+                    rowY += rowHeight + UiMetrics::Scale(4, dpi);
+                }
             }
         }
 
         // S05 functional module cards.
         if (gCurrentTab == MainTab::Functional) {
             const int rightPanelW = UiMetrics::Scale(250, dpi);
-            const int leftW = client.right - client.left - UiMetrics::Scale(48, dpi) - rightPanelW;
+            const int leftW = layout.contentRect.right - layout.contentRect.left - UiMetrics::Scale(48, dpi) - rightPanelW;
             const int top = layout.contentRect.top + UiMetrics::Scale(135, dpi);
             const int startX = layout.contentRect.left + UiMetrics::Scale(24, dpi);
             const int cardW = (leftW - UiMetrics::Scale(12, dpi)) / 2;
@@ -468,7 +651,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         struct RailAction { MainTab tab; int height; int command; bool startAudit; };
         const RailAction railActions[] = {
             {MainTab::SellerClaim, 240, 1209, false},
-            {MainTab::PhysicalSafety, 310, 1208, false},
+            {MainTab::PhysicalSafety, 310, 1300, false},
             {MainTab::PortsPower, 280, 1300, false},
             {MainTab::Stress, 280, 0, true},
         };
@@ -499,6 +682,21 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             const RECT action = GetScreenS19PrimaryActionRect(layout.contentRect, dpi);
             if (PtInRect(&action, POINT{x, y})) {
                 OpenCurrentReport(hwnd);
+                return 0;
+            }
+        }
+
+        if (gReturnToAutoAudit && (
+            gCurrentTab == MainTab::Battery || gCurrentTab == MainTab::Storage || 
+            gCurrentTab == MainTab::Memory || gCurrentTab == MainTab::Display || 
+            gCurrentTab == MainTab::AudioCamera || gCurrentTab == MainTab::Network || 
+            gCurrentTab == MainTab::SystemInfo)) {
+            RECT btnRect{ layout.contentRect.right - UiMetrics::Scale(140, dpi), layout.contentRect.top + UiMetrics::Scale(14, dpi), 
+                          layout.contentRect.right - UiMetrics::Scale(24, dpi), layout.contentRect.top + UiMetrics::Scale(44, dpi) };
+            if (PtInRect(&btnRect, POINT{x, y})) {
+                gCurrentTab = MainTab::AutoAudit;
+                gReturnToAutoAudit = false;
+                InvalidateRect(hwnd, nullptr, FALSE);
                 return 0;
             }
         }
@@ -638,6 +836,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         if (wParam == 0) {
             const auto snapshot = ReportSnapshot();
             gSessionLifecycleState = LifecycleStateFromDecision(snapshot);
+            if (gInShopWizardMode) {
+                gCurrentTab = MainTab::Functional;
+                PostMessageW(hwnd, WM_COMMAND, 1201, 0); // Start display wizard automatically
+            }
         } else if (wParam == 2) {
             gSessionLifecycleState = CanonicalUiState::Interrupted;
         } else if (gSessionLifecycleState != CanonicalUiState::Interrupted) {
@@ -686,7 +888,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             RenderScreenS03_SellerClaim(bufferDc, layout.contentRect, report, gFonts, dpi, gFocusIndex); break;
         case MainTab::AutoAudit:
             RenderScreenS04_AutoAudit(bufferDc, layout.contentRect, report, gFonts, dpi, gSelectedMode, gRunning, gPaused,
-                                      gAuditCompletedItems, gAuditTotalItems, gAuditCurrentStage, gAuditElapsedSec, logs, gFocusIndex); break;
+                                      gAuditCompletedItems, gAuditTotalItems, gAuditCurrentStage, gAuditElapsedSec, logs, gExpandedAutoStage); break;
         case MainTab::Functional:
             RenderScreenS05_Functional(bufferDc, layout.contentRect, report, gFonts, dpi, 1, {}, {}, false, gFocusIndex); break;
         case MainTab::PhysicalSafety:

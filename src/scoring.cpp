@@ -120,7 +120,8 @@ bool PortsCoverageComplete(const DecisionContext& context) {
            RequiredPortsRemaining(context.portAttestation) == 0;
 }
 
-bool HasCriticalMachineFailure(const AuditReport& report) {
+bool HasCriticalMachineFailure(const AuditReport& report,
+                               const DecisionContext& context) {
     if (std::any_of(report.findings.begin(), report.findings.end(),
                     [](const Finding& finding) {
                         return finding.severity == Severity::Critical &&
@@ -146,8 +147,8 @@ bool HasCriticalMachineFailure(const AuditReport& report) {
         return true;
     }
 
-    return std::any_of(report.hardware.stress.portAttestation.ports.begin(),
-                       report.hardware.stress.portAttestation.ports.end(),
+    return std::any_of(context.portAttestation.ports.begin(),
+                       context.portAttestation.ports.end(),
                        [](const SessionPortEvidence& port) {
                            return port.expectedRequired &&
                                   (port.observedPresence == CapabilityTruth::AbsentConfirmed ||
@@ -491,7 +492,7 @@ AuditDecision BuildAuditDecision(const AuditReport& report,
         }));
     decision.coverage = missingRequired == 0 ? L"HIGH" : L"PARTIAL";
 
-    if (HasCriticalMachineFailure(report)) {
+    if (HasCriticalMachineFailure(report, context)) {
         decision.overall = L"REJECT";
         decision.stability = stageFailure ? L"FAIL" : decision.stability;
         decision.confidence = Confidence::High;

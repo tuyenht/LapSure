@@ -9,6 +9,7 @@ CLOUD = (ROOT / "src/cloud_lookup.cpp").read_text(encoding="utf-8")
 PROFILE_H = (ROOT / "include/lap/profile.h").read_text(encoding="utf-8")
 PROFILE = (ROOT / "src/profile.cpp").read_text(encoding="utf-8")
 CHASSIS_H = (ROOT / "include/lap/chassis_profile.h").read_text(encoding="utf-8")
+CHASSIS = (ROOT / "src/chassis_profile.cpp").read_text(encoding="utf-8")
 SECURITY = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
 
 
@@ -44,8 +45,14 @@ require("trustedProvenance = true" not in PROFILE,
         "portable static profile loader must not self-promote provenance trust")
 require('root / L"cache"' not in PROFILE,
         "normal factory profile loader must not promote mutable cache data")
-require("LoadDecisionChassisProfile" in CHASSIS_H and "static-unverified" in CHASSIS_H,
-        "mutable chassis metadata must not self-assert physical verification authority")
+require(
+    "LoadDecisionChassisProfile" in CHASSIS_H and
+    'raw.validationStatus==L"physical-verified"' in CHASSIS and
+    'raw.validationStatus=L"static-unverified"' in CHASSIS and
+    "ProtectedPrecisionPilotBaseline" in CHASSIS and
+    "advisory.required=false" in CHASSIS,
+    "mutable chassis metadata must remain advisory at the decision boundary and cannot shrink the protected denominator",
+)
 
 # Production fragments are routed through decision-safe wrappers while technician
 # batch pre-cache remains implemented separately in cloud_lookup.cpp.

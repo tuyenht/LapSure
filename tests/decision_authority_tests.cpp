@@ -16,6 +16,25 @@ void Expect(bool ok, const char* name) {
     }
 }
 
+void CompleteCurrentSessionPorts(lap::AuditReport& report) {
+    report.hardware.stress.sessionId = L"task5-session";
+    report.hardware.stress.portAttestation = lap::InitializeSessionPortAttestation(
+        report.hardware.stress.sessionId,
+        report.hardware.stress.chassisProfile);
+
+    for (const auto& expected : report.hardware.stress.chassisProfile.ports) {
+        if (!expected.required) continue;
+        lap::PortProbeResult result{};
+        result.expectedPortId = expected.id;
+        result.portLabel = expected.label;
+        result.deviceEnumerated = true;
+        result.confidence = lap::Confidence::High;
+        result.verdict = L"PASS";
+        result.evidence = L"Stable-ID operator stimulus completed";
+        lap::ApplyPortResultToAttestation(report.hardware.stress.portAttestation, result);
+    }
+}
+
 lap::AuditReport HealthyAdvisoryFixture() {
     lap::AuditReport report{};
     report.model = L"Precision test fixture";
@@ -34,6 +53,7 @@ lap::AuditReport HealthyAdvisoryFixture() {
     disk.reliabilityHealthy = true;
     report.hardware.storage.push_back(disk);
 
+    report.hardware.gpuInventoryStatus = lap::ProviderCollectionStatus::Complete;
     lap::GpuInfo gpu{};
     gpu.name = L"Intel Iris Xe Graphics";
     report.hardware.gpus.push_back(gpu);
@@ -45,11 +65,21 @@ lap::AuditReport HealthyAdvisoryFixture() {
     lap::StressStageResult cpu{};
     cpu.name = L"CPU sustained load";
     cpu.verdict = lap::TestVerdict::Pass;
-    cpu.telemetrySummary.maxCpuPackageTempC = 80.0;
+    lap::TelemetrySample thermal{};
+    thermal.second = 1;
+    thermal.cpuUtilPercent = 95.0;
+    thermal.cpuPackageTempC = 80.0;
+    thermal.cpuThermalConfidence = lap::Confidence::High;
+    thermal.cpuThermalSource = L"trusted test telemetry";
+    cpu.telemetry.push_back(thermal);
+    lap::AssessStressStage(cpu);
 
     lap::StressStageResult ram{};
     ram.name = L"RAM online integrity";
     ram.verdict = lap::TestVerdict::Pass;
+    ram.ram.bytesAllocated = 8ULL * 1024ULL * 1024ULL * 1024ULL;
+    ram.ram.bytesTested = ram.ram.bytesAllocated;
+    ram.ram.passes = 1;
     report.hardware.stress.stages = {cpu, ram};
 
     for (const auto* id : {
@@ -74,6 +104,7 @@ lap::AuditReport HealthyAdvisoryFixture() {
 
     report.hardware.stress.chassisProfile.profileId = L"fixture";
     report.hardware.stress.chassisProfile.validationStatus = L"draft";
+    report.hardware.stress.chassisProfile.source = L"portable advisory fixture";
     report.hardware.stress.chassisProfile.ports.push_back(
         {L"tb4-left-1",
          L"TB4 left 1",
@@ -83,6 +114,7 @@ lap::AuditReport HealthyAdvisoryFixture() {
          true,
          true,
          L"PASS"});
+    CompleteCurrentSessionPorts(report);
 
     return report;
 }
@@ -248,6 +280,129 @@ void TestCriticalMachineFailureDominatesRuntimeFailure() {
     Expect(decision.overall == L"REJECT",
            "trusted critical machine failure remains REJECT when runtime validation also fails");
 }
+
+void TestTask5RequirementSnapshotRequiredness() {
+    auto report = HealthyAdvisoryFixture();
+    auto context = lap::BuildDecisionContext(report);
+
+    Expect(context.capabilities.discreteGpu.state == lap::CapabilityTruth::AbsentConfirmed,
+           "Task 5 context freezes normalized dGPU capability truth");
+    Expect(context.requirements.StateOf(L"gpu_vram") == lap::RequirementDisposition::NotApplicable,
+           "confirmed dGPU absence without seller claim makes GPU coverage NotApplicable");
+    Expect(context.requirements.StateOf(L"thermals") == lap::RequirementDisposition::Required,
+           "CPU sustained load makes trusted thermal evidence Required");
+    Expect(context.requirements.StateOf(L"ports_power") == lap::RequirementDisposition::Required,
+           "expected required ports make session port coverage Required");
+    Expect(context.requirements.StateOf(L"runtime") == lap::RequirementDisposition::Required,
+           "runtime validation remains Required for purchase-grade decisions");
+
+    auto sellerGpuClaim = report;
+    sellerGpuClaim.sellerClaim.provided = true;
+    sellerGpuClaim.sellerClaim.gpuContains = L"NVIDIA RTX A2000";
+    auto sellerContext = lap::BuildDecisionContext(sellerGpuClaim);
+    Expect(sellerContext.requirements.StateOf(L"gpu_vram") == lap::RequirementDisposition::Required,
+           "unresolved seller dGPU claim keeps GPU evidence Required");
+
+    auto unknownGpu = report;
+    unknownGpu.hardware.gpuInventoryStatus = lap::ProviderCollectionStatus::Failed;
+    auto unknownContext = lap::BuildDecisionContext(unknownGpu);
+    Expect(unknownContext.requirements.StateOf(L"gpu_vram") == lap::RequirementDisposition::ConditionalBlocked,
+           "unknown dGPU capability freezes GPU requirement as ConditionalBlocked");
+}
+
+void TestTask5VerdictLattice() {
+    auto advisoryReport = HealthyAdvisoryFixture();
+    const auto advisoryContext = lap::BuildDecisionContext(advisoryReport);
+    const auto advisoryDecision = lap::BuildAuditDecision(advisoryReport, advisoryContext);
+    Expect(advisoryDecision.overall == L"BUY WITH NOTES",
+           "healthy Advisory plus complete current-session evidence reaches BUY WITH NOTES");
+
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+    const auto certifiedContext = lap::BuildCertifiedDecisionContextForTest(
+        advisoryReport, L"test-only certified chassis authority");
+    const auto certifiedDecision = lap::BuildAuditDecision(advisoryReport, certifiedContext);
+    Expect(certifiedDecision.overall == L"BUY",
+           "healthy test-only Certified context plus complete evidence reaches BUY");
+#endif
+
+    auto missingPort = advisoryReport;
+    missingPort.hardware.stress.portAttestation = lap::InitializeSessionPortAttestation(
+        missingPort.hardware.stress.sessionId,
+        missingPort.hardware.stress.chassisProfile);
+    const auto missingPortContext = lap::BuildDecisionContext(missingPort);
+    Expect(lap::BuildAuditDecision(missingPort, missingPortContext).overall == L"INCOMPLETE",
+           "expected required port left untested remains INCOMPLETE");
+
+    auto discreteGpu = advisoryReport;
+    discreteGpu.hardware.gpus.clear();
+    lap::GpuInfo discrete{};
+    discrete.name = L"NVIDIA RTX A2000 Laptop GPU";
+    discreteGpu.hardware.gpus.push_back(discrete);
+    const auto discreteContext = lap::BuildDecisionContext(discreteGpu);
+    Expect(discreteContext.requirements.StateOf(L"gpu_vram") == lap::RequirementDisposition::Required &&
+               lap::BuildAuditDecision(discreteGpu, discreteContext).overall == L"INCOMPLETE",
+           "dGPU Present with unavailable GPU stage remains INCOMPLETE");
+
+    auto unknownGpu = advisoryReport;
+    unknownGpu.hardware.gpuInventoryStatus = lap::ProviderCollectionStatus::Failed;
+    const auto unknownContext = lap::BuildDecisionContext(unknownGpu);
+    Expect(lap::BuildAuditDecision(unknownGpu, unknownContext).overall == L"INCOMPLETE",
+           "dGPU Unknown remains INCOMPLETE");
+
+    auto missingThermal = advisoryReport;
+    auto& cpu = missingThermal.hardware.stress.stages.front();
+    cpu.telemetry.clear();
+    cpu.telemetrySummary = {};
+    const auto thermalContext = lap::BuildDecisionContext(missingThermal);
+    Expect(lap::BuildAuditDecision(missingThermal, thermalContext).overall == L"INCOMPLETE",
+           "CPU load without trusted CPU thermal sample remains INCOMPLETE");
+
+    auto critical = advisoryReport;
+    critical.findings.push_back({L"Seller claim",
+                                 L"Critical trusted mismatch",
+                                 L"FAIL",
+                                 L"match",
+                                 lap::State::Fail,
+                                 lap::Severity::Critical,
+                                 L"trusted machine/seller evidence",
+                                 lap::Dimension::Factory});
+    const auto criticalContext = lap::BuildDecisionContext(critical);
+    Expect(lap::BuildAuditDecision(critical, criticalContext).overall == L"REJECT",
+           "critical trusted seller or hardware finding has REJECT precedence");
+
+    auto runtimeFailure = advisoryReport;
+    runtimeFailure.hardware.stress.runtimeValidation.failed = 1;
+    runtimeFailure.hardware.stress.runtimeValidation.overall = L"FAIL";
+    const auto runtimeContext = lap::BuildDecisionContext(runtimeFailure);
+    Expect(lap::BuildAuditDecision(runtimeFailure, runtimeContext).overall == L"INCOMPLETE",
+           "runtime self-integrity failure yields INCOMPLETE without fabricating machine REJECT");
+}
+
+void TestTask5FactoryAuthorityAndFrozenMetadata() {
+    auto report = HealthyAdvisoryFixture();
+    report.factoryExact = true;
+    report.profileSource = L"exact but unauthenticated portable factory metadata";
+
+    const auto context = lap::BuildDecisionContext(report);
+    Expect(context.profile.factoryAuthority != lap::FactoryAuthorityLevel::Authenticated,
+           "factoryExact alone cannot mint Authenticated factory authority");
+
+    const auto coverage = lap::BuildCoverageContract(report, context);
+    const auto decision = lap::BuildAuditDecision(report, context);
+    Expect(decision.overall == L"BUY WITH NOTES",
+           "missing authenticated factory truth alone does not block complete machine evidence");
+    Expect(decision.coverageDomains.size() == coverage.size() && !coverage.empty(),
+           "decision freezes the same coverage contract built from its RequirementSnapshot");
+    Expect(decision.decisionPolicyVersion == context.requirements.versions.decision &&
+               decision.coveragePolicyVersion == context.requirements.versions.coverage &&
+               decision.authorityPolicyVersion == context.requirements.versions.authority &&
+               decision.decisionPolicyVersion == L"5.1.0",
+           "decision persists frozen decision coverage and authority policy versions");
+    Expect(!decision.chassisAuthority.empty() &&
+               !decision.factoryAuthority.empty() &&
+               !decision.discreteGpuCapability.empty(),
+           "decision persists authority and capability metadata labels");
+}
 } // namespace
 
 int main() {
@@ -258,6 +413,9 @@ int main() {
     TestPortAttestationRejectsLabelOnlyIdentity();
     TestPortAttestationCompletesByStableId();
     TestCriticalMachineFailureDominatesRuntimeFailure();
+    TestTask5RequirementSnapshotRequiredness();
+    TestTask5VerdictLattice();
+    TestTask5FactoryAuthorityAndFrozenMetadata();
 
     auto report = HealthyAdvisoryFixture();
     const auto decision = lap::BuildAuditDecision(report);

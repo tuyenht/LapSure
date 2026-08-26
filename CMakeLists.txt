@@ -49,7 +49,7 @@ if(BUILD_TESTING)
   target_sources(LapSureBehaviorTests PRIVATE src/engines.cpp src/cloud_lookup.cpp)
   target_sources(LapSureBehaviorTests PRIVATE
       src/environment.cpp src/profile.cpp src/edid.cpp src/inventory.cpp src/forensics.cpp
-      src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/orchestrator.cpp src/runtime_validation.cpp src/report.cpp src/report_publication.cpp)
+      src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/orchestrator.cpp src/port_attestation.cpp src/runtime_validation.cpp src/report.cpp src/report_publication.cpp)
   target_include_directories(LapSureBehaviorTests PRIVATE include)
   target_compile_definitions(LapSureBehaviorTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
   target_link_libraries(LapSureBehaviorTests PRIVATE user32 gdi32 comctl32 advapi32 shell32 shlwapi ole32 oleaut32 wbemuuid setupapi cfgmgr32 iphlpapi powrprof bcrypt winmm winhttp mf mfplat mfreadwrite mfuuid wlanapi bthprops uuid)
@@ -61,7 +61,7 @@ if(BUILD_TESTING)
   add_executable(LapSureReportPublicationTests
       tests/report_publication_tests.cpp
       src/report.cpp src/report_publication.cpp src/session_history.cpp src/journal.cpp
-      src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/runtime_validation.cpp
+      src/scoring.cpp src/chassis_profile.cpp src/port_power.cpp src/port_attestation.cpp src/runtime_validation.cpp
       src/orchestrator.cpp src/functional.cpp src/process.cpp src/trust.cpp src/hardware.cpp src/baseline.cpp
       src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/edid.cpp src/inventory.cpp
       src/forensics.cpp src/functional_io.cpp src/acquisition.cpp src/devpkey_defs.cpp)

@@ -69,8 +69,11 @@ int main() {
            "attack-path fixture proves raw mutable chassis metadata can self-assert verification");
 
     const auto decisionChassis = lap::LoadDecisionChassisProfile(root.wstring(), L"Dell Precision 5560");
-    Expect(decisionChassis.validationStatus == L"static-unverified",
-           "decision chassis boundary strips mutable physical-verification authority");
+    Expect(decisionChassis.validationStatus != L"physical-verified" &&
+               decisionChassis.validationStatus == L"embedded-advisory-baseline" &&
+               decisionChassis.profileId == L"lapsure_precision_5560_expected_ports" &&
+               decisionChassis.source == L"LapSure embedded Precision pilot baseline",
+           "decision chassis boundary strips mutable verification and uses the protected advisory baseline");
 
     unsigned requiredPorts = 0;
     bool protectedLeftTb1Required = false;

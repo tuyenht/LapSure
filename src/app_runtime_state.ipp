@@ -149,13 +149,14 @@ int RunInventoryOnly(const std::wstring& outputDir) {
     const auto caps = DetectCapabilities(gDir);
     const auto model = Reg(L"SystemProductName");
     const auto tag = ServiceTag(caps, &cancel);
-    auto profileLoad = LoadFactoryProfile(gDir + L"\\profiles", model, tag);
+    auto profileLoad = LoadDecisionFactoryProfile(gDir + L"\\profiles", model, tag);
     if (!profileLoad.loaded && !tag.empty()) {
         const auto vendor = Reg(L"SystemManufacturer");
-        const auto cloud = LookupFactoryProfileOnline(gDir, vendor, model, tag, 1500);
+        const auto cloud = LookupFactoryProfileForDecision(gDir, vendor, model, tag, 1500);
         if (cloud.success) {
             profileLoad.loaded = true;
             profileLoad.exact = true;
+            profileLoad.trustedProvenance = true;
             profileLoad.profile = cloud.profile;
             profileLoad.source = cloud.source;
         }
@@ -164,8 +165,8 @@ int RunInventoryOnly(const std::wstring& outputDir) {
     const FactoryProfile profile = profileLoad.loaded ? profileLoad.profile : FactoryProfile{};
     auto report = CollectInventory(profile, caps, gDir, &cancel);
     report.profileSource = profileLoad.source;
-    report.factoryExact = profileLoad.exact;
-    report.genericMode = !profileLoad.exact;
+    report.factoryExact = profileLoad.TrustedExact();
+    report.genericMode = !profileLoad.TrustedExact();
     CollectNvidia(report, profile, caps, gDir, &cancel);
     CollectWindowsStorageReliability(report, caps, &cancel);
     CollectSmartctl(report, profile, caps, gDir, &cancel);
@@ -174,14 +175,15 @@ int RunInventoryOnly(const std::wstring& outputDir) {
     CollectPortPowerBaseline(report);
     CollectVolumeIntegrityAudit(report);
     CollectBatteryDischargeAudit(report, caps, &cancel);
-    report.hardware.stress.chassisProfile = LoadChassisProfile(gDir, report.model);
+    report.hardware.stress.chassisProfile = LoadDecisionChassisProfile(gDir, report.model);
     report.hardware.stress.portAttestation = InitializeSessionPortAttestation(
         report.hardware.stress.sessionId,
         report.hardware.stress.chassisProfile);
     RunRuntimeValidation(report, caps, gDir);
     report.findings.push_back({L"Validation", L"Inventory-only preflight", L"COMPLETED", L"No stress stages executed",
         State::Warning, Severity::Info, L"Explicit --inventory-only mode; verdict must remain incomplete.", Dimension::Health});
-    report.hardware.stress.decision = BuildAuditDecision(report);
+    const auto context = BuildDecisionContext(report);
+    report.hardware.stress.decision = BuildAuditDecision(report, context);
     BuildOrchestrator(report, false, false);
 
     const auto outputRoot = outputDir.empty() ? ResolveReportDirectory(gDir, caps.winPE)
@@ -224,7 +226,8 @@ void RebuildDecisionAndReports() {
     AuditReport snapshot;
     {
         std::lock_guard<std::mutex> lock(gReportMutex);
-        gReport.hardware.stress.decision = BuildAuditDecision(gReport);
+        const auto context = BuildDecisionContext(gReport);
+        gReport.hardware.stress.decision = BuildAuditDecision(gReport, context);
         BuildOrchestrator(gReport, gRunning.load(), gAuditReady.load());
         snapshot = gReport;
     }

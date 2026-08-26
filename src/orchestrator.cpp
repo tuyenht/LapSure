@@ -1,5 +1,5 @@
 #include "lap/orchestrator.h"
-#include "lap/chassis_profile.h"
+#include "lap/port_attestation.h"
 #include <algorithm>
 namespace lap {
 const wchar_t* StageStateText(TestStageState s){switch(s){case TestStageState::Locked:return L"LOCKED";case TestStageState::Ready:return L"READY";case TestStageState::Running:return L"RUNNING";case TestStageState::Passed:return L"PASS";case TestStageState::Warning:return L"WARNING";case TestStageState::Failed:return L"FAIL";case TestStageState::Incomplete:return L"INCOMPLETE";}return L"UNKNOWN";}
@@ -9,8 +9,11 @@ void BuildOrchestrator(AuditReport&r,bool running,bool ready){
  add(L"automatic",L"1. Automatic hardware audit",L"Inventory, factory comparison, health, telemetry and stress evidence",running?TestStageState::Running:ready?TestStageState::Passed:TestStageState::Ready,ready?1:0,1,false,L"RUN FULL AUDIT");
  auto&f=r.hardware.stress.functional;auto fs=!ready?TestStageState::Locked:f.failed?TestStageState::Failed:(f.manualRequired||f.notTested)?TestStageState::Incomplete:f.warning?TestStageState::Warning:TestStageState::Passed;
  add(L"functional",L"2. Functional verification",L"Display, keyboard, touch, camera, mic, stereo, Wi-Fi, Bluetooth",fs,f.passed+f.failed+f.warning,(unsigned)f.items.size(),true,L"CONTINUE FUNCTION TESTS");
- auto&p=r.hardware.stress.portPower;auto ps=!ready?TestStageState::Locked:p.overall==L"FAIL"?TestStageState::Failed:p.overall==L"PASS"?TestStageState::Passed:TestStageState::Incomplete;
- unsigned requiredRemaining=RequiredPortsRemaining(r.hardware.stress.chassisProfile),requiredTotal=(unsigned)r.hardware.stress.chassisProfile.ports.size();unsigned requiredDone=requiredTotal>requiredRemaining?requiredTotal-requiredRemaining:0;if(!requiredTotal){requiredTotal=std::max(1u,(unsigned)p.ports.size());requiredDone=(unsigned)p.ports.size();}
+ auto&p=r.hardware.stress.portPower;
+ unsigned requiredTotal=0;for(const auto&x:r.hardware.stress.portAttestation.ports)if(x.expectedRequired)requiredTotal++;
+ unsigned requiredRemaining=RequiredPortsRemaining(r.hardware.stress.portAttestation);unsigned requiredDone=requiredTotal>requiredRemaining?requiredTotal-requiredRemaining:0;
+ if(!requiredTotal){requiredTotal=std::max(1u,(unsigned)p.ports.size());requiredDone=(unsigned)p.ports.size();}
+ auto ps=!ready?TestStageState::Locked:p.overall==L"FAIL"?TestStageState::Failed:(requiredRemaining==0&&p.overall==L"PASS")?TestStageState::Passed:TestStageState::Incomplete;
  add(L"ports",L"3. Physical ports & power",L"Model-aware required-port verification, USB4/Thunderbolt and AC evidence",ps,requiredDone,requiredTotal,true,L"TEST NEXT PORT");
  auto d=r.hardware.stress.decision.overall;auto ds=!ready?TestStageState::Locked:d==L"REJECT"?TestStageState::Failed:d==L"BUY"?TestStageState::Passed:TestStageState::Incomplete;
  add(L"decision",L"4. Final review",L"Coverage, confidence, factory mismatch and purchase verdict",ds,ready?1:0,1,false,L"OPEN REPORT");

@@ -27,9 +27,9 @@ require("RunBatchPreCache" in APP and "--cache-tag" in APP,
         "explicit technician pre-cache CLI must remain the opt-in network path")
 require("LookupFactoryProfileOnline(appDir, vendor, L\"\", tag, timeoutMs, true)" in CLOUD,
         "only batch pre-cache may opt in to network lookup")
-app_lookup_lines = [line for line in APP.splitlines() if "LookupFactoryProfileOnline" in line]
+app_lookup_lines = [line for line in APP.splitlines() if "LookupFactoryProfileForDecision" in line]
 require(app_lookup_lines and all(", true" not in line for line in app_lookup_lines),
-        "production GUI/inventory cloud calls must use the default network-disabled policy")
+        "production GUI/inventory cloud calls must use the decision-safe default network-disabled policy")
 
 # Portable factory/chassis metadata is mutable and therefore advisory only.
 require("trustedProvenance" in PROFILE_H and "TrustedExact()" in PROFILE_H,
@@ -54,15 +54,31 @@ require(
     "mutable chassis metadata must remain advisory at the decision boundary and cannot shrink the protected denominator",
 )
 
-# Production fragments are routed through decision-safe wrappers while technician
-# batch pre-cache remains implemented separately in cloud_lookup.cpp.
-for raw_name, safe_name in [
-    ("LoadFactoryProfile", "LoadDecisionFactoryProfile"),
-    ("LookupFactoryProfileOnline", "LookupFactoryProfileForDecision"),
-    ("LoadChassisProfile", "LoadDecisionChassisProfile"),
+# Production fragments name decision-safe wrappers directly. Raw loaders remain
+# available only to tooling/tests such as technician pre-cache and provenance tests.
+for safe_name in [
+    "LoadDecisionFactoryProfile(",
+    "LookupFactoryProfileForDecision(",
+    "LoadDecisionChassisProfile(",
 ]:
-    require(f"#define {raw_name} {safe_name}" in MAIN,
-            f"production app must route {raw_name} through {safe_name}")
+    require(safe_name in APP,
+            f"production app must explicitly call decision-safe API {safe_name}")
+
+for raw_name in [
+    "LoadFactoryProfile(",
+    "LookupFactoryProfileOnline(",
+    "LoadChassisProfile(",
+]:
+    require(raw_name not in APP,
+            f"production app must not directly call raw advisory API {raw_name}")
+
+for macro in [
+    "#define LoadFactoryProfile",
+    "#define LookupFactoryProfileOnline",
+    "#define LoadChassisProfile",
+]:
+    require(macro not in MAIN,
+            f"production trust routing must not depend on preprocessor alias {macro}")
 
 # Remote identity must be exact and the payload remains unauthenticated advisory evidence.
 require("identityMatched" in CLOUD_H and "authenticatedProvenance" in CLOUD_H,

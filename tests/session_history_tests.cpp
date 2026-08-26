@@ -70,8 +70,8 @@ int main() {
     auto history = lap::GetSessionHistorySnapshot();
     Expect(history.size() == 1 && history[0].status == L"COMPLETE",
            "successful bundle commit publishes one COMPLETE live record");
-    Expect(ReadText(root / L"session_history.tsv").rfind("#LapSureSessionHistory\t1\n", 0) == 0,
-           "persisted history carries schema version header");
+    Expect(ReadText(root / L"session_history.tsv").rfind("#LapSureSessionHistory\t2\n", 0) == 0,
+           "persisted history carries schema version 2 header");
 
     const auto html2 = root / L"audit_history_2.html";
     const auto json2 = root / L"audit_history_2.json";
@@ -160,10 +160,66 @@ int main() {
            !ContainsSession(lap::GetSessionHistorySnapshot(), deleteReport.hardware.stress.sessionId),
            "successful delete removes original artifacts and live record");
 
+    // Task 7B: Schema v1 migration test (10 fields -> legacy-v1 policy versions)
+    const auto v1Root = temp / L"lapsure-session-history-v1-migration-tests";
+    ResetRoot(v1Root);
+    WriteText(v1Root / L"session_history.tsv",
+        "#LapSureSessionHistory\t1\n"
+        "v1-session\t2026-08-25 12:00:00\tModel V1\tTAG-V1\tBUY\tCOMPLETE\tv1.html\tv1.json\t\tnote v1\n");
+    lap::InitializeSessionHistory(v1Root.wstring());
+    auto v1History = lap::GetSessionHistorySnapshot();
+    Expect(v1History.size() == 1, "schema v1 index is loaded successfully");
+    if (!v1History.empty()) {
+        Expect(v1History[0].sessionId == L"v1-session", "v1 sessionId matches");
+        Expect(v1History[0].decisionPolicyVersion == L"legacy-v1", "v1 decisionPolicyVersion is legacy-v1");
+        Expect(v1History[0].coveragePolicyVersion == L"legacy-v1", "v1 coveragePolicyVersion is legacy-v1");
+        Expect(v1History[0].authorityPolicyVersion == L"legacy-v1", "v1 authorityPolicyVersion is legacy-v1");
+    }
+
+    // Task 7B: Schema v2 parsing test (13 fields -> preserved policy versions)
+    const auto v2Root = temp / L"lapsure-session-history-v2-tests";
+    ResetRoot(v2Root);
+    WriteText(v2Root / L"session_history.tsv",
+        "#LapSureSessionHistory\t2\n"
+        "v2-session\t2026-08-26 12:00:00\tModel V2\tTAG-V2\tBUY WITH NOTES\tCOMPLETE\tv2.html\tv2.json\t\tnote v2\t5.1.0\t5.1.0\t5.1.0\n");
+    lap::InitializeSessionHistory(v2Root.wstring());
+    auto v2History = lap::GetSessionHistorySnapshot();
+    Expect(v2History.size() == 1, "schema v2 index is loaded successfully");
+    if (!v2History.empty()) {
+        Expect(v2History[0].sessionId == L"v2-session", "v2 sessionId matches");
+        Expect(v2History[0].decisionPolicyVersion == L"5.1.0", "v2 decisionPolicyVersion preserved");
+        Expect(v2History[0].coveragePolicyVersion == L"5.1.0", "v2 coveragePolicyVersion preserved");
+        Expect(v2History[0].authorityPolicyVersion == L"5.1.0", "v2 authorityPolicyVersion preserved");
+    }
+
+    // Task 7B: Unsupported schema version fail-closed
+    const auto unsupportedRoot = temp / L"lapsure-session-history-unsupported-schema-tests";
+    ResetRoot(unsupportedRoot);
+    WriteText(unsupportedRoot / L"session_history.tsv",
+        "#LapSureSessionHistory\t3\n"
+        "v3-session\t2026-08-26 12:00:00\tModel V3\tTAG-V3\tBUY\tCOMPLETE\tv3.html\tv3.json\t\tnote v3\t5.1.0\t5.1.0\t5.1.0\n");
+    lap::InitializeSessionHistory(unsupportedRoot.wstring());
+    Expect(lap::GetSessionHistorySnapshot().empty(),
+           "unsupported schema version 3 fails closed");
+
+    // Task 7B: Malformed schema v2 line (wrong field count) fails closed
+    const auto malformedV2Root = temp / L"lapsure-session-history-malformed-v2-tests";
+    ResetRoot(malformedV2Root);
+    WriteText(malformedV2Root / L"session_history.tsv",
+        "#LapSureSessionHistory\t2\n"
+        "v2-bad-session\t2026-08-26 12:00:00\tModel V2\tTAG-V2\tBUY\tCOMPLETE\tv2.html\tv2.json\t\tnote v2\t5.1.0\n");
+    lap::InitializeSessionHistory(malformedV2Root.wstring());
+    Expect(lap::GetSessionHistorySnapshot().empty(),
+           "malformed schema v2 line with missing fields fails closed");
+
     std::error_code ec;
     std::filesystem::remove_all(root, ec);
     std::filesystem::remove_all(corruptRoot, ec);
     std::filesystem::remove_all(duplicateRoot, ec);
     std::filesystem::remove_all(deleteRoot, ec);
+    std::filesystem::remove_all(v1Root, ec);
+    std::filesystem::remove_all(v2Root, ec);
+    std::filesystem::remove_all(unsupportedRoot, ec);
+    std::filesystem::remove_all(malformedV2Root, ec);
     return failures == 0 ? 0 : 1;
 }

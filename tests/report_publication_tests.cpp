@@ -1,6 +1,7 @@
 #include "lap/report.h"
 #include "lap/session_history.h"
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 
 namespace {
@@ -85,6 +86,53 @@ int main() {
         }
     }
     Expect(historyComplete, "history advertises only the successfully published pair");
+
+    // Task 7A: Verify JSON persists frozen policy versions and authority metadata
+    auto task7Report = Fixture();
+    task7Report.hardware.stress.sessionId = L"task7-json-frozen-metadata";
+    task7Report.hardware.stress.decision.decisionPolicyVersion = L"5.1.0";
+    task7Report.hardware.stress.decision.coveragePolicyVersion = L"5.1.0";
+    task7Report.hardware.stress.decision.authorityPolicyVersion = L"5.1.0";
+    task7Report.hardware.stress.decision.chassisAuthority = L"ADVISORY";
+    task7Report.hardware.stress.decision.factoryAuthority = L"UNKNOWN";
+    task7Report.hardware.stress.decision.discreteGpuCapability = L"ABSENT_CONFIRMED";
+    task7Report.hardware.stress.decision.coverageDomains = {
+        {L"frozen_test_domain_456", L"Frozen Test Domain Name", L"COMPLETE", true, L"frozen test source", L""}
+    };
+
+    auto task7Result = lap::PublishReportBundle(task7Report, root.wstring());
+    Expect(task7Result.status == lap::ReportPublicationStatus::Published, "task 7 report bundle published");
+    Expect(std::filesystem::exists(task7Result.jsonPath), "task 7 json file exists");
+
+    std::string jsonContent;
+    {
+        std::ifstream in(task7Result.jsonPath, std::ios::binary);
+        jsonContent.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    Expect(jsonContent.find("\"decisionPolicyVersion\":\"5.1.0\"") != std::string::npos,
+           "published JSON contains frozen decisionPolicyVersion 5.1.0");
+    Expect(jsonContent.find("\"coveragePolicyVersion\":\"5.1.0\"") != std::string::npos,
+           "published JSON contains frozen coveragePolicyVersion 5.1.0");
+    Expect(jsonContent.find("\"authorityPolicyVersion\":\"5.1.0\"") != std::string::npos,
+           "published JSON contains frozen authorityPolicyVersion 5.1.0");
+    Expect(jsonContent.find("\"chassisAuthority\":\"ADVISORY\"") != std::string::npos,
+           "published JSON contains frozen chassisAuthority");
+    Expect(jsonContent.find("\"factoryAuthority\":\"UNKNOWN\"") != std::string::npos,
+           "published JSON contains frozen factoryAuthority");
+    Expect(jsonContent.find("\"discreteGpuCapability\":\"ABSENT_CONFIRMED\"") != std::string::npos,
+           "published JSON contains frozen discreteGpuCapability");
+
+    // Critical anti-recomputation regression check:
+    Expect(jsonContent.find("frozen_test_domain_456") != std::string::npos,
+           "JSON report serializes frozen decision coverageDomains without recomputing policy");
+
+    std::string htmlContent;
+    {
+        std::ifstream in(task7Result.htmlPath, std::ios::binary);
+        htmlContent.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    Expect(htmlContent.find("Frozen Test Domain Name") != std::string::npos,
+           "HTML report serializes frozen decision coverageDomains without recomputing policy");
 
     std::filesystem::remove_all(root, ec);
     return failures == 0 ? 0 : 1;

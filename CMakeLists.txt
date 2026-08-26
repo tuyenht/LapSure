@@ -128,6 +128,8 @@ if(BUILD_TESTING)
     target_compile_options(LapSureDecisionAuthorityTests PRIVATE -Wall -Wextra -Wpedantic)
   endif()
   add_test(NAME LapSureDecisionAuthorityTests COMMAND LapSureDecisionAuthorityTests)
+  add_test(NAME LapSureTask41SourceSanity
+      COMMAND python "${CMAKE_SOURCE_DIR}/tests/round51_task41_source_sanity.py")
 endif()
 
 option(LAPSURE_STRICT_WARNINGS "Treat MSVC warnings as errors in CI" OFF)

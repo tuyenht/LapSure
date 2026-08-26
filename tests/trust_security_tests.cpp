@@ -1,4 +1,5 @@
 #include "lap/trust.h"
+#include "lap/provider_output.h"
 #include <windows.h>
 #include <filesystem>
 #include <fstream>
@@ -122,6 +123,88 @@ int main() {
         std::cout << "SKIP manifest reparse behavioral fixture unavailable on this Windows policy\n";
     }
 
+    // Round 5.1B: Test Embedded Provider Catalog dominates external manifest
+    lap::ClearTestProtectedProviders();
+    lap::ProviderIdentity embeddedProvider{
+        L"embedded_probe",
+        L"tools\\probe.exe",
+        unconfigured.sha256,
+        L"1.0.0",
+        L"MIT",
+        {}
+    };
+    lap::RegisterTestProtectedProvider(embeddedProvider);
+
+    // Write conflicting rogue hash into manifest
+    fs::create_directories(base / L"tools", ec);
+    {
+        std::wofstream f(manifest, std::ios::trunc);
+        f << L"embedded_probe=0000000000000000000000000000000000000000000000000000000000000000\n";
+    }
+    auto embeddedVerified = lap::VerifyEngine(base.wstring(), L"tools\\probe.exe", L"embedded_probe");
+    Expect(embeddedVerified.hashMatches && embeddedVerified.embeddedCatalogMatch,
+           "embedded catalog dominates external manifest for protected providers");
+    Expect(embeddedVerified.version == L"1.0.0" && embeddedVerified.licenseId == L"MIT",
+           "embedded catalog provides version and license metadata");
+
+    // Round 5.1B: Test Handle-Locked TOCTOU Protection
+    HANDLE hLock = CreateFileW(probe.wstring().c_str(),
+                               GENERIC_READ,
+                               FILE_SHARE_READ,
+                               nullptr,
+                               OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL,
+                               nullptr);
+    Expect(hLock != INVALID_HANDLE_VALUE, "probe file locked with FILE_SHARE_READ");
+    if (hLock != INVALID_HANDLE_VALUE) {
+        // Attempting to open for write while handle is held must fail with sharing violation
+        HANDLE hWriteAttempt = CreateFileW(probe.wstring().c_str(),
+                                           GENERIC_WRITE,
+                                           FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                           nullptr,
+                                           OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL,
+                                           nullptr);
+        Expect(hWriteAttempt == INVALID_HANDLE_VALUE && GetLastError() == ERROR_SHARING_VIOLATION,
+               "external write during handle lock is blocked by OS sharing violation");
+        if (hWriteAttempt != INVALID_HANDLE_VALUE) CloseHandle(hWriteAttempt);
+        CloseHandle(hLock);
+    }
+
+    // Round 5.1B: Test Provider Output Contract Validation
+    // 1. smartctl scan contract
+    auto validScan = lap::ValidateSmartctlScanOutput(L"/dev/sda -d ata # /dev/sda, ATA device\n/dev/nvme0 -d nvme # /dev/nvme0, NVMe device\n");
+    Expect(validScan.valid && validScan.recordCount == 2, "valid smartctl scan output parses device records");
+    auto invalidScan = lap::ValidateSmartctlScanOutput(L"smartctl 7.4 - error opening device\n");
+    Expect(!invalidScan.valid && invalidScan.recordCount == 0, "smartctl scan output without devices fails closed");
+
+    // 2. smartctl JSON contract
+    auto validSmartJson = lap::ValidateSmartctlJsonOutput(LR"({"smart_status": {"passed": true}, "temperature": 35})");
+    Expect(validSmartJson.valid && validSmartJson.recordCount == 1, "valid smartctl JSON object passes contract");
+    auto malformedSmartJson = lap::ValidateSmartctlJsonOutput(LR"({"smart_status": {"temperature": 35})");
+    Expect(!malformedSmartJson.valid, "malformed unclosed smartctl JSON fails closed");
+    auto missingPassedJson = lap::ValidateSmartctlJsonOutput(LR"({"temperature": 35, "model_name": "TestSSD"})");
+    Expect(!missingPassedJson.valid, "smartctl JSON missing 'passed' boolean fails closed");
+
+    // 3. nvidia-smi CSV contract
+    auto validNvidiaCsv = lap::ValidateNvidiaSmiCsvOutput(L"NVIDIA RTX A2000, 4096, 52.0, 15.0\n");
+    Expect(validNvidiaCsv.valid && validNvidiaCsv.recordCount == 1, "valid nvidia-smi CSV row passes contract");
+    auto emptyNvidiaCsv = lap::ValidateNvidiaSmiCsvOutput(L"# Comments only\n");
+    Expect(!emptyNvidiaCsv.valid && emptyNvidiaCsv.recordCount == 0, "empty nvidia-smi CSV fails closed");
+
+    // 4. Sensor bridge pipe contract
+    auto validSensorPipe = lap::ValidateSensorBridgeOutput(L"65.5|28.0|3200|0\n");
+    Expect(validSensorPipe.valid && validSensorPipe.recordCount == 1, "valid sensor bridge pipe output passes contract");
+    auto invalidSensorPipe = lap::ValidateSensorBridgeOutput(L"65.5|28.0\n");
+    Expect(!invalidSensorPipe.valid, "truncated sensor bridge pipe output fails closed");
+
+    // 5. VRAM stress contract
+    auto validVramPass = lap::ValidateVramStressOutput(L"[VRAM_STRESS] STATUS=PASS ERRORS=0 DURATION=30s\n");
+    Expect(validVramPass.valid, "valid VRAM stress output with STATUS=PASS passes contract");
+    auto invalidVram = lap::ValidateVramStressOutput(L"Crash / CUDA Error 999\n");
+    Expect(!invalidVram.valid, "unstructured VRAM crash output fails closed");
+
+    lap::ClearTestProtectedProviders();
     fs::remove_all(base, ec); fs::remove(outside, ec); fs::remove(outsideManifest, ec); fs::remove(redirectedRoot, ec);
     return failures == 0 ? 0 : 1;
 }

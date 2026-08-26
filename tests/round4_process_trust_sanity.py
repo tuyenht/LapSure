@@ -29,6 +29,9 @@ checks = [
     ("sensor bridge uses trusted execution boundary", "RunTrustedEngineCapture" in SENSORS and "lhm_bridge" in SENSORS and "RunProcessCapture(L\"\\\\\"\"+exe" not in SENSORS),
     ("telemetry nvidia uses trusted execution boundary", "RunTrustedEngineCapture" in TELEMETRY and "nvidia_smi" in TELEMETRY and 'exe=L"nvidia-smi.exe"' not in TELEMETRY),
     ("process/trust behavioral test compiled", "LapSureProcessSecurityTests" in CMAKE and "tests/process_security_tests.cpp" in CMAKE),
+    ("embedded provider catalog declared", "GetEmbeddedProviderCatalog" in TRUST_H and "GetEmbeddedProviderCatalog" in TRUST_CPP),
+    ("TOCTOU handle locking present", "FILE_SHARE_READ" in TRUST_CPP and "HashHandle" in TRUST_CPP),
+    ("provider output contract validated", "ValidateSmartctlScanOutput" in ENGINES and "ValidateSensorBridgeOutput" in SENSORS),
 ]
 
 bad = []

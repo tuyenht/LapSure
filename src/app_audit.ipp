@@ -19,13 +19,14 @@ void AuditWorkerCore(HWND hwnd) {
     gReportOutputDir = EnsureReportOutputRoot();
     const auto model = Reg(L"SystemProductName");
     const auto tag = ServiceTag(caps, &gCancel);
-    auto profileLoad = LoadFactoryProfile(gDir + L"\\profiles", model, tag);
+    auto profileLoad = LoadDecisionFactoryProfile(gDir + L"\\profiles", model, tag);
     if (!profileLoad.loaded && !tag.empty()) {
         const auto vendor = Reg(L"SystemManufacturer");
-        const auto cloud = LookupFactoryProfileOnline(gDir, vendor, model, tag, 1500);
+        const auto cloud = LookupFactoryProfileForDecision(gDir, vendor, model, tag, 1500);
         if (cloud.success) {
             profileLoad.loaded = true;
             profileLoad.exact = true;
+            profileLoad.trustedProvenance = true;
             profileLoad.profile = cloud.profile;
             profileLoad.source = cloud.source;
         }
@@ -34,8 +35,8 @@ void AuditWorkerCore(HWND hwnd) {
 
     auto report = CollectInventory(profile, caps, gDir, &gCancel);
     report.profileSource = profileLoad.source;
-    report.factoryExact = profileLoad.exact;
-    report.genericMode = !profileLoad.exact;
+    report.factoryExact = profileLoad.TrustedExact();
+    report.genericMode = !profileLoad.TrustedExact();
     syncToGlobal(report);
     gAuditCompletedItems = 1;
     PostStatus(hwnd, report.model.empty() ? L"Đã thu thập nhận diện; model hệ thống chưa xác định."
@@ -101,7 +102,7 @@ void AuditWorkerCore(HWND hwnd) {
         gAuditCurrentStage = 7;
         PostStatus(hwnd, L"Đang nhận diện Wi-Fi, Bluetooth, Ethernet và controller kết nối...");
         CollectFunctionalPresence(report, caps, &gCancel);
-        report.hardware.stress.chassisProfile = LoadChassisProfile(gDir, report.model);
+        report.hardware.stress.chassisProfile = LoadDecisionChassisProfile(gDir, report.model);
         report.hardware.stress.portAttestation = InitializeSessionPortAttestation(
             report.hardware.stress.sessionId,
             report.hardware.stress.chassisProfile);
@@ -129,7 +130,8 @@ void AuditWorkerCore(HWND hwnd) {
             report.hardware.stress.portAttestation.sessionId = report.hardware.stress.sessionId;
         }
         RunRuntimeValidation(report, caps, gDir);
-        report.hardware.stress.decision = BuildAuditDecision(report);
+        const auto context = BuildDecisionContext(report);
+        report.hardware.stress.decision = BuildAuditDecision(report, context);
         BuildOrchestrator(report, false, true);
         syncToGlobal(report);
         gAuditCompletedItems = 9;

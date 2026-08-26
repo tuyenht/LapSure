@@ -52,7 +52,8 @@ require(
 normalized_context = "".join(decision_context.split())
 require(
     "context.portAttestation.sessionId!=report.hardware.stress.sessionId" in normalized_context and
-    "context.portAttestation.operatorConfirmed=false" in normalized_context and
+    "InvalidateCrossSessionPortAuthority" in normalized_context and
+    "attestation.operatorConfirmed=false" in normalized_context and
     "port.observedPresence=CapabilityTruth::Unknown" in normalized_context and
     "port.tested=false" in normalized_context and
     'port.verdict=L"NOTTESTED"' in normalized_context,

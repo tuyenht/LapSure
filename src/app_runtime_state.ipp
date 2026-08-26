@@ -296,7 +296,9 @@ void UpsertPortResultUnlocked(const PortProbeResult& result) {
     for (auto& port : ports) {
         const bool sameExpectedId = !result.expectedPortId.empty() &&
             port.expectedPortId == result.expectedPortId;
-        if (sameExpectedId || port.portLabel == result.portLabel) {
+        const bool labelFallback = result.expectedPortId.empty() &&
+            port.portLabel == result.portLabel;
+        if (sameExpectedId || labelFallback) {
             port = result;
             return;
         }

@@ -48,6 +48,18 @@ void AddRequirement(RequirementSnapshot& snapshot,
         {std::move(id), disposition, std::move(reason)});
 }
 
+void InvalidateCrossSessionPortAuthority(SessionPortAttestation& attestation) {
+    attestation.operatorConfirmed = false;
+    attestation.confirmedAt.clear();
+    for (auto& port : attestation.ports) {
+        port.observedPresence = CapabilityTruth::Unknown;
+        port.tested = false;
+        port.verdict = L"NOT TESTED";
+        port.discrepancy = L"ATTESTATION_SESSION_MISMATCH";
+        port.correctionReason = L"Port evidence belongs to a different inspection session.";
+    }
+}
+
 } // namespace
 
 RequirementDisposition RequirementSnapshot::StateOf(std::wstring_view id) const {
@@ -176,6 +188,9 @@ DecisionContext BuildDecisionContext(const AuditReport& report) {
         false,
         report.profileSource);
     context.portAttestation = report.hardware.stress.portAttestation;
+    if (context.portAttestation.sessionId != report.hardware.stress.sessionId) {
+        InvalidateCrossSessionPortAuthority(context.portAttestation);
+    }
     context.requirements = BuildRequirementSnapshot(
         report, context.capabilities, context.portAttestation);
     context.versions = context.requirements.versions;

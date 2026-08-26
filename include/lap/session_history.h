@@ -16,6 +16,9 @@ struct SessionHistoryEntry {
     std::wstring jsonPath;
     std::wstring evidencePath;
     std::wstring note;
+    std::wstring decisionPolicyVersion{L"5.1.0"};
+    std::wstring coveragePolicyVersion{L"5.1.0"};
+    std::wstring authorityPolicyVersion{L"5.1.0"};
 };
 
 void InitializeSessionHistory(const std::wstring& outputDir);

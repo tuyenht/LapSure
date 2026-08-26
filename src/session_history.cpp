@@ -20,7 +20,7 @@ std::vector<SessionHistoryEntry> gHistory;
 std::wstring gHistoryDir;
 bool gHistoryLoadValid{true};
 
-constexpr int kHistorySchemaVersion = 1;
+constexpr int kHistorySchemaVersion = 2;
 constexpr uintmax_t kMaxHistoryFileBytes = 4u * 1024u * 1024u;
 constexpr size_t kMaxHistoryLineBytes = 64u * 1024u;
 constexpr size_t kMaxHistoryFieldChars = 32u * 1024u;
@@ -118,6 +118,7 @@ bool ValidateEntry(const SessionHistoryEntry& entry) {
     const std::wstring* fields[] = {
         &entry.timestamp, &entry.model, &entry.serviceTag, &entry.verdict, &entry.status,
         &entry.htmlPath, &entry.jsonPath, &entry.evidencePath, &entry.note,
+        &entry.decisionPolicyVersion, &entry.coveragePolicyVersion, &entry.authorityPolicyVersion,
     };
     for (const auto* field : fields) if (field->size() > kMaxHistoryFieldChars) return false;
     if (!ValidVerdict(entry.verdict) || !ValidStatus(entry.status)) return false;
@@ -135,20 +136,43 @@ bool ValidateCandidate(const std::vector<SessionHistoryEntry>& candidate) {
     return true;
 }
 
-bool ParseEntry(const std::wstring& line, SessionHistoryEntry& entry) {
+bool ParseEntry(const std::wstring& line, int schemaVersion, SessionHistoryEntry& entry) {
     auto parts = SplitTabs(line);
-    if (parts.size() != 10 || parts[0].empty()) return false;
-    entry.sessionId = std::move(parts[0]);
-    entry.timestamp = std::move(parts[1]);
-    entry.model = std::move(parts[2]);
-    entry.serviceTag = std::move(parts[3]);
-    entry.verdict = std::move(parts[4]);
-    entry.status = std::move(parts[5]);
-    entry.htmlPath = std::move(parts[6]);
-    entry.jsonPath = std::move(parts[7]);
-    entry.evidencePath = std::move(parts[8]);
-    entry.note = std::move(parts[9]);
-    return ValidateEntry(entry);
+    if (schemaVersion == 1) {
+        if (parts.size() != 10 || parts[0].empty()) return false;
+        entry.sessionId = std::move(parts[0]);
+        entry.timestamp = std::move(parts[1]);
+        entry.model = std::move(parts[2]);
+        entry.serviceTag = std::move(parts[3]);
+        entry.verdict = std::move(parts[4]);
+        entry.status = std::move(parts[5]);
+        entry.htmlPath = std::move(parts[6]);
+        entry.jsonPath = std::move(parts[7]);
+        entry.evidencePath = std::move(parts[8]);
+        entry.note = std::move(parts[9]);
+        entry.decisionPolicyVersion = L"legacy-v1";
+        entry.coveragePolicyVersion = L"legacy-v1";
+        entry.authorityPolicyVersion = L"legacy-v1";
+        return ValidateEntry(entry);
+    }
+    if (schemaVersion == 2) {
+        if (parts.size() != 13 || parts[0].empty()) return false;
+        entry.sessionId = std::move(parts[0]);
+        entry.timestamp = std::move(parts[1]);
+        entry.model = std::move(parts[2]);
+        entry.serviceTag = std::move(parts[3]);
+        entry.verdict = std::move(parts[4]);
+        entry.status = std::move(parts[5]);
+        entry.htmlPath = std::move(parts[6]);
+        entry.jsonPath = std::move(parts[7]);
+        entry.evidencePath = std::move(parts[8]);
+        entry.note = std::move(parts[9]);
+        entry.decisionPolicyVersion = std::move(parts[10]);
+        entry.coveragePolicyVersion = std::move(parts[11]);
+        entry.authorityPolicyVersion = std::move(parts[12]);
+        return ValidateEntry(entry);
+    }
+    return false;
 }
 
 std::vector<SessionHistoryEntry> LoadIndexLocked(bool& valid) {
@@ -167,6 +191,7 @@ std::vector<SessionHistoryEntry> LoadIndexLocked(bool& valid) {
     if (!in) { valid = false; return {}; }
     std::string bytesLine;
     bool firstContentLine = true;
+    int fileSchemaVersion = 0;
     std::unordered_set<std::wstring> ids;
     while (std::getline(in, bytesLine)) {
         if (bytesLine.size() > kMaxHistoryLineBytes) { valid = false; return {}; }
@@ -177,15 +202,26 @@ std::vector<SessionHistoryEntry> LoadIndexLocked(bool& valid) {
             firstContentLine = false;
             constexpr const char* prefix = "#LapSureSessionHistory\t";
             if (bytesLine.rfind(prefix, 0) == 0) {
-                if (bytesLine != HistoryHeader()) { valid = false; return {}; }
+                const auto verStr = bytesLine.substr(strlen(prefix));
+                if (verStr == "1") {
+                    fileSchemaVersion = 1;
+                } else if (verStr == "2") {
+                    fileSchemaVersion = 2;
+                } else {
+                    valid = false;
+                    return {};
+                }
                 continue;
+            } else {
+                valid = false;
+                return {};
             }
         }
 
         const auto wide = FromUtf8(bytesLine);
         if (wide.empty() && !bytesLine.empty()) { valid = false; return {}; }
         SessionHistoryEntry entry;
-        if (!ParseEntry(wide, entry) || !ids.insert(entry.sessionId).second) { valid = false; return {}; }
+        if (!ParseEntry(wide, fileSchemaVersion, entry) || !ids.insert(entry.sessionId).second) { valid = false; return {}; }
         loaded.push_back(std::move(entry));
         if (loaded.size() > kMaxHistoryEntries) { valid = false; return {}; }
     }
@@ -221,7 +257,10 @@ bool PersistIndexLocked(const std::vector<SessionHistoryEntry>& candidate) {
         const std::wstring line = SafeField(entry.sessionId) + L"\t" + SafeField(entry.timestamp) + L"\t" +
             SafeField(entry.model) + L"\t" + SafeField(entry.serviceTag) + L"\t" + SafeField(entry.verdict) + L"\t" +
             SafeField(entry.status) + L"\t" + SafeField(entry.htmlPath) + L"\t" + SafeField(entry.jsonPath) + L"\t" +
-            SafeField(entry.evidencePath) + L"\t" + SafeField(entry.note) + L"\n";
+            SafeField(entry.evidencePath) + L"\t" + SafeField(entry.note) + L"\t" +
+            SafeField(entry.decisionPolicyVersion.empty() ? L"5.1.0" : entry.decisionPolicyVersion) + L"\t" +
+            SafeField(entry.coveragePolicyVersion.empty() ? L"5.1.0" : entry.coveragePolicyVersion) + L"\t" +
+            SafeField(entry.authorityPolicyVersion.empty() ? L"5.1.0" : entry.authorityPolicyVersion) + L"\n";
         const auto bytes = ToUtf8(line);
         if ((bytes.empty() && !line.empty()) || bytes.size() > kMaxHistoryLineBytes) {
             out.close(); DeleteFileW(temp.c_str()); return false;
@@ -275,7 +314,7 @@ std::wstring FallbackSessionId(const std::wstring& artifactPath) {
     SYSTEMTIME time{};
     GetLocalTime(&time);
     wchar_t buffer[96]{};
-    swprintf_s(buffer, L"session_%04u%02u%02u_%02u%02u%02u_%lu",
+    swprintf_s(buffer, L"session_%04u%02u%02u_%02u%02u_%02u_%lu",
                time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, GetCurrentProcessId());
     return buffer;
 }
@@ -366,6 +405,15 @@ bool CommitSessionHistoryBundle(const AuditReport& report, const std::wstring& h
     entry->model = report.model;
     entry->serviceTag = report.serviceTag;
     entry->verdict = report.hardware.stress.decision.overall;
+    entry->decisionPolicyVersion = report.hardware.stress.decision.decisionPolicyVersion.empty()
+        ? L"5.1.0"
+        : report.hardware.stress.decision.decisionPolicyVersion;
+    entry->coveragePolicyVersion = report.hardware.stress.decision.coveragePolicyVersion.empty()
+        ? L"5.1.0"
+        : report.hardware.stress.decision.coveragePolicyVersion;
+    entry->authorityPolicyVersion = report.hardware.stress.decision.authorityPolicyVersion.empty()
+        ? L"5.1.0"
+        : report.hardware.stress.decision.authorityPolicyVersion;
     if (!htmlPath.empty()) entry->htmlPath = htmlPath;
     if (!jsonPath.empty()) entry->jsonPath = jsonPath;
     const bool pairComplete = !entry->htmlPath.empty() && !entry->jsonPath.empty();
@@ -412,6 +460,9 @@ bool ArchiveInterruptedSession(const std::wstring& stateRoot, const std::wstring
         entry->status = L"INTERRUPTED";
         entry->evidencePath = evidencePath.wstring();
         entry->note = L"Phiên bị gián đoạn; journal được lưu làm bằng chứng. Không có PASS từ phiên này.";
+        entry->decisionPolicyVersion = L"5.1.0";
+        entry->coveragePolicyVersion = L"5.1.0";
+        entry->authorityPolicyVersion = L"5.1.0";
         if (!PersistIndexLocked(candidate)) {
             std::filesystem::remove(evidencePath, ec);
             return false;

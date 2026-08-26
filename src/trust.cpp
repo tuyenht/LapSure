@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 #include <sstream>
 #include <vector>
 #pragma comment(lib,"bcrypt.lib")
@@ -78,7 +79,13 @@ bool HasReparseUnderRoot(const std::filesystem::path& root,
     return false;
 }
 
-std::wstring HashFile(const std::wstring& path) {
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+std::mutex gTestProviderMutex;
+std::vector<ProviderIdentity> gTestProviders;
+#endif
+
+std::wstring HashHandle(HANDLE hFile) {
+    if (hFile == INVALID_HANDLE_VALUE || hFile == nullptr) return L"";
     BCRYPT_ALG_HANDLE alg = nullptr;
     BCRYPT_HASH_HANDLE hash = nullptr;
     if (BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA256_ALGORITHM, nullptr, 0) != 0) return L"";
@@ -93,17 +100,12 @@ std::wstring HashFile(const std::wstring& path) {
         BCryptCloseAlgorithmProvider(alg, 0);
         return L"";
     }
-    std::ifstream f(std::filesystem::path(path), std::ios::binary);
-    if (!f) {
-        BCryptDestroyHash(hash);
-        BCryptCloseAlgorithmProvider(alg, 0);
-        return L"";
-    }
+
+    SetFilePointer(hFile, 0, nullptr, FILE_BEGIN);
     char buf[1 << 16];
-    while (f) {
-        f.read(buf, sizeof(buf));
-        const auto n = f.gcount();
-        if (n > 0 && BCryptHashData(hash, reinterpret_cast<PUCHAR>(buf), static_cast<ULONG>(n), 0) != 0) {
+    DWORD bytesRead = 0;
+    while (ReadFile(hFile, buf, sizeof(buf), &bytesRead, nullptr) && bytesRead > 0) {
+        if (BCryptHashData(hash, reinterpret_cast<PUCHAR>(buf), bytesRead, 0) != 0) {
             BCryptDestroyHash(hash);
             BCryptCloseAlgorithmProvider(alg, 0);
             return L"";
@@ -121,12 +123,104 @@ std::wstring HashFile(const std::wstring& path) {
     for (auto b : digest) ss << std::setw(2) << static_cast<unsigned>(b);
     return Lower(ss.str());
 }
+
+std::wstring HashFile(const std::wstring& path) {
+    HANDLE hFile = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return L"";
+    std::wstring digest = HashHandle(hFile);
+    CloseHandle(hFile);
+    return digest;
+}
 } // namespace
+
+std::vector<ProviderIdentity> GetEmbeddedProviderCatalog() {
+    return {
+        {
+            L"smartctl",
+            L"tools\\smartctl.exe",
+            L"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            L"7.4",
+            L"GPL-2.0-or-later",
+            {}
+        },
+        {
+            L"nvidia_smi",
+            L"tools\\nvidia-smi.exe",
+            L"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            L"535.0",
+            L"NVIDIA-Redistributable",
+            {}
+        },
+        {
+            L"lhm_bridge",
+            L"tools\\sensors\\lhm_bridge.exe",
+            L"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            L"1.0.0",
+            L"MPL-2.0",
+            {}
+        },
+        {
+            L"memtest_vulkan",
+            L"tools\\gpu\\memtest_vulkan.exe",
+            L"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            L"1.0.0",
+            L"GPL-3.0-or-later",
+            {}
+        },
+        {
+            L"vram_engine",
+            L"tools\\vram_stress.exe",
+            L"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            L"1.0.0",
+            L"LapSure-Internal",
+            {}
+        }
+    };
+}
+
+const ProviderIdentity* FindEmbeddedProvider(std::wstring_view logicalName) {
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+    {
+        std::lock_guard<std::mutex> lock(gTestProviderMutex);
+        for (const auto& item : gTestProviders) {
+            if (Lower(item.logicalName) == Lower(std::wstring(logicalName))) {
+                return &item;
+            }
+        }
+    }
+#endif
+    static const auto catalog = GetEmbeddedProviderCatalog();
+    for (const auto& item : catalog) {
+        if (Lower(item.logicalName) == Lower(std::wstring(logicalName))) {
+            return &item;
+        }
+    }
+    return nullptr;
+}
+
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+void RegisterTestProtectedProvider(const ProviderIdentity& identity) {
+    std::lock_guard<std::mutex> lock(gTestProviderMutex);
+    for (auto& item : gTestProviders) {
+        if (Lower(item.logicalName) == Lower(identity.logicalName)) {
+            item = identity;
+            return;
+        }
+    }
+    gTestProviders.push_back(identity);
+}
+
+void ClearTestProtectedProviders() {
+    std::lock_guard<std::mutex> lock(gTestProviderMutex);
+    gTestProviders.clear();
+}
+#endif
 
 EngineTrust VerifyEngine(const std::wstring& appDir,
                          const std::wstring& relativePath,
                          const std::wstring& logicalName) {
     EngineTrust trust{};
+    trust.logicalName = logicalName;
     namespace fs = std::filesystem;
     const fs::path rel(relativePath);
     if (appDir.empty() || logicalName.empty()) {
@@ -151,10 +245,6 @@ EngineTrust VerifyEngine(const std::wstring& appDir,
         return trust;
     }
 
-    // Inspect the caller-supplied absolute path itself for symlink/junction/reparse
-    // components. Do not infer reparse semantics by comparing textual canonical
-    // spellings: Windows can legitimately normalize the same directory to a
-    // different short/long-path representation.
     fs::path offending;
     const auto normalizedAbsoluteRoot = absoluteRoot.lexically_normal();
     if (HasReparsePathComponents(normalizedAbsoluteRoot, offending)) {
@@ -191,6 +281,37 @@ EngineTrust VerifyEngine(const std::wstring& appDir,
     trust.fileExists = true;
     trust.resolvedPath = candidate.wstring();
 
+    HANDLE hFile = CreateFileW(trust.resolvedPath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        trust.reason = L"Cannot open engine file for verification.";
+        return trust;
+    }
+    trust.sha256 = HashHandle(hFile);
+    CloseHandle(hFile);
+
+    if (trust.sha256.empty()) {
+        trust.reason = L"SHA-256 calculation failed.";
+        return trust;
+    }
+
+    const auto* embedded = FindEmbeddedProvider(logicalName);
+    if (embedded) {
+        trust.manifestEntry = true;
+        trust.embeddedCatalogMatch = true;
+        trust.expectedSha256 = Lower(embedded->expectedSha256);
+        trust.version = embedded->version;
+        trust.licenseId = embedded->licenseId;
+
+        if (!IsSha256Hex(trust.expectedSha256)) {
+            trust.reason = L"Allowlist SHA-256 is not configured or invalid.";
+            return trust;
+        }
+        trust.hashMatches = Lower(trust.sha256) == trust.expectedSha256;
+        trust.reason = trust.hashMatches ? L"Trusted engine hash matched." : L"Engine hash mismatch.";
+        return trust;
+    }
+
+    // Fallback for non-embedded engines (e.g. legacy/development manifest lookup)
     const fs::path manifestRel = fs::path(L"tools") / L"engine_manifest.txt";
     if (HasReparseUnderRoot(root, manifestRel, offending)) {
         trust.reason = L"Trust manifest path contains a reparse point and is not trusted.";
@@ -200,12 +321,6 @@ EngineTrust VerifyEngine(const std::wstring& appDir,
     const auto manifest = fs::weakly_canonical(root / manifestRel, ec);
     if (ec || manifest.empty() || !IsWithinRoot(root, manifest) || !fs::is_regular_file(manifest, ec) || ec) {
         trust.reason = L"Trust manifest missing, redirected, or not a regular file.";
-        return trust;
-    }
-
-    trust.sha256 = HashFile(trust.resolvedPath);
-    if (trust.sha256.empty()) {
-        trust.reason = L"SHA-256 calculation failed.";
         return trust;
     }
 
@@ -258,14 +373,102 @@ TrustedEngineRun RunTrustedEngineCapture(const std::wstring& appDir,
                                          unsigned timeoutMs,
                                          const std::atomic_bool* cancel) {
     TrustedEngineRun out{};
-    // Capability checks performed earlier are advisory only. Re-verify at the
-    // execution boundary so a replaced or redirected bundled engine is blocked.
-    out.trust = VerifyEngine(appDir, relativePath, logicalName);
+    namespace fs = std::filesystem;
+    const fs::path rel(relativePath);
+    if (appDir.empty() || logicalName.empty() || relativePath.empty() ||
+        rel.is_absolute() || rel.has_root_name() || rel.has_root_directory()) {
+        out.process.error = L"Trusted engine execution blocked: invalid arguments.";
+        return out;
+    }
+    for (const auto& part : rel) {
+        if (part == L"..") {
+            out.process.error = L"Trusted engine execution blocked: traversal detected.";
+            return out;
+        }
+    }
+
+    std::error_code ec;
+    const auto absoluteRoot = fs::absolute(fs::path(appDir), ec);
+    if (ec || absoluteRoot.empty()) {
+        out.process.error = L"Trusted engine execution blocked: root resolution failed.";
+        return out;
+    }
+
+    fs::path offending;
+    const auto normalizedAbsoluteRoot = absoluteRoot.lexically_normal();
+    if (HasReparsePathComponents(normalizedAbsoluteRoot, offending)) {
+        out.process.error = L"Trusted engine execution blocked: application root contains reparse point.";
+        return out;
+    }
+
+    ec.clear();
+    const auto root = fs::weakly_canonical(normalizedAbsoluteRoot, ec);
+    if (ec || root.empty()) {
+        out.process.error = L"Trusted engine execution blocked: canonicalization failed.";
+        return out;
+    }
+
+    if (HasReparseUnderRoot(root, rel, offending)) {
+        out.process.error = L"Trusted engine execution blocked: path contains reparse point.";
+        return out;
+    }
+
+    ec.clear();
+    const auto candidate = fs::weakly_canonical(root / rel, ec);
+    if (ec || candidate.empty() || !IsWithinRoot(root, candidate) || !fs::is_regular_file(candidate, ec) || ec) {
+        out.process.error = L"Trusted engine execution blocked: file missing or not regular.";
+        return out;
+    }
+
+    // TOCTOU Prevention: Open file handle with FILE_SHARE_READ (exclusive against external writes).
+    // Hold this handle across the entire verification and CreateProcessW launch sequence.
+    HANDLE hFile = CreateFileW(candidate.wstring().c_str(),
+                               GENERIC_READ,
+                               FILE_SHARE_READ,
+                               nullptr,
+                               OPEN_EXISTING,
+                               FILE_ATTRIBUTE_NORMAL,
+                               nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        out.process.error = L"Trusted engine execution blocked: cannot lock file handle.";
+        return out;
+    }
+
+    out.trust.fileExists = true;
+    out.trust.resolvedPath = candidate.wstring();
+    out.trust.logicalName = logicalName;
+    out.trust.sha256 = HashHandle(hFile);
+
+    if (out.trust.sha256.empty()) {
+        CloseHandle(hFile);
+        out.process.error = L"Trusted engine execution blocked: hashing locked handle failed.";
+        return out;
+    }
+
+    const auto* embedded = FindEmbeddedProvider(logicalName);
+    if (embedded) {
+        out.trust.manifestEntry = true;
+        out.trust.embeddedCatalogMatch = true;
+        out.trust.expectedSha256 = Lower(embedded->expectedSha256);
+        out.trust.version = embedded->version;
+        out.trust.licenseId = embedded->licenseId;
+        out.trust.hashMatches = IsSha256Hex(out.trust.expectedSha256) &&
+                                Lower(out.trust.sha256) == out.trust.expectedSha256;
+    } else {
+        // Fallback to VerifyEngine for manifest lookup
+        out.trust = VerifyEngine(appDir, relativePath, logicalName);
+    }
+
     if (!out.trust.hashMatches || out.trust.resolvedPath.empty()) {
+        CloseHandle(hFile);
         out.process.error = L"Trusted engine execution blocked: " + out.trust.reason;
         return out;
     }
+
+    // Launch process while hFile lock is held open
     out.process = RunProcessCaptureExecutable(out.trust.resolvedPath, arguments, timeoutMs, cancel);
+    CloseHandle(hFile);
     return out;
 }
 } // namespace lap
+

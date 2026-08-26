@@ -1,5 +1,6 @@
 #include "lap/sensors.h"
 #include "lap/trust.h"
+#include "lap/provider_output.h"
 #include "lap/hardware.h"
 
 namespace lap {
@@ -31,6 +32,11 @@ SensorProviderResult ReadCpuSensors(const Capabilities&, const std::wstring& app
     }
     if (!p.launched || p.timedOut || p.output.empty()) {
         r.evidence = L"Trusted sensor bridge failed to return data. " + p.error;
+        return r;
+    }
+    auto bridgeVal = ValidateSensorBridgeOutput(p.output);
+    if (!bridgeVal.valid) {
+        r.evidence = L"Sensor bridge output contract mismatch: " + bridgeVal.reason;
         return r;
     }
     auto lines = SplitLines(p.output);

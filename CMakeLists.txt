@@ -6,7 +6,7 @@ if(MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 add_executable(LapSure WIN32
-    src/main_round5.cpp src/ui_renderer.cpp src/ui_state.cpp src/ui_components.cpp src/ui_shell_dynamic.cpp src/ui_screens_s01_s04_v2.cpp src/ui_screens_s02_s09_v2.cpp src/ui_screens_s10_s15_v2.cpp src/ui_screens_s12_s14_v2.cpp src/ui_screens_s16_s21_v2.cpp src/ui_screen_s20_round5.cpp src/ui_screens_s22_s23_v2.cpp src/session_history.cpp src/process.cpp src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/hardware.cpp src/edid.cpp src/inventory.cpp src/engines.cpp src/forensics.cpp src/sensors.cpp src/telemetry.cpp src/trust.cpp src/journal.cpp src/baseline.cpp src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/port_power.cpp src/devpkey_defs.cpp src/chassis_profile.cpp src/port_selector.cpp src/port_attestation.cpp src/orchestrator.cpp src/runtime_validation.cpp src/decision_context.cpp src/decision_policy.cpp src/scoring.cpp src/stress.cpp src/report.cpp src/report_publication.cpp
+    src/main_round5.cpp src/ui_renderer.cpp src/ui_state.cpp src/ui_components.cpp src/ui_shell_dynamic.cpp src/ui_screens_s01_s04_v2.cpp src/ui_screens_s02_s09_v2.cpp src/ui_screens_s10_s15_v2.cpp src/ui_screens_s12_s14_v2.cpp src/ui_screens_s16_s21_v2.cpp src/ui_screen_s20_round5.cpp src/ui_screens_s22_s23_v2.cpp src/session_history.cpp src/process.cpp src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/hardware.cpp src/edid.cpp src/inventory.cpp src/engines.cpp src/forensics.cpp src/sensors.cpp src/telemetry.cpp src/trust.cpp src/provider_output.cpp src/journal.cpp src/baseline.cpp src/functional.cpp src/functional_io.cpp src/acquisition.cpp src/port_power.cpp src/devpkey_defs.cpp src/chassis_profile.cpp src/port_selector.cpp src/port_attestation.cpp src/orchestrator.cpp src/runtime_validation.cpp src/decision_context.cpp src/decision_policy.cpp src/scoring.cpp src/stress.cpp src/report.cpp src/report_publication.cpp
     resources/resource.rc
     app.manifest
 )
@@ -44,7 +44,7 @@ if(BUILD_TESTING)
   add_executable(LapSureBehaviorTests
       tests/behavioral_tests.cpp
       src/scoring.cpp src/decision_context.cpp src/decision_policy.cpp src/chassis_profile.cpp src/port_power.cpp src/devpkey_defs.cpp
-      src/stress.cpp src/process.cpp src/telemetry.cpp src/sensors.cpp src/trust.cpp
+      src/stress.cpp src/process.cpp src/telemetry.cpp src/sensors.cpp src/trust.cpp src/provider_output.cpp
       src/journal.cpp src/session_history.cpp src/baseline.cpp src/hardware.cpp)
   target_sources(LapSureBehaviorTests PRIVATE src/engines.cpp src/cloud_lookup.cpp)
   target_sources(LapSureBehaviorTests PRIVATE
@@ -62,7 +62,7 @@ if(BUILD_TESTING)
       tests/report_publication_tests.cpp
       src/report.cpp src/report_publication.cpp src/session_history.cpp src/journal.cpp
       src/scoring.cpp src/decision_context.cpp src/decision_policy.cpp src/chassis_profile.cpp src/port_power.cpp src/port_attestation.cpp src/runtime_validation.cpp
-      src/orchestrator.cpp src/functional.cpp src/process.cpp src/trust.cpp src/hardware.cpp src/baseline.cpp
+      src/orchestrator.cpp src/functional.cpp src/process.cpp src/trust.cpp src/provider_output.cpp src/hardware.cpp src/baseline.cpp
       src/environment.cpp src/profile.cpp src/cloud_lookup.cpp src/edid.cpp src/inventory.cpp
       src/forensics.cpp src/functional_io.cpp src/acquisition.cpp src/devpkey_defs.cpp)
   target_include_directories(LapSureReportPublicationTests PRIVATE include)
@@ -83,9 +83,9 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME LapSureSessionHistoryTests COMMAND LapSureSessionHistoryTests)
 
-  add_executable(LapSureTrustSecurityTests tests/trust_security_tests.cpp src/trust.cpp src/process.cpp)
+  add_executable(LapSureTrustSecurityTests tests/trust_security_tests.cpp src/trust.cpp src/process.cpp src/provider_output.cpp)
   target_include_directories(LapSureTrustSecurityTests PRIVATE include)
-  target_compile_definitions(LapSureTrustSecurityTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+  target_compile_definitions(LapSureTrustSecurityTests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX LAPSURE_ENABLE_TEST_HOOKS)
   target_link_libraries(LapSureTrustSecurityTests PRIVATE bcrypt shell32)
   if(MSVC)
     target_compile_options(LapSureTrustSecurityTests PRIVATE /W4 /WX /permissive- /EHsc /Zc:__cplusplus /utf-8)

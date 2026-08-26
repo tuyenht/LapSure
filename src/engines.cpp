@@ -1,6 +1,7 @@
 #include "lap/engines.h"
 #include "lap/process.h"
 #include "lap/trust.h"
+#include "lap/provider_output.h"
 #include "lap/hardware.h"
 #include <windows.h>
 #include <winioctl.h>
@@ -81,6 +82,8 @@ void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,co
  if(!scanRun.trust.hashMatches){Add(r,L"Storage",L"SMART trust gate",scanRun.trust.reason,L"Trusted smartctl SHA-256",State::NotTested,Severity::Critical,Dimension::Evidence,L"Execution blocked before launch");return;}
  const auto& scan=scanRun.process;
  if(!scan.launched||scan.timedOut||scan.output.empty()){Add(r,L"Storage",L"SMART device scan",scan.error.empty()?L"No devices returned":scan.error,L"Detected storage",State::Warning,Severity::Major,Dimension::Health,L"Trusted smartctl SHA256="+scanRun.trust.sha256);return;}
+ auto scanVal=ValidateSmartctlScanOutput(scan.output);
+ if(!scanVal.valid){Add(r,L"Storage",L"SMART device scan",scanVal.reason,L"Detected storage",State::Warning,Severity::Major,Dimension::Health,L"Trusted smartctl SHA256="+scanRun.trust.sha256);return;}
  std::vector<std::wstring> devices;for(auto&line:SplitLines(scan.output)){auto d=FirstToken(line);if(!d.empty()&&d[0]==L'/')devices.push_back(d);}
  Add(r,L"Storage",L"SMART devices",std::to_wstring(devices.size())+L" device(s)",L"Detected storage",devices.empty()?State::Warning:State::Pass,Severity::Major,Dimension::Identity,L"trusted smartctl --scan-open; SHA256="+scanRun.trust.sha256);
  for(const auto&dev:devices){
@@ -88,6 +91,8 @@ void CollectSmartctl(AuditReport&r,const FactoryProfile&,const Capabilities&c,co
    if(!run.trust.hashMatches){Add(r,L"Storage",L"SMART "+dev,run.trust.reason,L"Trusted smartctl SHA-256",State::NotTested,Severity::Critical,Dimension::Evidence,L"Engine changed or trust gate failed before device query");continue;}
    const auto& pr=run.process;
    if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"Storage",L"SMART "+dev,pr.error.empty()?L"Could not read":pr.error,L"Readable SMART",State::Warning,Severity::Critical,Dimension::Health,L"Trusted smartctl SHA256="+run.trust.sha256);continue;}
+   auto jsonVal=ValidateSmartctlJsonOutput(pr.output);
+   if(!jsonVal.valid){Add(r,L"Storage",L"SMART "+dev,jsonVal.reason,L"Explicit SMART health schema",State::NotTested,Severity::Critical,Dimension::Health,L"smartctl JSON rejected");continue;}
    StorageDevice parsed{};std::wstring parseError;if(!ParseSmartctlHealthJson(pr.output,parsed,parseError)){Add(r,L"Storage",L"SMART "+dev,parseError,L"Explicit SMART health schema",State::NotTested,Severity::Critical,Dimension::Health,L"smartctl JSON rejected");continue;}
    auto model=parsed.model,serial=parsed.serialNumber,fw=parsed.firmware;auto crit=parsed.criticalWarning,used=parsed.percentageUsed,spare=parsed.availableSpare,spareTh=parsed.spareThreshold;
    auto media=parsed.mediaErrors,errlog=parsed.errorLogEntries,unsafe=parsed.unsafeShutdowns,hours=parsed.powerOnHours,cycles=parsed.powerCycles;
@@ -114,6 +119,8 @@ void CollectNvidia(AuditReport&r,const FactoryProfile&p,const Capabilities&c,con
  if(!run.trust.hashMatches){Add(r,L"GPU",L"NVIDIA trust gate",run.trust.reason,L"Trusted nvidia-smi SHA-256",State::NotTested,Severity::Major,Dimension::Evidence,L"Execution blocked before launch");return;}
  const auto& pr=run.process;
  if(!pr.launched||pr.timedOut||pr.output.empty()){Add(r,L"GPU",L"NVIDIA telemetry",pr.error.empty()?L"No output":pr.error,L"",State::Warning,Severity::Major,Dimension::Health,L"Trusted nvidia-smi SHA256="+run.trust.sha256);return;}
+ auto csvVal=ValidateNvidiaSmiCsvOutput(pr.output);
+ if(!csvVal.valid){Add(r,L"GPU",L"NVIDIA parse",csvVal.reason,L"",State::Warning,Severity::Major,Dimension::Evidence,pr.output);return;}
  size_t parsed=0;
  for(const auto&line:SplitLines(pr.output)){
    GpuInfo g{};if(!ParseNvidiaCsvLine(line,g))continue;++parsed;auto*existing=MatchGpu(r,g.name);*existing=g;

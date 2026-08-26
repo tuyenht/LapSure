@@ -48,19 +48,10 @@
 using namespace lap;
 
 namespace {
-// The app fragments deliberately route all mutable profile inputs through the
-// decision-safe wrappers. Raw loaders remain available to tooling/tests that need
-// advisory metadata, but production verdicts never consume unsigned profile truth.
-#define LoadFactoryProfile LoadDecisionFactoryProfile
-#define LookupFactoryProfileOnline LookupFactoryProfileForDecision
-#define LoadChassisProfile LoadDecisionChassisProfile
 #include "app_runtime_state.ipp"
 #include "app_audit.ipp"
 #include "app_window.ipp"
 #include "app_entry.ipp"
-#undef LoadChassisProfile
-#undef LookupFactoryProfileOnline
-#undef LoadFactoryProfile
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, LPWSTR, int) {

@@ -12,7 +12,7 @@ p=list((R/"profiles/chassis").glob("*.profile"))
 checks=[
 ("Typed","struct ChassisProfile" in m),
 ("Loader","directory_iterator" in c),
-("Audit loads profile","LoadChassisProfile(gDir, report.model)" in a),
+("Audit loads decision-safe profile","LoadDecisionChassisProfile(gDir, report.model)" in a),
 ("Apply result","ApplyPortResultToChassisProfile" in a),
 ("Guided selector","SelectNextChassisPort" in a[a.find("if (id == 1300)"):]),
 ("Required count","RequiredPortsRemaining" in o),

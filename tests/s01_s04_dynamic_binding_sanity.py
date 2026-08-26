@@ -62,9 +62,11 @@ assert "MiniNT" in SHELL
 assert "Provider readiness: xem trạng thái kiểm định" in SHELL
 assert "readyEngines" in SHELL and "(void)readyEngines" in SHELL
 
-assert 'add(L"seller_claim",L"Cấu hình người bán cam kết",claimComplete' in SCORING
-seller_line = next(line for line in SCORING.splitlines() if 'add(L"seller_claim"' in line)
-assert seller_line.rstrip().endswith(',false);'), "seller claim must remain optional in coverage contract"
+seller_start = SCORING.index('out.push_back({L"seller_claim"')
+seller_end = SCORING.index('});', seller_start)
+seller_block = SCORING[seller_start:seller_end]
+assert "claimComplete" in seller_block, "seller claim coverage must remain evidence-bound"
+assert "false" in seller_block, "seller claim must remain optional in coverage contract"
 
 assert "src/ui_screens_s01_s04_v2.cpp" in CMAKE
 assert "src/ui_shell_dynamic.cpp" in CMAKE

@@ -6,6 +6,7 @@ window = (root / "src" / "app_window.ipp").read_text(encoding="utf-8")
 runtime = (root / "src" / "app_runtime_state.ipp").read_text(encoding="utf-8")
 orchestrator = (root / "src" / "orchestrator.cpp").read_text(encoding="utf-8")
 chassis = (root / "src" / "chassis_profile.cpp").read_text(encoding="utf-8")
+decision_context = (root / "src" / "decision_context.cpp").read_text(encoding="utf-8")
 
 failures = []
 
@@ -45,6 +46,13 @@ require(
     "result.expectedPortId.empty() &&" in runtime and
     "port.portLabel == result.portLabel" in runtime,
     "portPower compatibility upsert may use label fallback only when expectedPortId is absent",
+)
+
+normalized_context = "".join(decision_context.split())
+require(
+    "context.portAttestation.sessionId!=report.hardware.stress.sessionId" in normalized_context and
+    "context.portAttestation.operatorConfirmed=false" in normalized_context,
+    "decision context must revoke completed port attestation when it belongs to a different session",
 )
 
 if failures:

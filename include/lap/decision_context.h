@@ -83,4 +83,17 @@ public:
 #endif
 };
 
+RequirementSnapshot BuildRequirementSnapshot(
+    const AuditReport& report,
+    const ObservedCapabilities& capabilities,
+    const SessionPortAttestation& attestation);
+
+DecisionContext BuildDecisionContext(const AuditReport& report);
+
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+DecisionContext BuildCertifiedDecisionContextForTest(
+    const AuditReport& report,
+    std::wstring source);
+#endif
+
 } // namespace lap

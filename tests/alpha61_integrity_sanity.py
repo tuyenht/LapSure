@@ -13,7 +13,7 @@ checks=[
 ("Manual updates protected by mutex","void UpsertFunctional" in main and "std::lock_guard<std::mutex>" in main[main.find("void UpsertFunctional"):main.find("bool CanRunManualTest")]),
 ("Manual tests blocked during audit","gRunning" in main[main.find("bool CanRunManualTest"):main.find("void CommitManualResult")]),
 ("Manual tests require audit snapshot","!gAuditReady" in main),
-("Manual result rebuilds decision","BuildAuditDecision(gReport)" in main),
+("Manual result rebuilds decision","BuildDecisionContext(gReport)" in main and "BuildAuditDecision(gReport, context)" in main),
 ("Manual result republishes transactionally","RebuildDecisionAndReports" in main and "PublishReportSnapshot(snapshot)" in main and "PublishReportBundle" in main),
 ("Publication failure does not rewrite hardware decision","MarkReportPersistenceIncomplete" not in main and 'decision.overall = L"INCOMPLETE"' not in main),
 ("Functional buttons disabled initially","SetFunctionalButtonsEnabled(FALSE)" in main),

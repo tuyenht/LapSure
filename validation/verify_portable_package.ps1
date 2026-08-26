@@ -34,6 +34,10 @@ try {
   }
   if ($buildInfo.product -ne "LapSure") { throw "Unexpected product in BUILD_INFO.txt" }
   if ($buildInfo.version -ne "0.1.1-beta") { throw "Unexpected version in BUILD_INFO.txt" }
+  if ($buildInfo.decision_policy -ne "5.1.0") { throw "Unexpected decision_policy in BUILD_INFO.txt: $($buildInfo.decision_policy)" }
+  if ($buildInfo.coverage_policy -ne "5.1.0") { throw "Unexpected coverage_policy in BUILD_INFO.txt: $($buildInfo.coverage_policy)" }
+  if ($buildInfo.authority_policy -ne "5.1.0") { throw "Unexpected authority_policy in BUILD_INFO.txt: $($buildInfo.authority_policy)" }
+  if ($buildInfo.trust_root -ne "embedded_catalog") { throw "Unexpected trust_root in BUILD_INFO.txt: $($buildInfo.trust_root)" }
   if (!$buildInfo.commit -or $buildInfo.commit -notmatch '^[0-9a-fA-F]{40}$') { throw "Missing or invalid commit provenance" }
   if ($ExpectedCommit -and $buildInfo.commit.ToLowerInvariant() -ne $ExpectedCommit.ToLowerInvariant()) {
     throw "Commit provenance mismatch. Expected $ExpectedCommit, got $($buildInfo.commit)"
@@ -43,6 +47,7 @@ try {
   Write-Host "ZIP SHA-256: $actualZipHash"
   Write-Host "EXE SHA-256: $actualExeHash"
   Write-Host "Commit: $($buildInfo.commit)"
+  Write-Host "Policy: decision=$($buildInfo.decision_policy) coverage=$($buildInfo.coverage_policy) authority=$($buildInfo.authority_policy)"
 } finally {
   if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
 }

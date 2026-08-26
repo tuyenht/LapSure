@@ -5,6 +5,7 @@
 #include <sstream>
 
 namespace lap {
+
 namespace {
 
 std::wstring Dash(const std::wstring& value) { return value.empty() ? L"—" : value; }
@@ -117,9 +118,27 @@ void RenderScreenS10_Storage(HDC dc, const RECT& r, const AuditReport& rep, cons
     PageHeaderConfig header;
     header.title = L"Lưu trữ";
     header.subtitle = L"Identity, SMART/NVMe và Windows reliability được trình bày riêng; filesystem sạch không chứng minh SSD khỏe.";
-    header.sessionTag = hasDrive ? std::to_wstring(rep.hardware.storage.size()) + L" ổ vật lý" : L"Chưa nhận diện ổ";
+    if (hasDrive) {
+        const auto& first = rep.hardware.storage.front();
+        if (overall == CanonicalUiState::Good) {
+            std::wstring sum = L"TÌNH TRẠNG: TỐT (";
+            if (first.enduranceRemaining >= 0) sum += std::to_wstring(first.enduranceRemaining) + L"% tuổi thọ";
+            else if (first.percentageUsed >= 0) sum += L"Mòn " + std::to_wstring(first.percentageUsed) + L"%";
+            else sum += L"Sức khỏe tốt";
+            if (first.approxDataWrittenTB >= 0) sum += L" • Ghi " + DoubleOrUnknown(first.approxDataWrittenTB, L" TB");
+            sum += L")";
+            header.sessionTag = sum;
+        } else if (overall == CanonicalUiState::Fail) {
+            header.sessionTag = L"CẢNH BÁO: PHÁT HIỆN LỖI Ổ ĐĨA";
+        } else {
+            header.sessionTag = std::to_wstring(rep.hardware.storage.size()) + L" ổ vật lý";
+        }
+    } else {
+        header.sessionTag = L"Chưa nhận diện ổ";
+    }
     header.sessionState = overall;
-    DrawPageHeader(dc, r, header, fonts, dpi);
+    if (gReturnToAutoAudit) header.actionButtonText = L"< Quay lại Bảng";
+    if (gReturnToAutoAudit) header.actionButtonText = L"< Quay lại Bảng"; DrawPageHeader(dc, r, header, fonts, dpi);
 
     const int pad = UiMetrics::Scale(24, dpi);
     const int top = r.top + UiMetrics::Scale(72, dpi);
@@ -226,10 +245,23 @@ void RenderScreenS11_Memory(HDC dc, const RECT& r, const AuditReport& rep, const
     PageHeaderConfig header;
     header.title = L"Bộ nhớ (RAM)";
     header.subtitle = L"Topology/module và online integrity test được tách riêng; test online sạch không thay thế preboot memory certification.";
-    header.sessionTag = rep.hardware.installedRamBytes ? GiB(rep.hardware.installedRamBytes) : L"Chưa nhận diện RAM";
+    if (rep.hardware.installedRamBytes > 0) {
+        std::wstring ramSum = GiB(rep.hardware.installedRamBytes);
+        if (!rep.hardware.memoryModules.empty()) {
+            ramSum += L" (" + std::to_wstring(rep.hardware.memoryModules.size()) + L" thanh";
+            if (!rep.hardware.memoryModules.front().manufacturer.empty()) {
+                ramSum += L" • " + rep.hardware.memoryModules.front().manufacturer;
+            }
+            ramSum += L")";
+        }
+        if (testState == CanonicalUiState::Fail) ramSum += L" • LỖI BIT";
+        header.sessionTag = ramSum;
+    } else {
+        header.sessionTag = L"Chưa nhận diện RAM";
+    }
     header.sessionState = rep.hardware.installedRamBytes ? (testState == CanonicalUiState::Fail ? testState : CanonicalUiState::Info)
                                                        : CanonicalUiState::NotTested;
-    DrawPageHeader(dc, r, header, fonts, dpi);
+    if (gReturnToAutoAudit) header.actionButtonText = L"< Quay lại Bảng"; DrawPageHeader(dc, r, header, fonts, dpi);
 
     const int pad = UiMetrics::Scale(24, dpi);
     const int top = r.top + UiMetrics::Scale(72, dpi);
@@ -296,7 +328,7 @@ void RenderScreenS13_AudioCamera(HDC dc, const RECT& r, const AuditReport& rep, 
     header.subtitle = L"PASS camera cần frame Media Foundation thực; mic cần PCM capture; loa cần stimulus L/R và xác nhận người nghe.";
     header.sessionTag = StateLabel(overall);
     header.sessionState = overall;
-    DrawPageHeader(dc, r, header, fonts, dpi);
+    if (gReturnToAutoAudit) header.actionButtonText = L"< Quay lại Bảng"; DrawPageHeader(dc, r, header, fonts, dpi);
 
     const int pad = UiMetrics::Scale(24, dpi);
     const int top = r.top + UiMetrics::Scale(72, dpi);
@@ -340,7 +372,7 @@ void RenderScreenS15_SystemInfo(HDC dc, const RECT& r, const AuditReport& rep, c
     header.subtitle = L"Identity, firmware/security, PnP và runtime trust là các lớp bằng chứng riêng; không gộp chúng thành một health score.";
     header.sessionTag = rep.model.empty() ? L"Chưa đủ identity" : rep.model;
     header.sessionState = rep.model.empty() ? CanonicalUiState::Incomplete : CanonicalUiState::Info;
-    DrawPageHeader(dc, r, header, fonts, dpi);
+    if (gReturnToAutoAudit) header.actionButtonText = L"< Quay lại Bảng"; DrawPageHeader(dc, r, header, fonts, dpi);
 
     const int pad = UiMetrics::Scale(24, dpi);
     const int top = r.top + UiMetrics::Scale(72, dpi);

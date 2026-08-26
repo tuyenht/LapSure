@@ -89,11 +89,38 @@ void CollectPnpProblemAudit(AuditReport& r, const std::atomic_bool* cancel){
 
 void CollectPlatformForensics(AuditReport&r,const FactoryProfile&p,const Capabilities&c,const std::wstring&,const std::atomic_bool* cancel){
  r.hardware.displays=CollectNativeDisplays();
+ 
+ unsigned biosYear = 0;
+ if (!r.hardware.bios.releaseDate.empty()) {
+     std::wstring bd = r.hardware.bios.releaseDate;
+     if (bd.length() >= 4) {
+         try {
+             if (bd.find(L'/') != std::wstring::npos) {
+                 size_t lastSlash = bd.find_last_of(L'/');
+                 if (lastSlash != std::wstring::npos && lastSlash + 4 <= bd.length()) biosYear = std::stoi(bd.substr(lastSlash + 1, 4));
+             } else {
+                 biosYear = std::stoi(bd.substr(0, 4));
+             }
+         } catch (...) {}
+     }
+ }
+ 
  if(!r.hardware.displays.empty()){
    for(size_t i=0;i<r.hardware.displays.size();++i){auto&d=r.hardware.displays[i];
      std::wstringstream s;s<<d.manufacturer<<L" "<<d.friendlyName<<L" | native "<<d.nativeWidth<<L"x"<<d.nativeHeight<<L" | current "<<d.currentWidth<<L"x"<<d.currentHeight<<L"@"<<d.refreshHz<<L"Hz | SN "<<d.serialNumber;
      State st=State::Info;Dimension dim=Dimension::Identity;std::wstring expected;
      if(p.displayWidth&&p.displayHeight){expected=std::to_wstring(p.displayWidth)+L"x"+std::to_wstring(p.displayHeight);dim=Dimension::Factory;st=(d.nativeWidth==p.displayWidth&&d.nativeHeight==p.displayHeight)?State::Pass:State::Changed;}
+     
+     // Chronology Check
+     if (biosYear > 2000 && d.manufactureYear > 2000) {
+         if (d.manufactureYear > biosYear + 1 || d.manufactureYear < biosYear - 3) {
+             st = State::Fail;
+             s << L" [LỖI NIÊN ĐẠI: Màn hình SX năm " << d.manufactureYear << L", Máy xuất xưởng năm " << biosYear << L" -> Đã bị tráo/thay màn!]";
+         } else {
+             s << L" (Đồng bộ niên đại: OK)";
+         }
+     }
+     
      Add(r,L"Display",L"EDID panel "+std::to_wstring(i+1),s.str(),expected,st,Severity::Major,dim,L"Native SetupAPI registry EDID; checksum validated");
    }
  } else Add(r,L"Display",L"EDID panel identity",L"No valid EDID exposed",L"",State::NotTested,Severity::Major,Dimension::Identity,L"Native SetupAPI");

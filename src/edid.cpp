@@ -62,6 +62,7 @@ std::vector<DisplayInfo> CollectNativeDisplays(){
         auto e=ParseEdid(bytes.data(),bytes.size());if(!e.valid)continue;
         DisplayInfo d{};d.manufacturer=e.manufacturer;d.friendlyName=e.monitorName;d.serialNumber=!e.serialText.empty()?e.serialText:std::to_wstring(e.serialNumeric);
         d.instanceName=instance;d.nativeWidth=e.nativeWidth;d.nativeHeight=e.nativeHeight;d.edidHex=e.edidHex;
+        d.manufactureYear=e.manufactureYear;d.manufactureWeek=e.manufactureWeek;
         d.internalPanel=(d.nativeWidth>0&&d.nativeHeight>0);out.push_back(std::move(d));
     }
     SetupDiDestroyDeviceInfoList(set);

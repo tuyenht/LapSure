@@ -57,7 +57,19 @@ void RenderScreenS12_Display(HDC dc, const RECT& r, const AuditReport& rep, cons
     PageHeaderConfig header;
     header.title = L"Hiển thị";
     header.subtitle = L"EDID/native timing là identity evidence; điểm chết, hở sáng và ám màu chỉ được kết luận sau kiểm tra trực quan.";
-    header.sessionTag = Label(overall);
+    if (hasDisplay) {
+        const auto& d = rep.hardware.displays.front();
+        if (d.nativeWidth && d.nativeHeight) {
+            std::wstring dSum = std::to_wstring(d.nativeWidth) + L" × " + std::to_wstring(d.nativeHeight);
+            if (d.refreshHz) dSum += L" @" + std::to_wstring(d.refreshHz) + L"Hz";
+            if (!d.friendlyName.empty()) dSum += L" • " + d.friendlyName;
+            header.sessionTag = dSum;
+        } else {
+            header.sessionTag = L"Đã nhận diện màn hình";
+        }
+    } else {
+        header.sessionTag = L"Chưa nhận diện màn hình";
+    }
     header.sessionState = overall;
     DrawPageHeader(dc, r, header, fonts, dpi);
 

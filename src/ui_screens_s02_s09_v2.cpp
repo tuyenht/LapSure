@@ -5,6 +5,7 @@
 #include <sstream>
 
 namespace lap {
+
 namespace {
 
 std::wstring DashIfEmpty(const std::wstring& value) {
@@ -425,10 +426,10 @@ void RenderScreenS06_PhysicalSafety(HDC dc, const RECT& r, const AuditReport& re
     const int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
     RECT action{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(310, dpi) };
     NextActionConfig next;
-    next.actionTitle = L"Hướng dẫn quan sát an toàn";
+    next.actionTitle = overall == CanonicalUiState::Good ? L"Đã hoàn tất quan sát" : L"Hướng dẫn quan sát an toàn";
     next.reasonText = L"Nếu thấy pin phồng, dấu chất lỏng/ăn mòn, mùi khét hoặc sạc hở lõi: ghi nhận rủi ro và dừng thao tác có thể gây nguy hiểm.";
     next.remainingTasks = { L"CÓ = thấy vấn đề", L"KHÔNG = không thấy vấn đề", L"HỦY = chưa kiểm tra" };
-    next.buttonText = L"MỞ HƯỚNG DẪN 6 ĐIỂM";
+    next.buttonText = overall == CanonicalUiState::Good ? L"TIẾP TỤC: KIỂM TRA CỔNG" : L"MỞ HƯỚNG DẪN 6 ĐIỂM";
     next.isButtonEnabled = true;
     DrawNextActionPanel(dc, action, next, fonts, dpi);
 }
@@ -489,14 +490,14 @@ void RenderScreenS07_PortsPower(HDC dc, const RECT& r, const AuditReport& rep, c
     const int rightX = r.right - rightPanelW - UiMetrics::Scale(24, dpi);
     RECT action{ rightX, curY, r.right - UiMetrics::Scale(24, dpi), curY + UiMetrics::Scale(310, dpi) };
     NextActionConfig next;
-    next.actionTitle = L"Kiểm tra cổng tiếp theo";
+    next.actionTitle = overall == CanonicalUiState::Good ? L"Đã hoàn tất kiểm tra cổng" : L"Kiểm tra cổng tiếp theo";
     next.reasonText = L"LapSure so sánh baseline/delta PnP và location path. USB4/Thunderbolt/DP Alt Mode chỉ được ghi khi có bằng chứng tương ứng; không tự gán tốc độ.";
     next.remainingTasks = {
         pp.power.acConnected ? L"Nguồn AC: đang kết nối" : L"Nguồn AC: chưa xác nhận đang kết nối",
         pp.power.adapterWatts >= 0.0 ? L"Công suất adapter: có bằng chứng" : L"Công suất adapter: chưa xác định",
         chassis.validationStatus.empty() ? L"Chassis profile: chưa xác định" : L"Chassis profile: " + chassis.validationStatus
     };
-    next.buttonText = L"KIỂM TRA CỔNG / NGUỒN";
+    next.buttonText = overall == CanonicalUiState::Good ? L"TIẾP TỤC: XEM BÁO CÁO" : L"KIỂM TRA CỔNG / NGUỒN";
     next.isButtonEnabled = true;
     DrawNextActionPanel(dc, action, next, fonts, dpi);
 }
@@ -594,10 +595,17 @@ void RenderScreenS09_BatteryPower(HDC dc, const RECT& r, const AuditReport& rep,
     PageHeaderConfig hdr;
     hdr.title = L"Pin & Năng lượng";
     hdr.subtitle = L"Hiển thị dung lượng đo được và bằng chứng nguồn; không dùng một 'điểm sức khỏe máy' tổng hợp.";
-    hdr.sessionTag = !battery.present ? L"Không có pin / chưa phát hiện"
-        : (battery.capacityReadable ? L"Đã đọc dung lượng" : L"Thiếu dữ liệu dung lượng");
+    if (!battery.present) {
+        hdr.sessionTag = L"Không có pin / chưa phát hiện";
+    } else if (battery.capacityReadable && battery.healthPercent >= 0.0) {
+        hdr.sessionTag = L"TÌNH TRẠNG: TỐT (Dung lượng " + FormatOneDecimal(battery.healthPercent, L"%") +
+            L" • Chai " + FormatOneDecimal(std::max(0.0, 100.0 - battery.healthPercent), L"%") + L")";
+    } else {
+        hdr.sessionTag = L"Đã phát hiện pin";
+    }
     hdr.sessionState = !battery.present ? CanonicalUiState::Unsupported
         : (battery.capacityReadable ? CanonicalUiState::Info : CanonicalUiState::ProviderUnavailable);
+    if (gReturnToAutoAudit) hdr.actionButtonText = L"< Quay lại Bảng";
     DrawPageHeader(dc, r, hdr, fonts, dpi);
 
     const int pad = UiMetrics::Scale(24, dpi);

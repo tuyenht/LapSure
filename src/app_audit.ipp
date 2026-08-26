@@ -183,6 +183,7 @@ void StartAudit(HWND hwnd) {
     if (gRunning) {
         gCancel = true;
         gPaused = false;
+        gInShopWizardMode = false;
         gSessionLifecycleState = CanonicalUiState::Cancelled;
         PostStatus(hwnd, L"Đang dừng kiểm tra...");
         return;

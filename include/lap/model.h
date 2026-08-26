@@ -115,6 +115,7 @@ struct GpuInfo {
 struct DisplayInfo {
     std::wstring manufacturer; std::wstring friendlyName; std::wstring serialNumber; std::wstring instanceName;
     unsigned currentWidth{}; unsigned currentHeight{}; unsigned nativeWidth{}; unsigned nativeHeight{}; unsigned refreshHz{};
+    unsigned manufactureYear{}; unsigned manufactureWeek{};
     bool touchDetected{false}; bool internalPanel{false};
     std::wstring edidHex;
 };

@@ -31,6 +31,7 @@ std::atomic_bool gPaused{false};
 std::atomic_bool gAuditReady{false};
 std::atomic_bool gPublicationReady{false};
 std::atomic_bool gCloseRequested{false};
+std::atomic_bool gInShopWizardMode{false};
 
 CanonicalUiState gSessionLifecycleState{CanonicalUiState::Idle};
 std::wstring gSelectedMode = L"Standard";
@@ -47,7 +48,8 @@ std::atomic<int> gAuditCompletedItems{0};
 std::atomic<int> gAuditCurrentStage{0};
 
 MainTab gCurrentTab = MainTab::Dashboard;
-bool gDeviceGroupExpanded = true;
+bool gDeviceGroupExpanded = false;
+int gExpandedAutoStage = -1; // -1: collapsed, 0..8: specific stage expanded, 99: all expanded
 int gSidebarScrollOffset = 0;
 int gTableScrollOffset = 0;
 int gFocusIndex = 0; // 0: Sidebar, 1: Mode pills, 2: S01 CTA, 3: screen primary CTA.

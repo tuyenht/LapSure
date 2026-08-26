@@ -2,6 +2,7 @@
 #include "lap/process.h"
 #include "lap/hardware.h"
 #include <windows.h>
+#include <winioctl.h>
 #include <objbase.h>
 #include <intrin.h>
 #include <sstream>
@@ -33,6 +34,203 @@ static std::wstring DellServiceTagToExpressCode(const std::wstring& tag) {
     return std::to_wstring(val);
 }
 
+#pragma pack(push, 1)
+struct RawSMBIOSData {
+    BYTE  Used20CallingMethod;
+    BYTE  SMBIOSMajorVersion;
+    BYTE  SMBIOSMinorVersion;
+    BYTE  DmiRevision;
+    DWORD Length;
+    BYTE  SMBIOSTableData[1];
+};
+
+struct SMBIOSHeader {
+    BYTE Type;
+    BYTE Length;
+    WORD Handle;
+};
+#pragma pack(pop)
+
+static std::wstring Utf8ToWide(const char* s) {
+    if (!s || !*s) return L"";
+    int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, nullptr, 0);
+    if (n <= 1) return L"";
+    std::wstring w(static_cast<size_t>(n), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s, -1, w.data(), n);
+    if (!w.empty() && w.back() == L'\0') w.pop_back();
+    return Trim(w);
+}
+
+static const char* GetSmbiosString(const SMBIOSHeader* h, BYTE index) {
+    if (!index || !h || h->Length == 0) return "";
+    const char* p = reinterpret_cast<const char*>(h) + h->Length;
+    BYTE current = 1;
+    while (*p) {
+        if (current == index) return p;
+        p += strlen(p) + 1;
+        ++current;
+    }
+    return "";
+}
+
+static void CollectSmbiosDirectly(AuditReport& r) {
+    const DWORD sig = 'RSMB';
+    DWORD size = GetSystemFirmwareTable(sig, 0, nullptr, 0);
+    if (size == 0 || size < sizeof(RawSMBIOSData)) return;
+
+    std::vector<BYTE> buffer(size);
+    if (GetSystemFirmwareTable(sig, 0, buffer.data(), size) != size) return;
+
+    const auto* raw = reinterpret_cast<const RawSMBIOSData*>(buffer.data());
+    const BYTE* p = raw->SMBIOSTableData;
+    const BYTE* end = buffer.data() + size;
+
+    while (p + sizeof(SMBIOSHeader) <= end) {
+        const auto* h = reinterpret_cast<const SMBIOSHeader*>(p);
+        if (h->Length < sizeof(SMBIOSHeader)) break;
+        if (h->Type == 127) break; // End of table
+
+        const BYTE* next = p + h->Length;
+        while (next + 1 < end && (*next != 0 || *(next + 1) != 0)) {
+            ++next;
+        }
+        if (next + 2 <= end) next += 2;
+        else next = end;
+
+        switch (h->Type) {
+        case 0: { // BIOS Information
+            if (h->Length >= 0x09) {
+                if (r.hardware.bios.vendor.empty()) r.hardware.bios.vendor = Utf8ToWide(GetSmbiosString(h, p[0x04]));
+                if (r.hardware.bios.version.empty()) r.hardware.bios.version = Utf8ToWide(GetSmbiosString(h, p[0x05]));
+                if (r.hardware.bios.releaseDate.empty()) r.hardware.bios.releaseDate = Utf8ToWide(GetSmbiosString(h, p[0x08]));
+            }
+            break;
+        }
+        case 1: { // System Information
+            if (h->Length >= 0x08) {
+                std::wstring mfg = Utf8ToWide(GetSmbiosString(h, p[0x04]));
+                if (r.hardware.mainboard.manufacturer.empty()) r.hardware.mainboard.manufacturer = mfg;
+                if (r.model.empty()) r.model = Utf8ToWide(GetSmbiosString(h, p[0x05]));
+                if (r.serviceTag.empty()) r.serviceTag = Utf8ToWide(GetSmbiosString(h, p[0x07]));
+            }
+            break;
+        }
+        case 2: { // Baseboard Information
+            if (h->Length >= 0x08) {
+                std::wstring mfg = Utf8ToWide(GetSmbiosString(h, p[0x04]));
+                std::wstring prod = Utf8ToWide(GetSmbiosString(h, p[0x05]));
+                if (r.hardware.mainboard.manufacturer.empty()) r.hardware.mainboard.manufacturer = mfg;
+                if (r.hardware.mainboard.product.empty()) r.hardware.mainboard.product = prod;
+            }
+            break;
+        }
+        case 17: { // Memory Device
+            if (h->Length >= 0x15) {
+                MemoryModule m{};
+                if (h->Length >= 0x14) {
+                    WORD sizeVal = *reinterpret_cast<const WORD*>(p + 0x10);
+                    if (sizeVal != 0 && sizeVal != 0xFFFF) {
+                        if (sizeVal & 0x8000) {
+                            m.capacityBytes = static_cast<uint64_t>(sizeVal & 0x7FFF) * 1024ULL;
+                        } else if (sizeVal == 0x7FFF && h->Length >= 0x20) {
+                            DWORD extSize = *reinterpret_cast<const DWORD*>(p + 0x1C);
+                            m.capacityBytes = static_cast<uint64_t>(extSize) * 1024ULL * 1024ULL;
+                        } else {
+                            m.capacityBytes = static_cast<uint64_t>(sizeVal) * 1024ULL * 1024ULL;
+                        }
+                    }
+                }
+                if (h->Length >= 0x16) {
+                    m.deviceLocator = Utf8ToWide(GetSmbiosString(h, p[0x14]));
+                    m.bankLabel = Utf8ToWide(GetSmbiosString(h, p[0x15]));
+                }
+                if (h->Length >= 0x1C) {
+                    m.ratedSpeed = *reinterpret_cast<const WORD*>(p + 0x1A);
+                }
+                if (h->Length >= 0x20) {
+                    m.manufacturer = Utf8ToWide(GetSmbiosString(h, p[0x1C]));
+                    m.serialNumber = Utf8ToWide(GetSmbiosString(h, p[0x1D]));
+                    m.partNumber = Utf8ToWide(GetSmbiosString(h, p[0x1F]));
+                }
+                if (h->Length >= 0x22) {
+                    m.configuredSpeed = *reinterpret_cast<const WORD*>(p + 0x20);
+                }
+                if (m.capacityBytes > 0) {
+                    bool exists = false;
+                    for (const auto& existing : r.hardware.memoryModules) {
+                        if (!m.partNumber.empty() && existing.partNumber == m.partNumber && existing.serialNumber == m.serialNumber) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        r.hardware.memoryModules.push_back(std::move(m));
+                    }
+                }
+            }
+            break;
+        }
+        }
+        p = next;
+    }
+}
+
+static void CollectPhysicalDisksDirectly(AuditReport& r) {
+    if (!r.hardware.storage.empty()) return;
+    for (int index = 0; index < 8; ++index) {
+        std::wstring drivePath = L"\\\\.\\PhysicalDrive" + std::to_wstring(index);
+        HANDLE hDevice = CreateFileW(drivePath.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (hDevice == INVALID_HANDLE_VALUE) {
+            hDevice = CreateFileW(drivePath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+        }
+        if (hDevice == INVALID_HANDLE_VALUE) continue;
+
+        STORAGE_PROPERTY_QUERY query{};
+        query.PropertyId = StorageDeviceProperty;
+        query.QueryType = PropertyStandardQuery;
+
+        BYTE buffer[1024]{};
+        DWORD bytesReturned = 0;
+        if (DeviceIoControl(hDevice, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer, sizeof(buffer), &bytesReturned, nullptr)) {
+            const auto* desc = reinterpret_cast<const STORAGE_DEVICE_DESCRIPTOR*>(buffer);
+            StorageDevice dev{};
+            dev.devicePath = drivePath;
+            if (desc->ProductIdOffset && desc->ProductIdOffset < bytesReturned) {
+                dev.model = Utf8ToWide(reinterpret_cast<const char*>(buffer + desc->ProductIdOffset));
+            }
+            if (desc->VendorIdOffset && desc->VendorIdOffset < bytesReturned) {
+                std::wstring vendor = Utf8ToWide(reinterpret_cast<const char*>(buffer + desc->VendorIdOffset));
+                if (!vendor.empty() && dev.model.find(vendor) == std::wstring::npos) {
+                    dev.model = vendor + L" " + dev.model;
+                }
+            }
+            if (desc->SerialNumberOffset && desc->SerialNumberOffset < bytesReturned) {
+                dev.serialNumber = Utf8ToWide(reinterpret_cast<const char*>(buffer + desc->SerialNumberOffset));
+            }
+            if (desc->ProductRevisionOffset && desc->ProductRevisionOffset < bytesReturned) {
+                dev.firmware = Utf8ToWide(reinterpret_cast<const char*>(buffer + desc->ProductRevisionOffset));
+            }
+            switch (desc->BusType) {
+            case BusTypeNvme: dev.interfaceType = L"NVMe PCIe"; break;
+            case BusTypeSata: dev.interfaceType = L"SATA"; break;
+            case BusTypeUsb: dev.interfaceType = L"USB"; break;
+            default: dev.interfaceType = L"Storage"; break;
+            }
+
+            GET_LENGTH_INFORMATION lengthInfo{};
+            DWORD lenRet = 0;
+            if (DeviceIoControl(hDevice, IOCTL_DISK_GET_LENGTH_INFO, nullptr, 0, &lengthInfo, sizeof(lengthInfo), &lenRet, nullptr)) {
+                dev.capacityBytes = static_cast<uint64_t>(lengthInfo.Length.QuadPart);
+            }
+
+            if (!dev.model.empty()) {
+                r.hardware.storage.push_back(std::move(dev));
+            }
+        }
+        CloseHandle(hDevice);
+    }
+}
+
 static std::wstring CreateInspectionId() {
     GUID id{};
     if (FAILED(CoCreateGuid(&id))) return L"";
@@ -49,8 +247,12 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
  AuditReport r{};r.hardware.stress.sessionId=CreateInspectionId();r.environment=EnvironmentName(caps);
  r.hardware.gpuInventoryStatus=caps.powershell?ProviderCollectionStatus::NotRun:ProviderCollectionStatus::Unsupported;
  if(r.hardware.stress.sessionId.empty())Add(r,L"Inspection",L"Inspection identity",L"UNAVAILABLE",L"Unique inspection identity",State::NotTested,Severity::Critical,Dimension::Evidence,L"CoCreateGuid failed; acceptance evidence cannot be correlated safely.");
- r.model=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemProductName");
- r.serviceTag=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemSerialNumber");
+
+ CollectSmbiosDirectly(r);
+ CollectPhysicalDisksDirectly(r);
+
+ if (r.model.empty()) r.model=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemProductName");
+ if (r.serviceTag.empty()) r.serviceTag=GetRegString(HKEY_LOCAL_MACHINE,L"HARDWARE\\DESCRIPTION\\System\\BIOS",L"SystemSerialNumber");
  if(r.serviceTag.empty()&&caps.powershell){auto id=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"(Get-CimInstance Win32_BIOS|Select-Object -First 1).SerialNumber\"",10000,cancel);auto lines=SplitLines(id.output);if(id.launched&&!id.timedOut&&!lines.empty())r.serviceTag=lines.front();}
 
  if(!p.model.empty())Add(r,L"Machine",L"Model",r.model,p.model,ContainsI(r.model,p.model)?State::Pass:State::Fail,Severity::Critical,Dimension::Factory);
@@ -77,22 +279,34 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
  else Add(r,L"Battery",L"Presence",L"Not detected/query failed",L"Battery expected",caps.winPE?State::Unsupported:State::NotTested,Severity::Major,Dimension::Functional);
 
  if(caps.powershell){
-   auto ram=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_PhysicalMemory | ForEach-Object { '{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $_.Capacity,$_.ConfiguredClockSpeed,$_.Speed,$_.Manufacturer,$_.PartNumber,$_.SerialNumber,$_.DeviceLocator,$_.BankLabel }\"",20000,cancel);
-   if(ram.launched&&!ram.timedOut&&!ram.output.empty()){
-      for(const auto& line:SplitLines(ram.output)){MemoryModule m{};if(ParseMemoryModuleLine(line,m))r.hardware.memoryModules.push_back(std::move(m));}
-      std::wstringstream summary;if(r.hardware.memoryModules.empty())summary<<L"Module details unavailable; OS total "<<F1(Gib(r.hardware.installedRamBytes))<<L" GiB";else summary<<r.hardware.memoryModules.size()<<L" module(s)";
-      for(size_t i=0;i<r.hardware.memoryModules.size();++i){auto&m=r.hardware.memoryModules[i];summary<<L"\n#"<<i+1<<L": "<<F1(Gib(m.capacityBytes))<<L" GiB @ "<<m.configuredSpeed<<L" MT/s | "<<m.manufacturer<<L" | "<<m.partNumber<<L" | SN "<<m.serialNumber;}
-      State st=r.hardware.memoryModules.empty()?State::NotTested:State::Info;
-      if(!r.hardware.memoryModules.empty()&&p.ramSpeed){bool ok=true;for(auto&m:r.hardware.memoryModules)if(m.configuredSpeed+100<p.ramSpeed)ok=false;st=ok?State::Pass:State::Warning;}
-      Add(r,L"RAM",L"DIMM modules",summary.str(),p.ramSpeed?L"Factory "+std::to_wstring(p.ramSpeed)+L" MT/s":L"",st,Severity::Major,p.ramSpeed?Dimension::Factory:Dimension::Identity,L"CIM typed capture");
-   } else Add(r,L"RAM",L"DIMM modules",ram.error.empty()?L"No data":ram.error,L"",ram.timedOut?State::Warning:State::NotTested,Severity::Minor,Dimension::Evidence);
+    auto ram=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_PhysicalMemory | ForEach-Object { '{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}' -f $_.Capacity,$_.ConfiguredClockSpeed,$_.Speed,$_.Manufacturer,$_.PartNumber,$_.SerialNumber,$_.DeviceLocator,$_.BankLabel }\"",20000,cancel);
+    if(ram.launched&&!ram.timedOut&&!ram.output.empty()){
+       std::vector<MemoryModule> cimModules;
+       for(const auto& line:SplitLines(ram.output)){MemoryModule m{};if(ParseMemoryModuleLine(line,m))cimModules.push_back(std::move(m));}
+       if(!cimModules.empty()) r.hardware.memoryModules = std::move(cimModules);
+    }
+  }
 
-   auto disk=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_DiskDrive | ForEach-Object { '{0}|{1}|{2}|{3}|{4}' -f $_.Model,$_.Size,$_.SerialNumber,$_.FirmwareRevision,$_.InterfaceType }\"",20000,cancel);
-   if(disk.launched&&!disk.timedOut&&!disk.output.empty()){
-      for(const auto& line:SplitLines(disk.output)){StorageDevice d{};if(ParseDiskInventoryLine(line,d))r.hardware.storage.push_back(std::move(d));}
-      for(size_t i=0;i<r.hardware.storage.size();++i){auto&d=r.hardware.storage[i];Add(r,L"Storage",L"Disk #"+std::to_wstring(i+1),d.model+L" | "+F1(Gib(d.capacityBytes))+L" GiB | SN "+d.serialNumber+L" | FW "+d.firmware+L" | "+d.interfaceType,L"",State::Info,Severity::Info,Dimension::Identity,L"CIM typed capture");}
-   } else Add(r,L"Storage",L"Disk inventory",disk.error.empty()?L"No data":disk.error,L"",State::NotTested,Severity::Major,Dimension::Identity);
+  std::wstringstream summary;
+  if(r.hardware.memoryModules.empty()) summary<<L"Module details unavailable; OS total "<<F1(Gib(r.hardware.installedRamBytes))<<L" GiB";
+  else summary<<r.hardware.memoryModules.size()<<L" module(s)";
+  for(size_t i=0;i<r.hardware.memoryModules.size();++i){auto&m=r.hardware.memoryModules[i];summary<<L"\n#"<<i+1<<L": "<<F1(Gib(m.capacityBytes))<<L" GiB @ "<<m.configuredSpeed<<L" MT/s | "<<m.manufacturer<<L" | "<<m.partNumber<<L" | SN "<<m.serialNumber;}
+  State ramSt=r.hardware.memoryModules.empty()?State::NotTested:State::Info;
+  if(!r.hardware.memoryModules.empty()&&p.ramSpeed){bool ok=true;for(auto&m:r.hardware.memoryModules)if(m.configuredSpeed+100<p.ramSpeed)ok=false;ramSt=ok?State::Pass:State::Warning;}
+  Add(r,L"RAM",L"DIMM modules",summary.str(),p.ramSpeed?L"Factory "+std::to_wstring(p.ramSpeed)+L" MT/s":L"",ramSt,Severity::Major,p.ramSpeed?Dimension::Factory:Dimension::Identity,L"SMBIOS / CIM capture");
 
+  if(caps.powershell){
+    auto disk=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_DiskDrive | ForEach-Object { '{0}|{1}|{2}|{3}|{4}' -f $_.Model,$_.Size,$_.SerialNumber,$_.FirmwareRevision,$_.InterfaceType }\"",20000,cancel);
+    if(disk.launched&&!disk.timedOut&&!disk.output.empty()){
+       std::vector<StorageDevice> cimDisks;
+       for(const auto& line:SplitLines(disk.output)){StorageDevice d{};if(ParseDiskInventoryLine(line,d))cimDisks.push_back(std::move(d));}
+       if(!cimDisks.empty()) r.hardware.storage = std::move(cimDisks);
+    }
+  }
+
+  for(size_t i=0;i<r.hardware.storage.size();++i){auto&d=r.hardware.storage[i];Add(r,L"Storage",L"Disk #"+std::to_wstring(i+1),d.model+L" | "+F1(Gib(d.capacityBytes))+L" GiB | SN "+d.serialNumber+L" | FW "+d.firmware+L" | "+d.interfaceType,L"",State::Info,Severity::Info,Dimension::Identity,L"Storage IOCTL / CIM capture");}
+
+  if(caps.powershell){
    auto gpu=RunProcessCapture(L"powershell.exe -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_VideoController | ForEach-Object { '{0}|{1}|{2}' -f $_.Name,$_.AdapterRAM,$_.DriverVersion }\"",20000,cancel);
    const bool gpuComplete=gpu.launched&&!gpu.timedOut&&!gpu.cancelled&&gpu.exitCode==0;
    r.hardware.gpuInventoryStatus=gpuComplete?ProviderCollectionStatus::Complete:ProviderCollectionStatus::Failed;
@@ -112,6 +326,9 @@ AuditReport CollectInventory(const FactoryProfile& p,const Capabilities& caps,co
    if(batteryParsed){bi.currentChargePercent=r.hardware.battery.currentChargePercent;r.hardware.battery=bi;std::wstringstream x;if(bi.capacityReadable)x<<L"Design "<<F1(bi.designWh)<<L" Wh | Full "<<F1(bi.fullChargeWh)<<L" Wh | Health "<<F1(bi.healthPercent)<<L"% | Wear "<<F1(bi.wearPercent)<<L"%";else x<<L"Capacity unavailable";x<<L" | Cycles "<<(bi.cycleCount<0?L"N/A":std::to_wstring(bi.cycleCount));Add(r,L"Battery",L"Capacity / wear",x.str(),p.batteryDesignWh?L"Factory design "+F1(p.batteryDesignWh)+L" Wh":L"",BatteryState(bi.healthPercent),Severity::Major,Dimension::Health,batteryEvidence);}
    else Add(r,L"Battery",L"Capacity / wear",L"Not available",p.batteryDesignWh?L"Factory design "+F1(p.batteryDesignWh)+L" Wh":L"",State::NotTested,Severity::Major,Dimension::Health,L"WMI and powercfg battery-report unavailable");
  }
+
+
+
  return r;
 }
 } // namespace lap

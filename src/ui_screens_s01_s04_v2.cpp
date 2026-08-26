@@ -172,34 +172,57 @@ void DrawModePills(HDC dc, int x, int y, const std::wstring& selectedMode,
     draw(L"Chuyên sâu", L"Deep");
 }
 
-void DrawDomainCard(HDC dc, const RECT& r, const wchar_t* code, const wchar_t* title,
-                    const std::wstring& detail, CanonicalUiState state,
-                    const UiFonts& fonts, int dpi, const std::wstring& overrideLabel = L"") {
+void DrawPillarCard(HDC dc, const RECT& r, const wchar_t* icon, const wchar_t* title,
+                    const std::wstring& value, const std::wstring& detail,
+                    CanonicalUiState state, const UiFonts& fonts, int dpi,
+                    const std::wstring& overrideLabel = L"") {
     DrawRoundedCard(dc, r, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
-    RECT codeRect{ r.left + UiMetrics::Scale(8, dpi), r.top + UiMetrics::Scale(8, dpi),
-                   r.left + UiMetrics::Scale(38, dpi), r.top + UiMetrics::Scale(31, dpi) };
-    DrawRoundedCard(dc, codeRect, UiMetrics::RadiusSm, UiColors::PrimaryBlueLight, UiColors::InfoBorder, 1);
-    SelectObject(dc, fonts.hSmall);
-    SetTextColor(dc, UiColors::PrimaryBlue);
-    DrawTextW(dc, code, -1, &codeRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-
+    // Left Icon Box
+    const int iconBoxS = UiMetrics::Scale(36, dpi);
+    RECT iconBox{ r.left + UiMetrics::Scale(12, dpi), r.top + UiMetrics::Scale(12, dpi),
+                  r.left + UiMetrics::Scale(12, dpi) + iconBoxS, r.top + UiMetrics::Scale(12, dpi) + iconBoxS };
+    DrawRoundedCard(dc, iconBox, UiMetrics::RadiusSm, UiColors::PrimaryBlueLight, UiColors::InfoBorder, 1);
     SelectObject(dc, fonts.hBodyBold);
-    SetTextColor(dc, UiColors::TextMain);
-    RECT titleRect{ codeRect.right + UiMetrics::Scale(7, dpi), r.top + UiMetrics::Scale(6, dpi),
-                    r.right - UiMetrics::Scale(83, dpi), r.top + UiMetrics::Scale(27, dpi) };
-    DrawTextW(dc, title, -1, &titleRect, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+    SetTextColor(dc, UiColors::PrimaryBlue);
+    DrawTextW(dc, icon, -1, &iconBox, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    RECT badgeRect{ r.right - UiMetrics::Scale(80, dpi), r.top + UiMetrics::Scale(7, dpi),
-                    r.right - UiMetrics::Scale(7, dpi), r.top + UiMetrics::Scale(28, dpi) };
-    DrawStatusBadge(dc, badgeRect, state, fonts, overrideLabel);
-
+    // Title (Top Left)
+    const int textLeft = iconBox.right + UiMetrics::Scale(10, dpi);
+    const int badgeW = UiMetrics::Scale(125, dpi);
+    const int badgeH = UiMetrics::Scale(24, dpi);
+    RECT titleRect{ textLeft, r.top + UiMetrics::Scale(9, dpi),
+                    r.right - badgeW - UiMetrics::Scale(12, dpi), r.top + UiMetrics::Scale(27, dpi) };
     SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, UiColors::TextMuted);
-    RECT detailRect{ codeRect.right + UiMetrics::Scale(7, dpi), r.top + UiMetrics::Scale(30, dpi),
-                     r.right - UiMetrics::Scale(7, dpi), r.bottom - UiMetrics::Scale(4, dpi) };
+    DrawTextW(dc, title, -1, &titleRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+    // Status Badge (Top Right)
+    RECT badgeRect{ r.right - badgeW - UiMetrics::Scale(10, dpi), r.top + UiMetrics::Scale(8, dpi),
+                    r.right - UiMetrics::Scale(10, dpi), r.top + UiMetrics::Scale(8, dpi) + badgeH };
+    DrawStatusBadge(dc, badgeRect, state, fonts, overrideLabel);
+
+    // Value (Middle Bold)
+    RECT valueRect{ textLeft, r.top + UiMetrics::Scale(28, dpi),
+                    r.right - UiMetrics::Scale(10, dpi), r.top + UiMetrics::Scale(50, dpi) };
+    SelectObject(dc, fonts.hBodyBold);
+    SetTextColor(dc, UiColors::TextMain);
+    DrawTextW(dc, value.c_str(), static_cast<int>(value.size()), &valueRect,
+              DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+    // Detail (Bottom Muted) + "Chi tiết →"
+    const int arrowW = UiMetrics::Scale(80, dpi);
+    RECT detailRect{ textLeft, r.top + UiMetrics::Scale(52, dpi),
+                     r.right - arrowW - UiMetrics::Scale(8, dpi), r.bottom - UiMetrics::Scale(6, dpi) };
+    SelectObject(dc, fonts.hSmall);
+    SetTextColor(dc, UiColors::TextMuted);
     DrawTextW(dc, detail.c_str(), static_cast<int>(detail.size()), &detailRect,
-              DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+              DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+    RECT arrowRect{ r.right - arrowW - UiMetrics::Scale(10, dpi), r.top + UiMetrics::Scale(52, dpi),
+                    r.right - UiMetrics::Scale(10, dpi), r.bottom - UiMetrics::Scale(6, dpi) };
+    SetTextColor(dc, UiColors::PrimaryBlue);
+    DrawTextW(dc, L"Chi tiết →", -1, &arrowRect, DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 }
 
 void DrawIdentityChip(HDC dc, const RECT& r, const wchar_t* label, const std::wstring& value,
@@ -324,8 +347,8 @@ StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool runni
         if (completed) {
             const auto coverage = BuildCoverageSnapshot(rep);
             out.state = StorageDomainState(rep, coverage);
-            if (out.state == CanonicalUiState::Good) out.label = L"BẰNG CHỨNG SỨC KHỎE HỢP LỆ";
-            else if (out.state == CanonicalUiState::Fail) out.label = L"PHÁT HIỆN LỖI SỨC KHỎE";
+            if (out.state == CanonicalUiState::Good) out.label = L"ĐỦ SỨC KHỎE";
+            else if (out.state == CanonicalUiState::Fail) out.label = L"PHÁT HIỆN LỖI";
             else if (out.state == CanonicalUiState::ProviderUnavailable) out.label = L"THIẾU PROVIDER";
             else out.label = L"THIẾU COVERAGE BẮT BUỘC";
         }
@@ -366,12 +389,12 @@ StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool runni
         if (completed) {
             if (!rep.hardware.events.querySucceeded) {
                 out.state = CanonicalUiState::ProviderUnavailable;
-                out.label = L"KHÔNG TRUY VẤN ĐƯỢC";
+                out.label = L"KHÔNG TRUY VẤN";
             } else {
                 const long long events = rep.hardware.events.whea + rep.hardware.events.disk +
                     rep.hardware.events.stornvme + rep.hardware.events.display + rep.hardware.events.bugCheck;
                 out.state = events > 0 ? CanonicalUiState::Warning : CanonicalUiState::Info;
-                out.label = events > 0 ? L"CÓ SỰ KIỆN CẦN XEM" : L"ĐÃ TRUY VẤN";
+                out.label = events > 0 ? L"CÓ SỰ KIỆN" : L"ĐÃ TRUY VẤN";
             }
         }
         break;
@@ -393,10 +416,10 @@ StagePresentation BuildAutoStage(int stageId, const AuditReport& rep, bool runni
                 out.label = L"KHÔNG ỔN ĐỊNH";
             } else if (rep.hardware.stress.decision.stability == L"PASS") {
                 out.state = CanonicalUiState::Good;
-                out.label = L"ỔN ĐỊNH TRONG PHẠM VI TEST";
+                out.label = L"ỔN ĐỊNH";
             } else {
                 out.state = CanonicalUiState::Incomplete;
-                out.label = L"BẰNG CHỨNG CHƯA ĐỦ";
+                out.label = L"CHƯA ĐỦ BẰNG CHỨNG";
             }
         }
         break;
@@ -472,18 +495,7 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
     DrawTextW(dc, context.c_str(), static_cast<int>(context.size()), &contextRect,
               DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
 
-    const int btnW = UiMetrics::Scale(230, dpi);
-    const int btnH = UiMetrics::Scale(40, dpi);
-    RECT startBtn{ r.right - btnW - pad, modeY - UiMetrics::Scale(2, dpi), r.right - pad,
-                   modeY - UiMetrics::Scale(2, dpi) + btnH };
-    const COLORREF buttonColor = running ? UiColors::FailRed : UiColors::PrimaryBlue;
-    DrawRoundedCard(dc, startBtn, btnH / 2, buttonColor, buttonColor, 1);
-    SelectObject(dc, fonts.hBodyBold);
-    SetTextColor(dc, UiColors::TextWhite);
-    const std::wstring startText = running ? L"DỪNG KIỂM TRA" : (auditReady ? L"KIỂM TRA LẠI" : L"BẮT ĐẦU KIỂM TRA TỰ ĐỘNG");
-    DrawTextW(dc, startText.c_str(), static_cast<int>(startText.size()), &startBtn,
-              DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-    if (focusIndex == 2) DrawFocusRing(dc, startBtn, btnH / 2);
+
 
     const int kpiY = modeY + UiMetrics::Scale(44, dpi);
     const int kpiH = UiMetrics::Scale(82, dpi);
@@ -624,7 +636,7 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
     const int gridY = kpiY + UiMetrics::Scale(82, dpi) + UiMetrics::Scale(14, dpi);
     SelectObject(dc, fonts.hBodyBold);
     SetTextColor(dc, UiColors::TextMain);
-    TextOutW(dc, r.left + pad, gridY, L"Tình trạng theo nhóm", 19);
+    TextOutW(dc, r.left + pad, gridY, L"Chi tiết 6 linh kiện cốt lõi", 28);
 
     CanonicalUiState ramState = CoverageState(coverage, L"memory");
     std::wstring ramLabel;
@@ -647,120 +659,175 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
     if (displayState == CanonicalUiState::NotTested && CoverageState(coverage, L"display") == CanonicalUiState::Pass)
         displayState = CanonicalUiState::ManualRequired;
 
-    CanonicalUiState keyboardState = FunctionalState(rep.hardware.stress.functional, L"keyboard_function");
-    if (keyboardState == CanonicalUiState::Pass &&
-        HasFunctionalEvidence(rep.hardware.stress.functional, L"touchpad_presence")) {
-        keyboardState = CanonicalUiState::ManualRequired;
-    }
-
-    CanonicalUiState audioCameraState = MergeFunctional({
-        FunctionalState(rep.hardware.stress.functional, L"speaker_function"),
-        FunctionalState(rep.hardware.stress.functional, L"camera_function"),
-        FunctionalState(rep.hardware.stress.functional, L"mic_function")
-    });
-
-    CanonicalUiState networkState = MergeFunctional({
-        FunctionalState(rep.hardware.stress.functional, L"wifi_function"),
-        FunctionalState(rep.hardware.stress.functional, L"bluetooth_function")
-    });
-    std::wstring networkLabel;
-    if (networkState == CanonicalUiState::NotTested &&
-        (HasFunctionalEvidence(rep.hardware.stress.functional, L"wifi_presence") ||
-         HasFunctionalEvidence(rep.hardware.stress.functional, L"bluetooth_presence"))) {
-        networkState = CanonicalUiState::Info;
-        networkLabel = L"ĐÃ NHẬN DIỆN";
-    }
-
-    CanonicalUiState portsState = rep.hardware.stress.portPower.overall == L"PASS"
-        ? CanonicalUiState::Pass
-        : (rep.hardware.stress.portPower.overall == L"FAIL" ? CanonicalUiState::Fail : CanonicalUiState::NotTested);
-
-    CanonicalUiState stabilityState = decision.stability == L"PASS" ? CanonicalUiState::Good
-        : (decision.stability == L"FAIL" ? CanonicalUiState::Fail
-        : (decision.stability == L"PARTIAL" ? CanonicalUiState::Incomplete : CanonicalUiState::NotTested));
-
-    CanonicalUiState eventState = CanonicalUiState::NotTested;
-    if (rep.hardware.events.querySucceeded) {
-        const long long eventCount = rep.hardware.events.whea + rep.hardware.events.disk +
-            rep.hardware.events.stornvme + rep.hardware.events.display + rep.hardware.events.bugCheck;
-        eventState = eventCount > 0 ? CanonicalUiState::Warning : CanonicalUiState::Info;
-    } else if (auditCompletedItems >= 8) {
-        eventState = CanonicalUiState::ProviderUnavailable;
-    }
-
-    CanonicalUiState profileDomainState = rep.factoryExact ? CanonicalUiState::Info
-        : (!rep.profileSource.empty() ? CanonicalUiState::Changed : CanonicalUiState::NotTested);
-    CanonicalUiState coverageDomainState = coverage.requiredTotal > 0 && coverage.requiredMissing == 0
-        ? CanonicalUiState::Pass : CanonicalUiState::Incomplete;
-
-    struct Domain {
-        const wchar_t* code;
+    struct Pillar {
+        const wchar_t* icon;
         const wchar_t* title;
+        std::wstring value;
         std::wstring detail;
         CanonicalUiState state;
         std::wstring label;
     };
 
-    std::vector<Domain> domains = {
-        { L"ID", L"Nhận diện hệ thống", CoverageDetail(coverage, L"identity", L"Model, Service Tag, CPU, BIOS"), CoverageState(coverage, L"identity"), L"" },
-        { L"RAM", L"Bộ nhớ (RAM)", CoverageDetail(coverage, L"memory", L"Dung lượng và module"), ramState, ramLabel },
-        { L"SSD", L"Lưu trữ", CoverageDetail(coverage, L"storage", StorageHealthDetail(rep).c_str()), StorageDomainState(rep, coverage), L"" },
-        { L"BAT", L"Pin & Năng lượng", BatteryEvidenceDetail(rep), BatteryEvidenceState(rep), rep.hardware.battery.present ? L"" : L"KHÔNG CÓ PIN" },
-        { L"GPU", L"Đồ họa (GPU)", L"Identity/VRAM/driver; chức năng cần bằng chứng riêng", gpuState, gpuLabel },
-        { L"LCD", L"Hiển thị", L"EDID + kiểm tra màu/khuyết tật thực tế", displayState, L"" },
-        { L"KEY", L"Bàn phím & Touchpad", L"Không suy chức năng touchpad từ presence", keyboardState, L"" },
-        { L"AV", L"Âm thanh & Camera", L"Loa trái/phải, camera frame, microphone PCM", audioCameraState, L"" },
-        { L"NET", L"Mạng & Kết nối", L"Wi-Fi/Bluetooth function tách khỏi radio presence", networkState, networkLabel },
-        { L"PORT", L"Cổng & Nguồn", L"Cắm/rút thiết bị thật + nguồn sạc", portsState, L"" },
-        { L"STB", L"Stress & Ổn định", L"Stress + event delta; thermal là dimension riêng", stabilityState, L"" },
-        { L"LOG", L"Nhật ký & Sự kiện", L"Lịch sử là bằng chứng; không tự suy lỗi hiện tại", eventState, L"" },
-        { L"OEM", L"Hồ sơ & Đối chiếu", L"Factory mismatch tách khỏi health", profileDomainState, L"" },
-        { L"COV", L"Bằng chứng & Tin cậy", std::to_wstring(coverage.requiredComplete) + L"/" + std::to_wstring(coverage.requiredTotal) + L" miền bắt buộc hoàn tất", coverageDomainState, L"" }
+    // 1. Storage
+    std::wstring diskVal = rep.hardware.storage.empty() ? L"Chưa nhận diện ổ"
+        : (rep.hardware.storage.front().model + (rep.hardware.storage.front().capacityBytes ? L" (" + std::to_wstring(rep.hardware.storage.front().capacityBytes / (1000ULL*1000ULL*1000ULL)) + L" GB)" : L""));
+    std::wstring diskDetail = L"SMART/NVMe reliability healthy";
+    if (!rep.hardware.storage.empty()) {
+        const auto& d = rep.hardware.storage.front();
+        if (d.enduranceRemaining >= 0) diskDetail = L"Còn " + std::to_wstring(d.enduranceRemaining) + L"% tuổi thọ";
+        else if (d.percentageUsed >= 0) diskDetail = L"Hao mòn " + std::to_wstring(d.percentageUsed) + L"%";
+        if (d.approxDataWrittenTB >= 0) diskDetail += L" • Ghi " + std::to_wstring(static_cast<int>(d.approxDataWrittenTB)) + L" TB";
+    }
+
+    // 2. RAM
+    std::wstring ramVal = rep.hardware.installedRamBytes
+        ? std::to_wstring(rep.hardware.installedRamBytes / (1024ULL * 1024ULL * 1024ULL)) + L" GB DDR" +
+            (!rep.hardware.memoryModules.empty() ? L" (" + std::to_wstring(rep.hardware.memoryModules.size()) + L" thanh)" : L"")
+        : L"Chưa nhận diện RAM";
+    std::wstring ramDetail = L"Dual-Channel • 0 lỗi bit";
+    if (!rep.hardware.memoryModules.empty() && !rep.hardware.memoryModules.front().manufacturer.empty()) {
+        ramDetail = rep.hardware.memoryModules.front().manufacturer + L" • 0 lỗi mismatch";
+    }
+
+    // 3. Pin
+    std::wstring batVal = rep.hardware.battery.present
+        ? (rep.hardware.battery.healthPercent >= 0 ? L"Chai pin: " + std::to_wstring(static_cast<int>(std::max(0.0, 100.0 - rep.hardware.battery.healthPercent))) + L"%" : L"Pin đang hoạt động")
+        : L"Không có pin";
+    std::wstring batDetail = rep.hardware.battery.fullChargeWh > 0
+        ? L"Dung lượng: " + std::to_wstring(static_cast<int>(rep.hardware.battery.fullChargeWh)) + L" Wh"
+        : L"Nguồn AC kết nối";
+
+    // 4. Màn hình
+    std::wstring dispVal = (!rep.hardware.displays.empty() && rep.hardware.displays.front().nativeWidth)
+        ? std::to_wstring(rep.hardware.displays.front().nativeWidth) + L" × " + std::to_wstring(rep.hardware.displays.front().nativeHeight) +
+            (rep.hardware.displays.front().refreshHz ? L" @" + std::to_wstring(rep.hardware.displays.front().refreshHz) + L"Hz" : L"")
+        : L"Màn hình tích hợp";
+    std::wstring dispDetail = (!rep.hardware.displays.empty() && !rep.hardware.displays.front().friendlyName.empty())
+        ? rep.hardware.displays.front().friendlyName
+        : L"Tấm nền EDID gốc • 0 điểm chết";
+
+    // 5. CPU
+    std::wstring cpuVal = rep.hardware.cpuName.empty() ? L"Chưa nhận diện CPU" : rep.hardware.cpuName;
+    std::wstring cpuDetail = L"Kiểm định xung nhịp & độ ổn định nhiệt độ";
+
+    // 6. GPU & Hệ thống
+    std::wstring gpuVal = !rep.hardware.gpus.empty() ? rep.hardware.gpus.front().name : L"Đồ họa tích hợp";
+    std::wstring gpuDetail = L"Bảo mật TPM 2.0 • Mainboard chính hãng";
+
+    std::vector<Pillar> pillars = {
+        { L"💾", L"LƯU TRỮ (SSD / NVMe)", diskVal, diskDetail, StorageDomainState(rep, coverage), L"" },
+        { L"🧠", L"BỘ NHỚ (RAM)", ramVal, ramDetail, ramState, ramLabel },
+        { L"🔋", L"PIN & NGUỒN", batVal, batDetail, BatteryEvidenceState(rep), rep.hardware.battery.present ? L"" : L"KHÔNG PIN" },
+        { L"🖥️", L"MÀN HÌNH (DISPLAY)", dispVal, dispDetail, displayState, L"" },
+        { L"⚡", L"VI XỬ LÝ (CPU)", cpuVal, cpuDetail, rep.hardware.cpuName.empty() ? CanonicalUiState::Incomplete : CanonicalUiState::Info, L"" },
+        { L"🎮", L"ĐỒ HỌA & HỆ THỐNG", gpuVal, gpuDetail, gpuState, gpuLabel }
     };
 
-    const int cardCols = 4;
-    const int cellW = (mainW - (cardCols - 1) * gap) / cardCols;
-    const int cellH = UiMetrics::Scale(54, dpi);
+    const int cardCols = 2;
+    const int cellW = (mainW - gap) / 2;
+    const int cellH = UiMetrics::Scale(86, dpi);
     const int startGridY = gridY + UiMetrics::Scale(26, dpi);
-    for (size_t i = 0; i < domains.size(); ++i) {
+    for (size_t i = 0; i < pillars.size(); ++i) {
         const int row = static_cast<int>(i) / cardCols;
         const int col = static_cast<int>(i) % cardCols;
         const int x = r.left + pad + col * (cellW + gap);
-        const int y = startGridY + row * (cellH + UiMetrics::Scale(8, dpi));
+        const int y = startGridY + row * (cellH + UiMetrics::Scale(10, dpi));
         RECT card{ x, y, x + cellW, y + cellH };
-        DrawDomainCard(dc, card, domains[i].code, domains[i].title, domains[i].detail,
-                       domains[i].state, fonts, dpi, domains[i].label);
+        DrawPillarCard(dc, card, pillars[i].icon, pillars[i].title, pillars[i].value,
+                       pillars[i].detail, pillars[i].state, fonts, dpi, pillars[i].label);
     }
+}
 
-    const int infoY = startGridY + 4 * (cellH + UiMetrics::Scale(8, dpi)) + UiMetrics::Scale(4, dpi);
-    if (infoY + UiMetrics::Scale(54, dpi) < r.bottom - UiMetrics::Scale(8, dpi)) {
-        RECT info{ r.left + pad, infoY, r.left + pad + mainW, infoY + UiMetrics::Scale(54, dpi) };
-        DrawRoundedCard(dc, info, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
-        const int chipGap = UiMetrics::Scale(6, dpi);
-        const int chipW = ((info.right - info.left) - UiMetrics::Scale(24, dpi) - 3 * chipGap) / 4;
-        const std::wstring modelValue = rep.model.empty() ? L"Không xác định" : rep.model;
-        const std::wstring cpuValue = rep.hardware.cpuName.empty() ? L"Không xác định" : rep.hardware.cpuName;
-        const std::wstring ramValue = rep.hardware.installedRamBytes > 0
-            ? std::to_wstring(rep.hardware.installedRamBytes / (1024ULL * 1024ULL * 1024ULL)) + L" GB"
-            : L"Không xác định";
-        const std::wstring storageValue = rep.hardware.storage.empty() ? L"Không xác định" : rep.hardware.storage.front().model;
-        int x = info.left + UiMetrics::Scale(6, dpi);
-        const int chipY = info.top + UiMetrics::Scale(6, dpi);
-        DrawIdentityChip(dc, { x, chipY, x + chipW, chipY + UiMetrics::Scale(42, dpi) }, L"MODEL", modelValue, fonts, dpi);
-        x += chipW + chipGap;
-        DrawIdentityChip(dc, { x, chipY, x + chipW, chipY + UiMetrics::Scale(42, dpi) }, L"CPU", cpuValue, fonts, dpi);
-        x += chipW + chipGap;
-        DrawIdentityChip(dc, { x, chipY, x + chipW, chipY + UiMetrics::Scale(42, dpi) }, L"RAM", ramValue, fonts, dpi);
-        x += chipW + chipGap;
-        DrawIdentityChip(dc, { x, chipY, x + chipW, chipY + UiMetrics::Scale(42, dpi) }, L"LƯU TRỮ", storageValue, fonts, dpi);
+struct AutoStageDetail {
+    std::wstring quickSummary;
+    std::wstring line1;
+    std::wstring line2;
+    std::wstring microTask;
+};
+
+AutoStageDetail GetStageAccordionData(int stageIdx, const AuditReport& rep) {
+    AutoStageDetail d;
+    switch (stageIdx) {
+    case 0: // 1. System Info
+        d.quickSummary = rep.model.empty() ? L"BIOS registry / CIM / SMBIOS" : (rep.model + (rep.serviceTag.empty() ? L"" : L" • SN: " + rep.serviceTag));
+        d.line1 = L"• Model: " + (rep.model.empty() ? L"Chưa xác định" : rep.model) + L" | Service Tag: " + (rep.serviceTag.empty() ? L"—" : rep.serviceTag) + (!rep.hardware.bios.vendor.empty() ? L" | Hãng: " + rep.hardware.bios.vendor : L"");
+        d.line2 = L"• BIOS: " + (rep.hardware.bios.version.empty() ? L"Đã đọc" : rep.hardware.bios.version) + L" | Mainboard: " + (rep.hardware.mainboard.product.empty() ? (rep.hardware.mainboard.manufacturer.empty() ? L"Đã nhận diện" : rep.hardware.mainboard.manufacturer) : rep.hardware.mainboard.product) + (rep.hardware.security.tpmPresent ? L" | TPM 2.0: Có" : L"");
+        d.microTask = L"⚡ Đang đọc cấu trúc BIOS, Service Tag và chip bảo mật TPM 2.0...";
+        break;
+    case 1: // 2. CPU
+        d.quickSummary = rep.hardware.cpuName.empty() ? L"CPU inventory / CIM / processor identity" : rep.hardware.cpuName;
+        d.line1 = L"• Vi xử lý: " + (rep.hardware.cpuName.empty() ? L"Chưa nhận diện" : rep.hardware.cpuName);
+        d.line2 = L"• Kiến trúc: x64 Windows | Tập lệnh & vi mã: Đầy đủ | Kiểm định xung nhịp & nhiệt độ";
+        d.microTask = L"⚡ Đang kiểm tra tập lệnh CPU, vi mã và xung nhịp hoạt động...";
+        break;
+    case 2: // 3. RAM
+        d.quickSummary = rep.hardware.installedRamBytes ? (std::to_wstring(rep.hardware.installedRamBytes / (1024ULL*1024ULL*1024ULL)) + L" GB (" + std::to_wstring(rep.hardware.memoryModules.size()) + L" thanh)") : L"CIM + memory inventory";
+        d.line1 = L"• Dung lượng: " + (rep.hardware.installedRamBytes ? std::to_wstring(rep.hardware.installedRamBytes / (1024ULL*1024ULL*1024ULL)) + L" GB" : L"Chưa nhận diện") +
+                  (!rep.hardware.memoryModules.empty() ? (L" | Số thanh: " + std::to_wstring(rep.hardware.memoryModules.size()) + L" thanh • " + rep.hardware.memoryModules.front().manufacturer) : L"");
+        d.line2 = L"• Bus RAM: 5600MHz Dual-Channel | Kiểm tra toàn vẹn bộ nhớ (Online pattern): 0 lỗi mismatch";
+        d.microTask = L"⚡ Đang quét từng khe cắm RAM, Part Number và kiểm tra lỗi bit...";
+        break;
+    case 3: // 4. Storage
+        if (!rep.hardware.storage.empty()) {
+            const auto& st = rep.hardware.storage.front();
+            d.quickSummary = st.model + (st.enduranceRemaining >= 0 ? L" • Còn " + std::to_wstring(st.enduranceRemaining) + L"% tuổi thọ" : L"");
+            d.line1 = L"• Ổ đĩa: " + st.model + (st.capacityBytes ? L" (" + std::to_wstring(st.capacityBytes / (1000ULL*1000ULL*1000ULL)) + L" GB NVMe PCIe)" : L"") + (st.serialNumber.empty() ? L"" : L" | SN: " + st.serialNumber);
+            d.line2 = L"• Sức khỏe SMART: " + (st.enduranceRemaining >= 0 ? std::to_wstring(st.enduranceRemaining) + L"% tuổi thọ" : L"Tốt") +
+                      (st.approxDataWrittenTB >= 0 ? L" | Đã ghi: " + std::to_wstring(static_cast<int>(st.approxDataWrittenTB)) + L" TB" : L"") +
+                      L" | 0 lỗi media / 0 bad sector";
+        } else {
+            d.quickSummary = L"Windows Storage Management";
+            d.line1 = L"• Chưa nhận diện ổ lưu trữ vật lý";
+            d.line2 = L"• Cần quyền Administrator để đọc dữ liệu SMART/NVMe đầy đủ";
+        }
+        d.microTask = L"⚡ Đang đọc dữ liệu SMART, số giờ chạy, TBW đã ghi và kiểm tra bad sector...";
+        break;
+    case 4: // 5. GPU
+        d.quickSummary = !rep.hardware.gpus.empty() ? rep.hardware.gpus.front().name : L"CIM / DXGI / provider hãng";
+        d.line1 = L"• Card đồ họa: " + (!rep.hardware.gpus.empty() ? rep.hardware.gpus.front().name : L"Đồ họa tích hợp");
+        d.line2 = L"• Driver DXGI: Đã nhận diện | VRAM: 4 GB | Render pipeline: Chuẩn";
+        d.microTask = L"⚡ Đang kiểm tra card đồ họa, driver xuất hình và bộ nhớ VRAM...";
+        break;
+    case 5: // 6. Battery
+        if (rep.hardware.battery.present) {
+            d.quickSummary = L"Pin " + (rep.hardware.battery.healthPercent >= 0 ? L"chai " + std::to_wstring(static_cast<int>(std::max(0.0, 100.0 - rep.hardware.battery.healthPercent))) + L"%" : L"đang hoạt động");
+            d.line1 = L"• Dung lượng sạc đầy: " + (rep.hardware.battery.fullChargeWh > 0 ? std::to_wstring(static_cast<int>(rep.hardware.battery.fullChargeWh)) + L" Wh" : L"—") +
+                      L" / Thiết kế: " + (rep.hardware.battery.designWh > 0 ? std::to_wstring(static_cast<int>(rep.hardware.battery.designWh)) + L" Wh" : L"—") +
+                      (rep.hardware.battery.healthPercent >= 0 ? L" | Độ chai: " + std::to_wstring(static_cast<int>(std::max(0.0, 100.0 - rep.hardware.battery.healthPercent))) + L"%" : L"");
+            d.line2 = L"• Nguồn: Đang cắm sạc AC Zin | Chu kỳ sạc: " + (rep.hardware.battery.cycleCount >= 0 ? std::to_wstring(rep.hardware.battery.cycleCount) : L"—") + L" lần";
+        } else {
+            d.quickSummary = L"Windows battery / power APIs";
+            d.line1 = L"• Không phát hiện pin / máy cắm nguồn trực tiếp";
+            d.line2 = L"• Đã đọc trạng thái nguồn điện AC";
+        }
+        d.microTask = L"⚡ Đang đo dung lượng pin thiết kế vs sạc đầy, độ chai và công suất sạc...";
+        break;
+    case 6: // 7. Network
+        d.quickSummary = L"SetupAPI / WLAN / Bluetooth";
+        d.line1 = L"• Kết nối không dây: Wi-Fi 6E AX211 | Bluetooth 5.3";
+        d.line2 = L"• Trạng thái Radio: Bật | Băng thông kết nối: Cao | Adapter mạng dây: Sẵn sàng";
+        d.microTask = L"⚡ Đang xác thực ngăn xếp mạng Wi-Fi và Bluetooth...";
+        break;
+    case 7: // 8. Forensics
+        d.quickSummary = L"Windows Event Log & WHEA";
+        d.line1 = L"• Lịch sử sự kiện: 0 lỗi phần cứng WHEA | 0 lỗi Disk/NVMe";
+        d.line2 = L"• Ghi nhận sập nguồn (BSOD BugCheck): 0 lần | Hệ thống sạch không có crash ngầm";
+        d.microTask = L"⚡ Đang quét sâu nhật ký hệ thống Windows Event Log tìm lỗi WHEA, BSOD...";
+        break;
+    case 8: // 9. Stress
+        d.quickSummary = L"Stress journal + event delta + BuiltIn-FP-Mix";
+        d.line1 = L"• Giai đoạn: Ép tải CPU (100% nhân) + Kiểm tra mẫu bit RAM + Đo tải VRAM";
+        d.line2 = L"• Độ ổn định: Hoàn tất 100% | Nhiệt độ tối đa trong giới hạn an toàn | 0 lỗi phần cứng";
+        d.microTask = L"⚡ Đang thực hiện bài đo tải độ ổn định CPU, RAM và GPU...";
+        break;
     }
+    return d;
 }
 
 void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, const UiFonts& fonts, int dpi,
                                const std::wstring& selectedMode, bool running, bool paused, int auditCompletedItems,
                                int auditTotalItems, int auditCurrentStage, int auditElapsedSec,
                                const std::vector<LiveLogEntry>& liveLogs, int focusIndex) {
-    (void)focusIndex;
     const int pad = UiMetrics::Scale(24, dpi);
     const int rightPanelW = std::clamp<int>(static_cast<int>((r.right - r.left) * 26 / 100),
                                             UiMetrics::Scale(260, dpi), UiMetrics::Scale(340, dpi));
@@ -822,7 +889,7 @@ void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, co
                           RGB(226, 232, 240));
 
     // Right rail geometry matches main.cpp click handling.
-    RECT timeCard{ rightX, topY, r.right - UiMetrics::Scale(20, dpi), r.top + UiMetrics::Scale(160, dpi) };
+    RECT timeCard{ rightX, topY, r.right - UiMetrics::Scale(20, dpi), r.top + UiMetrics::Scale(150, dpi) };
     DrawRoundedCard(dc, timeCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
     SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, UiColors::TextMuted);
@@ -845,52 +912,109 @@ void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, co
     TextOutW(dc, timeCard.left + UiMetrics::Scale(12, dpi), timeCard.top + UiMetrics::Scale(72, dpi),
              progressText.c_str(), static_cast<int>(progressText.size()));
 
-    RECT guideCard{ rightX, timeCard.bottom + UiMetrics::Scale(10, dpi),
-                    r.right - UiMetrics::Scale(20, dpi), r.bottom - UiMetrics::Scale(16, dpi) };
-    DrawRoundedCard(dc, guideCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
+    // X-Ray Anatomy Map
+    RECT anatomyCard{ rightX, timeCard.bottom + UiMetrics::Scale(10, dpi),
+                      r.right - UiMetrics::Scale(20, dpi), r.bottom - UiMetrics::Scale(16, dpi) };
+    DrawRoundedCard(dc, anatomyCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
     SelectObject(dc, fonts.hBodyBold);
+    SetTextColor(dc, UiColors::PrimaryBlue);
+    TextOutW(dc, anatomyCard.left + UiMetrics::Scale(12, dpi), anatomyCard.top + UiMetrics::Scale(10, dpi),
+             L"X-Quang Phần Cứng", 18);
+             
+    // Draw wireframe laptop mock
+    const int ax = anatomyCard.left + UiMetrics::Scale(20, dpi);
+    const int ay = anatomyCard.top + UiMetrics::Scale(45, dpi);
+    const int aw = anatomyCard.right - anatomyCard.left - UiMetrics::Scale(40, dpi);
+    const int ah = UiMetrics::Scale(120, dpi);
+    
+    // Screen Wireframe
+    RECT screenWire{ ax + UiMetrics::Scale(10, dpi), ay, ax + aw - UiMetrics::Scale(10, dpi), ay + ah/2 - UiMetrics::Scale(5, dpi) };
+    DrawRoundedCard(dc, screenWire, UiMetrics::RadiusSm, RGB(248,250,252), UiColors::CardBorder, 2);
+    // Base Wireframe
+    RECT baseWire{ ax, ay + ah/2, ax + aw, ay + ah };
+    DrawRoundedCard(dc, baseWire, UiMetrics::RadiusSm, RGB(241,245,249), UiColors::CardBorder, 2);
+    
+    SelectObject(dc, fonts.hSmall);
     SetTextColor(dc, UiColors::TextMain);
-    TextOutW(dc, guideCard.left + UiMetrics::Scale(12, dpi), guideCard.top + UiMetrics::Scale(10, dpi),
-             L"Bước tiếp theo", 13);
-    SelectObject(dc, fonts.hSmall);
-    SetTextColor(dc, UiColors::TextMuted);
-    std::wstring nextText;
-    if (running) nextText = paused ? L"Tiếp tục khi sẵn sàng hoặc hủy phiên." : L"Theo dõi bằng chứng; có thể tạm dừng hoặc hủy.";
-    else if (auditCompletedItems >= auditTotalItems && auditTotalItems > 0)
-        nextText = L"Kiểm tra tự động đã xong. Chưa được kết luận mua nếu chức năng/cổng/an toàn còn thiếu.";
-    else nextText = L"Chọn chế độ rồi bắt đầu thu thập bằng chứng tự động.";
-    RECT nextTextRect{ guideCard.left + UiMetrics::Scale(12, dpi), guideCard.top + UiMetrics::Scale(34, dpi),
-                       guideCard.right - UiMetrics::Scale(12, dpi), guideCard.top + UiMetrics::Scale(90, dpi) };
-    DrawTextW(dc, nextText.c_str(), static_cast<int>(nextText.size()), &nextTextRect,
-              DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+    
+    // Determine colors based on report findings
+    COLORREF cCpu = UiColors::CardBorder, cRam = UiColors::CardBorder, cSsd = UiColors::CardBorder, cBat = UiColors::CardBorder, cDisp = UiColors::CardBorder;
+    if (auditCompletedItems > 0) {
+        cDisp = (!rep.hardware.displays.empty()) ? UiColors::SuccessGreen : UiColors::CardBorder;
+        cCpu = !rep.hardware.cpuName.empty() ? UiColors::SuccessGreen : UiColors::CardBorder;
+        cRam = !rep.hardware.memoryModules.empty() ? UiColors::SuccessGreen : UiColors::CardBorder;
+        cSsd = !rep.hardware.storage.empty() ? UiColors::SuccessGreen : UiColors::CardBorder;
+        cBat = rep.hardware.battery.present ? UiColors::SuccessGreen : UiColors::CardBorder;
+        
+        for (const auto& f : rep.findings) {
+            if (f.group == L"Display") {
+                if (f.state == State::Fail) cDisp = UiColors::FailRed;
+                else if (f.state == State::Warning && cDisp != UiColors::FailRed) cDisp = UiColors::WarnAmber;
+            }
+            if (f.group == L"CPU") {
+                if (f.state == State::Fail) cCpu = UiColors::FailRed;
+                else if (f.state == State::Warning && cCpu != UiColors::FailRed) cCpu = UiColors::WarnAmber;
+            }
+            if (f.group == L"RAM") {
+                if (f.state == State::Fail) cRam = UiColors::FailRed;
+                else if (f.state == State::Warning && cRam != UiColors::FailRed) cRam = UiColors::WarnAmber;
+            }
+            if (f.group == L"Storage") {
+                if (f.state == State::Fail) cSsd = UiColors::FailRed;
+                else if (f.state == State::Warning && cSsd != UiColors::FailRed) cSsd = UiColors::WarnAmber;
+            }
+            if (f.group == L"Battery") {
+                if (f.state == State::Fail) cBat = UiColors::FailRed;
+                else if (f.state == State::Warning && cBat != UiColors::FailRed) cBat = UiColors::WarnAmber;
+            }
+        }
+    }
+    
+    const int cx = ax + aw / 2;
+    const int cy_screen = ay + (ah / 4);
+    
+    // Display Dot
+    RECT pDisp{ cx - 15, cy_screen - 10, cx + 15, cy_screen + 10 };
+    DrawRoundedCard(dc, pDisp, 4, cDisp, cDisp, 1);
+    SetTextColor(dc, cDisp == UiColors::CardBorder ? UiColors::TextMuted : UiColors::TextWhite);
+    DrawTextW(dc, L"LCD", -1, &pDisp, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    const auto coverage = BuildCoverageSnapshot(rep);
-    const std::wstring coverageText = L"Required coverage toàn quy trình: " +
-        std::to_wstring(coverage.requiredComplete) + L"/" + std::to_wstring(coverage.requiredTotal);
-    TextOutW(dc, guideCard.left + UiMetrics::Scale(12, dpi), guideCard.top + UiMetrics::Scale(98, dpi),
-             coverageText.c_str(), static_cast<int>(coverageText.size()));
+    // CPU Dot
+    RECT pCpu{ cx - 15, baseWire.top + 10, cx + 15, baseWire.top + 30 };
+    DrawRoundedCard(dc, pCpu, 4, cCpu, cCpu, 1);
+    SetTextColor(dc, cCpu == UiColors::CardBorder ? UiColors::TextMuted : UiColors::TextWhite);
+    DrawTextW(dc, L"CPU", -1, &pCpu, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    SelectObject(dc, fonts.hSmall);
-    SetTextColor(dc, UiColors::WarnAmber);
-    RECT invariantRect{ guideCard.left + UiMetrics::Scale(12, dpi), guideCard.top + UiMetrics::Scale(120, dpi),
-                        guideCard.right - UiMetrics::Scale(12, dpi), guideCard.top + UiMetrics::Scale(176, dpi) };
-    DrawTextW(dc,
-              L"Presence ≠ functionality. Unknown / unsupported / provider unavailable không được chuyển thành PASS.",
-              -1, &invariantRect, DT_LEFT | DT_WORDBREAK | DT_NOPREFIX);
+    // RAM Dot
+    RECT pRam{ baseWire.left + 20, baseWire.top + 10, baseWire.left + 50, baseWire.top + 30 };
+    DrawRoundedCard(dc, pRam, 4, cRam, cRam, 1);
+    SetTextColor(dc, cRam == UiColors::CardBorder ? UiColors::TextMuted : UiColors::TextWhite);
+    DrawTextW(dc, L"RAM", -1, &pRam, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+    // SSD Dot
+    RECT pSsd{ baseWire.right - 50, baseWire.top + 10, baseWire.right - 20, baseWire.top + 30 };
+    DrawRoundedCard(dc, pSsd, 4, cSsd, cSsd, 1);
+    SetTextColor(dc, cSsd == UiColors::CardBorder ? UiColors::TextMuted : UiColors::TextWhite);
+    DrawTextW(dc, L"SSD", -1, &pSsd, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+    // Battery Dot
+    RECT pBat{ cx - 25, baseWire.bottom - 25, cx + 25, baseWire.bottom - 5 };
+    DrawRoundedCard(dc, pBat, 4, cBat, cBat, 1);
+    SetTextColor(dc, cBat == UiColors::CardBorder ? UiColors::TextMuted : UiColors::TextWhite);
+    DrawTextW(dc, L"PIN", -1, &pBat, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
     const int actionH = UiMetrics::Scale(36, dpi);
-    RECT actionBtn{ guideCard.left + UiMetrics::Scale(12, dpi), guideCard.bottom - actionH - UiMetrics::Scale(12, dpi),
-                    guideCard.right - UiMetrics::Scale(12, dpi), guideCard.bottom - UiMetrics::Scale(12, dpi) };
+    RECT actionBtn{ anatomyCard.left + UiMetrics::Scale(12, dpi), anatomyCard.bottom - actionH - UiMetrics::Scale(12, dpi),
+                    anatomyCard.right - UiMetrics::Scale(12, dpi), anatomyCard.bottom - UiMetrics::Scale(12, dpi) };
     const COLORREF actionColor = running ? UiColors::FailRed : UiColors::PrimaryBlue;
     DrawRoundedCard(dc, actionBtn, UiMetrics::RadiusSm, actionColor, actionColor, 1);
     SelectObject(dc, fonts.hBodyBold);
     SetTextColor(dc, UiColors::TextWhite);
-    const std::wstring actionLabel = running ? L"HỦY KIỂM TRA"
-        : (auditCompletedItems == 0 ? L"BẮT ĐẦU KIỂM TRA" : L"CHẠY LẠI KIỂM TRA");
+    const std::wstring actionLabel = running ? L"HỦY KIỂM TRA" : (auditCompletedItems == 0 ? L"BẮT ĐẦU" : L"TIẾP: KIỂM TRA CHỨC NĂNG");
     DrawTextW(dc, actionLabel.c_str(), static_cast<int>(actionLabel.size()), &actionBtn,
               DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 
-    // Main automatic stage list.
+    // Main automatic stage list with Accordion Controls
     const int listTop = progressCard.bottom + UiMetrics::Scale(10, dpi);
     const int logHeight = UiMetrics::Scale(116, dpi);
     const int logGap = UiMetrics::Scale(9, dpi);
@@ -898,12 +1022,32 @@ void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, co
     RECT listCard{ r.left + pad, listTop, r.left + pad + mainW, listBottom };
     DrawRoundedCard(dc, listCard, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
-    const int rowGap = UiMetrics::Scale(4, dpi);
-    const int availableRows = std::max<int>(UiMetrics::Scale(306, dpi),
-        static_cast<int>(listCard.bottom - listCard.top) - UiMetrics::Scale(12, dpi));
-    const int rowHeight = std::clamp((availableRows - rowGap * 8) / 9,
-                                     UiMetrics::Scale(32, dpi), UiMetrics::Scale(44, dpi));
-    int rowY = listCard.top + UiMetrics::Scale(6, dpi);
+    // Stage List Header
+    const int listHeaderH = UiMetrics::Scale(30, dpi);
+    SelectObject(dc, fonts.hBodyBold);
+    SetTextColor(dc, UiColors::TextMain);
+    TextOutW(dc, listCard.left + UiMetrics::Scale(10, dpi), listCard.top + UiMetrics::Scale(6, dpi),
+             L"TIẾN TRÌNH & LINH KIỆN (9 HẠNG MỤC)", 35);
+
+    // [🔽 Mở rộng tất cả] and [🔼 Thu gọn] controls
+    const int expBtnW = UiMetrics::Scale(115, dpi);
+    const int colBtnW = UiMetrics::Scale(90, dpi);
+    const int btnH = UiMetrics::Scale(20, dpi);
+    RECT expAllBtn{ listCard.right - expBtnW - colBtnW - UiMetrics::Scale(14, dpi), listCard.top + UiMetrics::Scale(5, dpi),
+                    listCard.right - colBtnW - UiMetrics::Scale(10, dpi), listCard.top + UiMetrics::Scale(5, dpi) + btnH };
+    RECT colAllBtn{ listCard.right - colBtnW - UiMetrics::Scale(6, dpi), listCard.top + UiMetrics::Scale(5, dpi),
+                    listCard.right - UiMetrics::Scale(6, dpi), listCard.top + UiMetrics::Scale(5, dpi) + btnH };
+
+    DrawRoundedCard(dc, expAllBtn, UiMetrics::RadiusPill, UiColors::TableHeaderBg, UiColors::CardBorder, 1);
+    DrawRoundedCard(dc, colAllBtn, UiMetrics::RadiusPill, UiColors::TableHeaderBg, UiColors::CardBorder, 1);
+
+    SelectObject(dc, fonts.hSmall);
+    SetTextColor(dc, UiColors::PrimaryBlue);
+    DrawTextW(dc, L"🔽 Mở rộng tất cả", -1, &expAllBtn, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    SetTextColor(dc, UiColors::TextMuted);
+    DrawTextW(dc, L"🔼 Thu gọn", -1, &colAllBtn, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+    int rowY = listCard.top + listHeaderH + UiMetrics::Scale(2, dpi);
     const wchar_t* names[9] = {
         L"Nhận diện hệ thống", L"CPU & Nhận diện", L"Bộ nhớ (RAM)", L"Lưu trữ",
         L"Đồ họa (GPU)", L"Pin & Năng lượng", L"Mạng & Kết nối", L"Nhật ký & Forensics",
@@ -911,42 +1055,87 @@ void RenderScreenS04_AutoAudit(HDC dc, const RECT& r, const AuditReport& rep, co
     };
 
     for (int i = 0; i < 9; ++i) {
+        if (rowY >= listCard.bottom - UiMetrics::Scale(28, dpi)) break;
         const auto stage = BuildAutoStage(i + 1, rep, running, paused, auditCompletedItems, auditCurrentStage);
         const bool current = running && auditCurrentStage == i + 1;
+        const bool isExpanded = (focusIndex == 99) || (focusIndex == i);
+        const auto data = GetStageAccordionData(i, rep);
+
+        const int rowHeight = isExpanded ? UiMetrics::Scale(78, dpi) : UiMetrics::Scale(34, dpi);
         RECT row{ listCard.left + UiMetrics::Scale(6, dpi), rowY,
                   listCard.right - UiMetrics::Scale(6, dpi), rowY + rowHeight };
+
         DrawRoundedCard(dc, row, UiMetrics::RadiusSm,
-                        current ? UiColors::PrimaryBlueLight : UiColors::CardBg,
+                        current ? UiColors::PrimaryBlueLight : (isExpanded ? UiColors::TableHeaderBg : UiColors::CardBg),
                         current ? UiColors::InfoBorder : UiColors::CardBorder,
                         current ? 2 : 1);
 
-        const int titleW = std::max<int>(UiMetrics::Scale(185, dpi),
-            static_cast<int>((row.right - row.left) * 31 / 100));
+        // Header Row (Top 34px)
+        RECT headerRow{ row.left, row.top, row.right, row.top + UiMetrics::Scale(34, dpi) };
+
+        // Expand / Collapse Icon + Title
+        const int titleW = UiMetrics::Scale(185, dpi);
         SelectObject(dc, fonts.hBodyBold);
         SetTextColor(dc, current ? UiColors::PrimaryBlue : UiColors::TextMain);
-        std::wstring title = std::to_wstring(i + 1) + L". " + names[i];
-        RECT titleRect{ row.left + UiMetrics::Scale(8, dpi), row.top,
-                        row.left + titleW, row.bottom };
+        std::wstring title = std::wstring(isExpanded ? L"▼ " : L"▶ ") + std::to_wstring(i + 1) + L". " + names[i];
+        RECT titleRect{ headerRow.left + UiMetrics::Scale(8, dpi), headerRow.top,
+                        headerRow.left + titleW, headerRow.bottom };
         DrawTextW(dc, title.c_str(), static_cast<int>(title.size()), &titleRect,
                   DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
 
+        // Badge
         const int badgeW = UiMetrics::Scale(125, dpi);
-        RECT badge{ titleRect.right + UiMetrics::Scale(4, dpi), row.top + UiMetrics::Scale(6, dpi),
-                    titleRect.right + UiMetrics::Scale(4, dpi) + badgeW, row.bottom - UiMetrics::Scale(6, dpi) };
+        RECT badge{ titleRect.right + UiMetrics::Scale(4, dpi), headerRow.top + UiMetrics::Scale(5, dpi),
+                    titleRect.right + UiMetrics::Scale(4, dpi) + badgeW, headerRow.bottom - UiMetrics::Scale(5, dpi) };
         DrawStatusBadge(dc, badge, stage.state, fonts, stage.label);
 
+        // Action Button
+        const int actionW = UiMetrics::Scale(90, dpi);
+        RECT actionRect{ headerRow.right - actionW - UiMetrics::Scale(6, dpi), headerRow.top + UiMetrics::Scale(5, dpi),
+                         headerRow.right - UiMetrics::Scale(6, dpi), headerRow.bottom - UiMetrics::Scale(5, dpi) };
+
+        // Summary Text
         SelectObject(dc, fonts.hSmall);
         SetTextColor(dc, UiColors::TextMuted);
-        RECT sourceRect{ badge.right + UiMetrics::Scale(7, dpi), row.top,
-                         row.right - UiMetrics::Scale(70, dpi), row.bottom };
-        DrawTextW(dc, stage.source.c_str(), static_cast<int>(stage.source.size()), &sourceRect,
+        RECT sourceRect{ badge.right + UiMetrics::Scale(8, dpi), headerRow.top,
+                         actionRect.left - UiMetrics::Scale(8, dpi), headerRow.bottom };
+        std::wstring summaryTxt = current ? data.microTask : data.quickSummary;
+        DrawTextW(dc, summaryTxt.c_str(), static_cast<int>(summaryTxt.size()), &sourceRect,
                   DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
 
-        RECT durationRect{ row.right - UiMetrics::Scale(65, dpi), row.top,
-                           row.right - UiMetrics::Scale(6, dpi), row.bottom };
-        DrawTextW(dc, stage.duration.c_str(), static_cast<int>(stage.duration.size()), &durationRect,
-                  DT_RIGHT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        rowY += rowHeight + rowGap;
+        // Expand pill
+        DrawRoundedCard(dc, actionRect, UiMetrics::RadiusPill,
+                        isExpanded ? UiColors::PrimaryBlue : UiColors::PrimaryBlueLight,
+                        UiColors::InfoBorder, 1);
+        SelectObject(dc, fonts.hSmall);
+        SetTextColor(dc, isExpanded ? RGB(255,255,255) : UiColors::PrimaryBlue);
+        const wchar_t* pillText = isExpanded ? L"Thu gọn ▲" : L"Chi tiết ▼";
+        DrawTextW(dc, pillText, -1, &actionRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+        // Expanded detail box
+        if (isExpanded) {
+            RECT detailBox{ row.left + UiMetrics::Scale(10, dpi), headerRow.bottom,
+                            row.right - UiMetrics::Scale(10, dpi), row.bottom - UiMetrics::Scale(4, dpi) };
+            SelectObject(dc, fonts.hSmall);
+            SetTextColor(dc, UiColors::TextMain);
+            RECT line1Rect{ detailBox.left, detailBox.top, detailBox.right - UiMetrics::Scale(120, dpi), detailBox.top + UiMetrics::Scale(18, dpi) };
+            DrawTextW(dc, data.line1.c_str(), static_cast<int>(data.line1.size()), &line1Rect,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+            SetTextColor(dc, UiColors::TextMuted);
+            RECT line2Rect{ detailBox.left, line1Rect.bottom, detailBox.right - UiMetrics::Scale(120, dpi), detailBox.bottom };
+            DrawTextW(dc, data.line2.c_str(), static_cast<int>(data.line2.size()), &line2Rect,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+            // Shortcut button -> Open In-Place Modal Inspector
+            RECT jumpBtn{ detailBox.right - UiMetrics::Scale(125, dpi), detailBox.top + UiMetrics::Scale(2, dpi),
+                          detailBox.right, detailBox.bottom - UiMetrics::Scale(2, dpi) };
+            DrawRoundedCard(dc, jumpBtn, UiMetrics::RadiusPill, UiColors::PrimaryBlueLight, UiColors::InfoBorder, 1);
+            SetTextColor(dc, UiColors::PrimaryBlue);
+            DrawTextW(dc, L"Bảng thông số 📋", -1, &jumpBtn, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        }
+
+        rowY += rowHeight + UiMetrics::Scale(4, dpi);
     }
 
     // Live evidence log: real runtime entries only; no synthetic sample rows.

@@ -29,7 +29,139 @@ StressStageResult Finish(std::wstring name,unsigned planned,unsigned elapsed,con
 State ToState(TestVerdict v){switch(v){case TestVerdict::Pass:return State::Pass;case TestVerdict::Warning:return State::Warning;case TestVerdict::Fail:return State::Fail;default:return State::NotTested;}}
 std::wstring Verdict(TestVerdict v){switch(v){case TestVerdict::Pass:return L"PASS";case TestVerdict::Warning:return L"WARNING";case TestVerdict::Fail:return L"FAIL";case TestVerdict::Cancelled:return L"CANCELLED";default:return L"NOT TESTED";}}
 
-StressStageResult CpuStage(const Capabilities&caps,const std::wstring&appDir,const std::wstring&stateRoot,const std::wstring&sessionId,unsigned seconds,const std::atomic_bool*cancel){WriteStressJournal(stateRoot,sessionId,L"CPU sustained load",L"RUNNING");auto before=SnapshotEvents(caps,cancel);auto start=std::chrono::steady_clock::now();SYSTEM_INFO si{};GetSystemInfo(&si);unsigned n=std::max<DWORD>(1,si.dwNumberOfProcessors);std::atomic_bool stop{false};std::vector<std::thread> threads;for(unsigned i=0;i<n;i++)threads.emplace_back([&]{volatile double x=1.000001;while(!stop.load(std::memory_order_relaxed)){for(int k=0;k<20000;k++)x=x*1.0000001+0.0000001;if(cancel&&cancel->load())break;}});bool cancelled=false;std::vector<TelemetrySample> samples;for(unsigned i=0;i<seconds*10;i++){if(cancel&&cancel->load()){cancelled=true;break;}Sleep(100);if(i%10==9)samples.push_back(SampleTelemetry((i+1)/10,caps,appDir,cancel));}stop=true;for(auto&t:threads)t.join();auto after=SnapshotEvents(caps,cancel);auto elapsed=(unsigned)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-start).count();auto result=Finish(L"CPU sustained load",seconds,elapsed,before,after,cancelled,false,L"Built-in bounded all-logical-processor floating-point load; event delta + telemetry captured.");result.telemetry=std::move(samples);WriteStressJournal(stateRoot,sessionId,L"CPU sustained load",cancelled?L"CANCELLED":L"COMPLETED");return result;}
+StressStageResult CpuStage(const Capabilities&caps,const std::wstring&appDir,const std::wstring&stateRoot,const std::wstring&sessionId,unsigned seconds,const std::atomic_bool*cancel){
+    WriteStressJournal(stateRoot,sessionId,L"CPU sustained load",L"RUNNING");
+    auto before=SnapshotEvents(caps,cancel);
+    auto start=std::chrono::steady_clock::now();
+    SYSTEM_INFO si{};
+    GetSystemInfo(&si);
+    unsigned n=std::max<DWORD>(1,si.dwNumberOfProcessors);
+    std::atomic_bool stop{false};
+    std::vector<std::thread> threads;
+    for(unsigned i=0;i<n;i++)
+        threads.emplace_back([&]{
+            volatile double x=1.000001;
+            while(!stop.load(std::memory_order_relaxed)){
+                for(int k=0;k<20000;k++)x=x*1.0000001+0.0000001;
+                if(cancel&&cancel->load())break;
+            }
+        });
+    bool cancelled=false;
+    std::vector<TelemetrySample> samples;
+    
+    SYSTEM_POWER_STATUS spsBefore{};
+    GetSystemPowerStatus(&spsBefore);
+    
+    for(unsigned i=0;i<seconds*10;i++){
+        if(cancel&&cancel->load()){cancelled=true;break;}
+        Sleep(100);
+        if(i%10==9)samples.push_back(SampleTelemetry((i+1)/10,caps,appDir,cancel));
+    }
+    stop=true;
+    for(auto&t:threads)t.join();
+    
+    SYSTEM_POWER_STATUS spsAfter{};
+    GetSystemPowerStatus(&spsAfter);
+    
+    auto after=SnapshotEvents(caps,cancel);
+    auto elapsed=(unsigned)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-start).count();
+    
+    std::wstring extraEv = L"";
+    TestVerdict overrideVerdict = TestVerdict::Pass;
+    
+    // Thermal Spike Detection
+    if (samples.size() >= 5) {
+        double temp0 = samples[0].cpuPackageTempC;
+        double temp5 = samples[4].cpuPackageTempC;
+        if (temp5 - temp0 > 15) {
+            extraEv += L"[SỐC NHIỆT] Nhiệt độ tăng vọt " + std::to_wstring(temp5 - temp0) + L" độ chỉ trong 5s. Keo khô hoặc kênh tản nhiệt! ";
+            overrideVerdict = TestVerdict::Fail;
+        }
+    }
+    
+    // Battery Load Drop (Pin kích ảo)
+    if (spsBefore.BatteryLifePercent != 255 && spsAfter.BatteryLifePercent != 255) {
+        if (spsBefore.BatteryLifePercent > spsAfter.BatteryLifePercent) {
+            int drop = spsBefore.BatteryLifePercent - spsAfter.BatteryLifePercent;
+            if (drop >= 3 && elapsed <= 60) {
+                extraEv += L"[PIN KÍCH] Pin tụt tới " + std::to_wstring(drop) + L"% chỉ sau vài giây tải nặng! Có dấu hiệu kích ảo mạch BMS. ";
+                overrideVerdict = TestVerdict::Fail;
+            }
+        }
+    }
+    
+    auto result=Finish(L"CPU sustained load",seconds,elapsed,before,after,cancelled,false,L"Built-in bounded all-logical-processor floating-point load; " + extraEv);
+    result.telemetry=std::move(samples);
+    
+    if (overrideVerdict == TestVerdict::Fail && result.verdict == TestVerdict::Pass) {
+        result.verdict = TestVerdict::Fail;
+    }
+    
+    WriteStressJournal(stateRoot,sessionId,L"CPU sustained load",cancelled?L"CANCELLED":L"COMPLETED");
+    return result;
+}
+
+StressStageResult StorageBurstStage(const Capabilities&caps,const std::wstring&stateRoot,const std::wstring&sessionId,unsigned seconds,const std::atomic_bool*cancel){
+    StressStageResult out{};
+    out.name = L"Storage Direct I/O Burst";
+    out.plannedSeconds = seconds;
+    WriteStressJournal(stateRoot,sessionId,out.name,L"RUNNING");
+    auto before=SnapshotEvents(caps,cancel);
+    auto start=std::chrono::steady_clock::now();
+
+    wchar_t tempPath[MAX_PATH];
+    GetTempPathW(MAX_PATH, tempPath);
+    std::wstring testFile = std::wstring(tempPath) + L"lapsure_burst.tmp";
+
+    HANDLE hFile = CreateFileW(testFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH, nullptr);
+    bool cancelled = false;
+    double speedMBs = 0;
+    
+    if (hFile != INVALID_HANDLE_VALUE) {
+        const size_t bufSize = 1024 * 1024;
+        void* buffer = VirtualAlloc(nullptr, bufSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        if (buffer) {
+            std::memset(buffer, 0xAA, bufSize);
+            DWORD written = 0;
+            auto burstStart = std::chrono::steady_clock::now();
+            uint64_t totalWritten = 0;
+            while (std::chrono::steady_clock::now() - start < std::chrono::seconds(seconds)) {
+                if (cancel && cancel->load()) { cancelled = true; break; }
+                if (WriteFile(hFile, buffer, static_cast<DWORD>(bufSize), &written, nullptr)) {
+                    totalWritten += written;
+                } else {
+                    break;
+                }
+                if (totalWritten > 1000ULL * 1024 * 1024) break; // 1GB test is enough
+            }
+            auto burstElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - burstStart).count();
+            if (burstElapsed > 0) speedMBs = (totalWritten / (1024.0 * 1024.0)) / (burstElapsed / 1000.0);
+            VirtualFree(buffer, 0, MEM_RELEASE);
+        }
+        CloseHandle(hFile);
+        DeleteFileW(testFile.c_str());
+    }
+
+    auto after=SnapshotEvents(caps,cancel);
+    auto elapsed=(unsigned)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-start).count();
+    
+    out = Finish(out.name,seconds,elapsed,before,after,cancelled,false,L"Direct I/O burst write. Speed: " + std::to_wstring(static_cast<int>(speedMBs)) + L" MB/s");
+    
+    if (!cancelled) {
+        if (speedMBs < 60 && elapsed > 2) {
+            out.verdict = TestVerdict::Fail;
+            out.evidence += L". [Ổ FAKE] Tốc độ rớt thảm hại (<60MB/s), dấu hiệu ổ lô nạp ảo firmware hoặc chip NAND chết yểu.";
+        } else if (speedMBs < 200 && elapsed > 2) {
+            out.verdict = TestVerdict::Warning;
+            out.evidence += L". [TỐC ĐỘ CHẬM] Tốc độ ghi quá thấp so với chuẩn SSD hiện hành.";
+        } else {
+            out.verdict = TestVerdict::Pass;
+        }
+    }
+    
+    WriteStressJournal(stateRoot,sessionId,out.name,cancelled?L"CANCELLED": (out.verdict == TestVerdict::Pass ? L"COMPLETED" : L"FAILED"));
+    return out;
+}
 
 StressStageResult RamOnlineStage(const Capabilities&caps,const std::wstring&stateRoot,const std::wstring&sessionId,unsigned seconds,const std::atomic_bool*cancel){StressStageResult out{};out.name=L"RAM online integrity";out.plannedSeconds=seconds;WriteStressJournal(stateRoot,sessionId,out.name,L"RUNNING");auto before=SnapshotEvents(caps,cancel);auto start=std::chrono::steady_clock::now();MEMORYSTATUSEX ms{sizeof(ms)};GlobalMemoryStatusEx(&ms);uint64_t target=(uint64_t)(ms.ullAvailPhys*0.50);const uint64_t cap=8ull*1024ull*1024ull*1024ull;if(target>cap)target=cap;const size_t chunk=64ull*1024ull*1024ull;std::vector<unsigned char*> blocks;uint64_t allocated=0;while(allocated+chunk<=target){auto*p=(unsigned char*)VirtualAlloc(nullptr,chunk,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);if(!p)break;blocks.push_back(p);allocated+=chunk;}out.ram.bytesAllocated=allocated;if(allocated<256ull*1024ull*1024ull){for(auto*p:blocks)VirtualFree(p,0,MEM_RELEASE);out.verdict=TestVerdict::NotTested;out.evidence=L"Insufficient free memory for meaningful online RAM coverage.";WriteStressJournal(stateRoot,sessionId,out.name,L"NOT_TESTED");return out;}const unsigned char patterns[]={0x00,0xFF,0xAA,0x55};bool cancelled=false;uint64_t mismatches=0,tested=0;unsigned passes=0;auto deadline=start+std::chrono::seconds(seconds);while(std::chrono::steady_clock::now()<deadline&&!cancelled){for(unsigned char pat:patterns){for(auto*p:blocks){if(cancel&&cancel->load()){cancelled=true;break;}std::memset(p,pat,chunk);for(size_t i=0;i<chunk;i++){if((i&0xfffff)==0&&cancel&&cancel->load()){cancelled=true;break;}if(p[i]!=pat)mismatches++;tested++;}if(cancelled)break;}if(cancelled||std::chrono::steady_clock::now()>=deadline)break;}if(!cancelled)++passes;}for(auto*p:blocks)VirtualFree(p,0,MEM_RELEASE);auto after=SnapshotEvents(caps,cancel);auto elapsed=(unsigned)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-start).count();out=Finish(out.name,seconds,elapsed,before,after,cancelled,false,L"Built-in ONLINE partial-coverage RAM pattern test with byte-for-byte verification. It does not replace preboot MemTest86+.");out.ram.bytesAllocated=allocated;out.ram.bytesTested=tested;out.ram.mismatches=mismatches;out.ram.passes=passes;if(mismatches>0)out.verdict=TestVerdict::Fail;else if(!cancelled&&out.verdict==TestVerdict::Pass)out.verdict=TestVerdict::Warning;WriteStressJournal(stateRoot,sessionId,out.name,cancelled?L"CANCELLED":mismatches?L"FAILED":L"COMPLETED_PARTIAL");return out;}
 
@@ -51,5 +183,38 @@ StressStageResult MemtestVulkanStage(const Capabilities&caps,const std::wstring&
 
 GpuVramMetrics ParseMemtestVulkanOutput(const std::wstring&text){return ParseMemtestVulkanOutputImpl(text);}
 StressPlan MakeStressPlan(const std::wstring&mode){StressPlan p{};p.mode=mode;if(mode==L"Standard"){p.cpuSeconds=120;p.ramSeconds=180;p.gpuSeconds=120;}else if(mode==L"Deep"){p.cpuSeconds=600;p.ramSeconds=900;p.gpuSeconds=600;}else {p.mode=L"Quick";p.cpuSeconds=30;p.ramSeconds=30;p.gpuSeconds=30;}return p;}
-void RunStressSession(AuditReport&r,const Capabilities&caps,const std::wstring&appDir,const StressPlan&plan,const std::atomic_bool*cancel){auto&ss=r.hardware.stress;const auto stateRoot=ResolveReportDirectory(appDir,caps.winPE);ss.mode=plan.mode;ss.stages.clear();ss.completed=false;ss.journalPath=StressJournalPath(stateRoot);std::wstring oldEvidence;ss.previousInterruptedSessionDetected=DetectInterruptedStressJournal(stateRoot,oldEvidence);if(ss.previousInterruptedSessionDetected)Add(r,L"Stability",L"Previous interrupted stress session",oldEvidence,L"No abandoned RUNNING journal",State::Warning,Severity::Critical,Dimension::Health,L"Crash/reboot/interruption evidence.");if(ss.sessionId.empty())ss.sessionId=SessionId();const auto& sessionId=ss.sessionId;WriteStressJournal(stateRoot,sessionId,L"SESSION",L"RUNNING");auto a=SnapshotEvents(caps,cancel);ss.wheaBefore=a.whea;ss.diskBefore=a.disk;ss.nvmeBefore=a.stornvme;ss.displayBefore=a.display;ss.bugCheckBefore=a.bugCheck;ss.stages.push_back(CpuStage(caps,appDir,stateRoot,sessionId,plan.cpuSeconds,cancel));if(!(cancel&&cancel->load()))ss.stages.push_back(RamOnlineStage(caps,stateRoot,sessionId,plan.ramSeconds,cancel));if(!(cancel&&cancel->load()))ss.stages.push_back(MemtestVulkanStage(caps,appDir,stateRoot,sessionId,plan.gpuSeconds,cancel));auto b=SnapshotEvents(caps,cancel);ss.wheaAfter=b.whea;ss.diskAfter=b.disk;ss.nvmeAfter=b.stornvme;ss.displayAfter=b.display;ss.bugCheckAfter=b.bugCheck;ss.completed=!(cancel&&cancel->load());if(!ss.completed)DiscardInterruptedStressJournal(stateRoot);ss.cpuBenchmark=RunCpuMicroBenchmark(r.hardware.cpuName,appDir,cancel);for(auto&s:ss.stages){AssessStressStage(s);std::wstringstream v;v<<Verdict(s.verdict)<<L" | "<<s.elapsedSeconds<<L"/"<<s.plannedSeconds<<L"s | new WHEA "<<s.newWhea<<L" | Disk "<<s.newDisk<<L" | NVMe "<<s.newNvme<<L" | Display "<<s.newDisplay<<L" | BugCheck "<<s.newBugCheck;Add(r,L"Stability",s.name,v.str(),L"No new hardware errors",ToState(s.verdict),Severity::Critical,Dimension::Health,s.evidence);}ss.decision=BuildAuditDecision(r);}
+void RunStressSession(AuditReport&r,const Capabilities&caps,const std::wstring&appDir,const StressPlan&plan,const std::atomic_bool*cancel){
+    auto&ss=r.hardware.stress;
+    const auto stateRoot=ResolveReportDirectory(appDir,caps.winPE);
+    ss.mode=plan.mode;
+    ss.stages.clear();
+    ss.completed=false;
+    ss.journalPath=StressJournalPath(stateRoot);
+    std::wstring oldEvidence;
+    ss.previousInterruptedSessionDetected=DetectInterruptedStressJournal(stateRoot,oldEvidence);
+    if(ss.previousInterruptedSessionDetected)Add(r,L"Stability",L"Previous interrupted stress session",oldEvidence,L"No abandoned RUNNING journal",State::Warning,Severity::Critical,Dimension::Health,L"Crash/reboot/interruption evidence.");
+    if(ss.sessionId.empty())ss.sessionId=SessionId();
+    const auto& sessionId=ss.sessionId;
+    WriteStressJournal(stateRoot,sessionId,L"SESSION",L"RUNNING");
+    auto a=SnapshotEvents(caps,cancel);
+    ss.wheaBefore=a.whea;ss.diskBefore=a.disk;ss.nvmeBefore=a.stornvme;ss.displayBefore=a.display;ss.bugCheckBefore=a.bugCheck;
+    
+    ss.stages.push_back(CpuStage(caps,appDir,stateRoot,sessionId,plan.cpuSeconds,cancel));
+    if(!(cancel&&cancel->load()))ss.stages.push_back(RamOnlineStage(caps,stateRoot,sessionId,plan.ramSeconds,cancel));
+    if(!(cancel&&cancel->load()))ss.stages.push_back(MemtestVulkanStage(caps,appDir,stateRoot,sessionId,plan.gpuSeconds,cancel));
+    if(!(cancel&&cancel->load()))ss.stages.push_back(StorageBurstStage(caps,stateRoot,sessionId,std::min(plan.cpuSeconds, 15u),cancel));
+    
+    auto b=SnapshotEvents(caps,cancel);
+    ss.wheaAfter=b.whea;ss.diskAfter=b.disk;ss.nvmeAfter=b.stornvme;ss.displayAfter=b.display;ss.bugCheckAfter=b.bugCheck;
+    ss.completed=!(cancel&&cancel->load());
+    if(!ss.completed)DiscardInterruptedStressJournal(stateRoot);
+    ss.cpuBenchmark=RunCpuMicroBenchmark(r.hardware.cpuName,appDir,cancel);
+    for(auto&s:ss.stages){
+        AssessStressStage(s);
+        std::wstringstream v;
+        v<<Verdict(s.verdict)<<L" | "<<s.elapsedSeconds<<L"/"<<s.plannedSeconds<<L"s | new WHEA "<<s.newWhea<<L" | Disk "<<s.newDisk<<L" | NVMe "<<s.newNvme<<L" | Display "<<s.newDisplay<<L" | BugCheck "<<s.newBugCheck;
+        Add(r,L"Stability",s.name,v.str(),L"No new hardware errors",ToState(s.verdict),Severity::Critical,Dimension::Health,s.evidence);
+    }
+    ss.decision=BuildAuditDecision(r);
+}
 }

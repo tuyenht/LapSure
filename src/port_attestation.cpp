@@ -89,6 +89,8 @@ void ApplyPortResultToAttestation(
     if (!expected) return;
 
     expected->observedPresence = CapabilityTruth::Present;
+    expected->discrepancy.clear();
+    expected->correctionReason.clear();
     expected->verdict = result.verdict.empty() ? L"NOT TESTED" : result.verdict;
     expected->tested = IsCompletedPortVerdict(expected->verdict);
     RefreshConfirmation(attestation);
@@ -104,11 +106,20 @@ void RecordPortObservation(
 
     expected->observedPresence = observed;
     expected->correctionReason = std::move(correctionReason);
-    if (observed == CapabilityTruth::AbsentConfirmed) {
-        expected->discrepancy = L"EXPECTED_PORT_NOT_OBSERVED";
+
+    if (observed != CapabilityTruth::Present) {
         expected->tested = false;
         expected->verdict = L"NOT TESTED";
     }
+
+    if (observed == CapabilityTruth::AbsentConfirmed) {
+        expected->discrepancy = L"EXPECTED_PORT_NOT_OBSERVED";
+    } else if (observed == CapabilityTruth::Unknown) {
+        expected->discrepancy = L"EXPECTED_PORT_PRESENCE_UNKNOWN";
+    } else {
+        expected->discrepancy.clear();
+    }
+
     RefreshConfirmation(attestation);
 }
 

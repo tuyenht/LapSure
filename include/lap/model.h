@@ -145,6 +145,15 @@ struct TelemetrySummary {
     unsigned sampleCount{};
 };
 
+struct CoverageDomain {
+    std::wstring id;
+    std::wstring name;
+    std::wstring status{L"NOT TESTED"};
+    bool required{true};
+    std::wstring sources;
+    std::wstring missingEvidence;
+};
+
 struct AuditDecision {
     std::wstring overall{L"INCOMPLETE"};
     std::wstring stability{L"NOT TESTED"};
@@ -157,15 +166,13 @@ struct AuditDecision {
     unsigned warnings{};
     Confidence confidence{Confidence::Low};
     std::vector<std::wstring> reasons;
-};
-
-struct CoverageDomain {
-    std::wstring id;
-    std::wstring name;
-    std::wstring status{L"NOT TESTED"};
-    bool required{true};
-    std::wstring sources;
-    std::wstring missingEvidence;
+    std::wstring decisionPolicyVersion;
+    std::wstring coveragePolicyVersion;
+    std::wstring authorityPolicyVersion;
+    std::wstring chassisAuthority;
+    std::wstring factoryAuthority;
+    std::wstring discreteGpuCapability;
+    std::vector<CoverageDomain> coverageDomains;
 };
 
 struct SellerClaim {

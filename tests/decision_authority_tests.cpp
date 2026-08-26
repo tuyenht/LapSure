@@ -104,6 +104,14 @@ void TestAuthorityBoundary() {
 #endif
 }
 
+void TestConditionalBlockedRemainsAcceptanceBlocking() {
+    lap::RequirementSnapshot requirements{};
+    requirements.domains.push_back(
+        {L"gpu_vram", lap::RequirementDisposition::ConditionalBlocked, L"dGPU capability unknown"});
+    Expect(requirements.IsRequired(L"gpu_vram"),
+           "ConditionalBlocked requirement remains acceptance-blocking");
+}
+
 void TestDiscreteGpuTruth() {
     lap::AuditReport report{};
     report.hardware.gpuInventoryStatus = lap::ProviderCollectionStatus::Failed;
@@ -216,15 +224,40 @@ void TestPortAttestationCompletesByStableId() {
            "later expected-port absence revokes stale confirmation");
     Expect(attestation.ports.size() == 2,
            "later correction still preserves expected denominator");
+
+    lap::ApplyPortResultToAttestation(attestation, second);
+    Expect(attestation.ports[1].discrepancy.empty() &&
+               attestation.ports[1].correctionReason.empty(),
+           "later stable-ID PASS clears stale absence discrepancy state");
+
+    lap::RecordPortObservation(attestation,
+                               L"left-tb4-1",
+                               lap::CapabilityTruth::Unknown,
+                               L"Operator can no longer establish presence");
+    Expect(!attestation.ports[0].tested && attestation.ports[0].verdict == L"NOT TESTED",
+           "Unknown observation invalidates stale completed port verdict");
+}
+
+void TestCriticalMachineFailureDominatesRuntimeFailure() {
+    auto report = HealthyAdvisoryFixture();
+    report.hardware.stress.stages.front().verdict = lap::TestVerdict::Fail;
+    report.hardware.stress.runtimeValidation.failed = 1;
+    report.hardware.stress.runtimeValidation.overall = L"FAIL";
+
+    const auto decision = lap::BuildAuditDecision(report);
+    Expect(decision.overall == L"REJECT",
+           "trusted critical machine failure remains REJECT when runtime validation also fails");
 }
 } // namespace
 
 int main() {
     TestAuthorityBoundary();
+    TestConditionalBlockedRemainsAcceptanceBlocking();
     TestDiscreteGpuTruth();
     TestPortAttestationCannotShrinkCoverage();
     TestPortAttestationRejectsLabelOnlyIdentity();
     TestPortAttestationCompletesByStableId();
+    TestCriticalMachineFailureDominatesRuntimeFailure();
 
     auto report = HealthyAdvisoryFixture();
     const auto decision = lap::BuildAuditDecision(report);

@@ -4,5 +4,7 @@
 #include <vector>
 
 namespace lap {
+std::vector<FunctionalItemResult> RunAudioCameraWizard(HWND owner);
+std::vector<FunctionalItemResult> RunNetworkConnectivityWizard(HWND owner);
 std::vector<FunctionalItemResult> RunFunctionalIoWizard(HWND owner);
 }

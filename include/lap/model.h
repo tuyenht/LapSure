@@ -8,6 +8,8 @@ namespace lap {
 enum class State { Pass, Good, Warning, Fail, Changed, NotTested, Unsupported, Info };
 enum class Severity { Info, Minor, Major, Critical };
 enum class Dimension { Identity, Factory, Health, Usage, Performance, Stability, Functional, Evidence };
+enum class CapabilityTruth { Present, AbsentConfirmed, Unknown };
+enum class ProviderCollectionStatus { NotRun, Complete, Failed, Unsupported };
 
 struct Finding {
     std::wstring group;
@@ -113,6 +115,7 @@ struct GpuInfo {
 struct DisplayInfo {
     std::wstring manufacturer; std::wstring friendlyName; std::wstring serialNumber; std::wstring instanceName;
     unsigned currentWidth{}; unsigned currentHeight{}; unsigned nativeWidth{}; unsigned nativeHeight{}; unsigned refreshHz{};
+    unsigned manufactureYear{}; unsigned manufactureWeek{};
     bool touchDetected{false}; bool internalPanel{false};
     std::wstring edidHex;
 };
@@ -143,6 +146,15 @@ struct TelemetrySummary {
     unsigned sampleCount{};
 };
 
+struct CoverageDomain {
+    std::wstring id;
+    std::wstring name;
+    std::wstring status{L"NOT TESTED"};
+    bool required{true};
+    std::wstring sources;
+    std::wstring missingEvidence;
+};
+
 struct AuditDecision {
     std::wstring overall{L"INCOMPLETE"};
     std::wstring stability{L"NOT TESTED"};
@@ -155,15 +167,13 @@ struct AuditDecision {
     unsigned warnings{};
     Confidence confidence{Confidence::Low};
     std::vector<std::wstring> reasons;
-};
-
-struct CoverageDomain {
-    std::wstring id;
-    std::wstring name;
-    std::wstring status{L"NOT TESTED"};
-    bool required{true};
-    std::wstring sources;
-    std::wstring missingEvidence;
+    std::wstring decisionPolicyVersion;
+    std::wstring coveragePolicyVersion;
+    std::wstring authorityPolicyVersion;
+    std::wstring chassisAuthority;
+    std::wstring factoryAuthority;
+    std::wstring discreteGpuCapability;
+    std::vector<CoverageDomain> coverageDomains;
 };
 
 struct SellerClaim {
@@ -257,6 +267,7 @@ struct FunctionalTestSummary {
 };
 
 struct PortProbeResult {
+    std::wstring expectedPortId;
     std::wstring portLabel;
     std::wstring connectorHint;
     std::wstring deviceDescription;
@@ -320,6 +331,24 @@ struct ChassisProfile {
     std::wstring source;
 };
 
+struct SessionPortEvidence {
+    std::wstring expectedPortId;
+    std::wstring label;
+    bool expectedRequired{false};
+    CapabilityTruth observedPresence{CapabilityTruth::Unknown};
+    bool tested{false};
+    std::wstring verdict{L"NOT TESTED"};
+    std::wstring discrepancy;
+    std::wstring correctionReason;
+};
+
+struct SessionPortAttestation {
+    std::wstring sessionId;
+    std::vector<SessionPortEvidence> ports;
+    bool operatorConfirmed{false};
+    std::wstring confirmedAt;
+};
+
 enum class ValidationStatus { Pass, Warning, Fail, NotRun };
 struct ValidationCheck {
     std::wstring id;
@@ -341,6 +370,7 @@ struct RuntimeValidationSummary {
 };
 
 struct StressSession {
+    std::wstring sessionId;
     std::wstring mode{L"Quick"};
     bool completed{false};
     long long wheaBefore{};
@@ -362,6 +392,7 @@ struct StressSession {
     PortPowerSummary portPower;
     OrchestratorSummary orchestrator;
     ChassisProfile chassisProfile;
+    SessionPortAttestation portAttestation;
     RuntimeValidationSummary runtimeValidation;
 };
 
@@ -383,6 +414,7 @@ struct HardwareSnapshot {
     std::vector<MemoryModule> memoryModules;
     std::vector<StorageDevice> storage;
     std::vector<GpuInfo> gpus;
+    ProviderCollectionStatus gpuInventoryStatus{ProviderCollectionStatus::NotRun};
     BatteryInfo battery;
     std::vector<DisplayInfo> displays;
     MainboardInfo mainboard;

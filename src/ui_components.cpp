@@ -3,6 +3,8 @@
 
 namespace lap {
 
+bool gReturnToAutoAudit = false;
+
 // ============================================================
 // C01 — App Shell
 // ============================================================
@@ -85,7 +87,7 @@ std::vector<SidebarGroup> GetDefaultSidebarGroups(bool deviceGroupExpanded) {
     };
     groups.push_back(g1);
 
-    // Group 2: CHI TIẾT THIẾT BỊ (Collapsible)
+    // Group 2: CHI TIẾT THIẾT BỊ (Collapsible) - Bỏ khỏi menu trái theo thiết kế mới, truy cập qua S04
     SidebarGroup g2;
     g2.group = NavGroup::DeviceDetails;
     g2.name = L"CHI TIẾT THIẾT BỊ";
@@ -100,7 +102,7 @@ std::vector<SidebarGroup> GetDefaultSidebarGroups(bool deviceGroupExpanded) {
         { MainTab::Network, L"📶", L"Mạng & Kết nối" },
         { MainTab::SystemInfo, L"ℹ️", L"Thông tin Hệ thống" }
     };
-    groups.push_back(g2);
+    // groups.push_back(g2); // LAPSURE_UI: Ẩn khỏi sidebar, chỉ truy cập qua nút bảng thông số ở S04
 
     // Group 3: ĐÁNH GIÁ & HỒ SƠ
     SidebarGroup g3;
@@ -309,9 +311,15 @@ void DrawPageHeader(HDC dc, const RECT& r, const PageHeaderConfig& config, const
 
     // Session Status Tag
     if (!config.sessionTag.empty()) {
-        int tagX = r.right - UiMetrics::Scale(300, dpi);
+        SelectObject(dc, fonts.hSmall);
+        SIZE sz{};
+        GetTextExtentPoint32W(dc, config.sessionTag.c_str(), static_cast<int>(config.sessionTag.size()), &sz);
+        const int badgeW = sz.cx + UiMetrics::Scale(32, dpi);
+        const int badgeH = UiMetrics::Scale(26, dpi);
+        int rightMargin = config.actionButtonText.empty() ? UiMetrics::Scale(24, dpi) : UiMetrics::Scale(160, dpi);
+        int tagX = r.right - rightMargin - badgeW;
         int tagY = r.top + UiMetrics::Scale(14, dpi);
-        DrawStatusBadge(dc, tagX, tagY, UiMetrics::Scale(140, dpi), UiMetrics::Scale(26, dpi), config.sessionState, fonts, config.sessionTag);
+        DrawStatusBadge(dc, tagX, tagY, badgeW, badgeH, config.sessionState, fonts, config.sessionTag);
     }
 
     // Action Button
@@ -615,6 +623,16 @@ void DrawDataTable(HDC dc, const RECT& r, const DataTableConfig& config, const U
 // C10 — Next Action Panel
 // ============================================================
 
+RECT GetNextActionButtonRect(const RECT& panelRect, int dpi) {
+    const int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
+    return RECT{
+        panelRect.left + UiMetrics::Scale(14, dpi),
+        panelRect.bottom - btnH - UiMetrics::Scale(12, dpi),
+        panelRect.right - UiMetrics::Scale(14, dpi),
+        panelRect.bottom - UiMetrics::Scale(12, dpi)
+    };
+}
+
 void DrawNextActionPanel(HDC dc, const RECT& r, const NextActionConfig& config, const UiFonts& fonts, int dpi) {
     DrawRoundedCard(dc, r, UiMetrics::RadiusMd, UiColors::CardBg, UiColors::CardBorder, 1);
 
@@ -646,8 +664,7 @@ void DrawNextActionPanel(HDC dc, const RECT& r, const NextActionConfig& config, 
     }
 
     if (!config.buttonText.empty()) {
-        int btnH = UiMetrics::Scale(UiMetrics::ButtonHeight, dpi);
-        RECT br{ r.left + UiMetrics::Scale(14, dpi), r.bottom - btnH - UiMetrics::Scale(12, dpi), r.right - UiMetrics::Scale(14, dpi), r.bottom - UiMetrics::Scale(12, dpi) };
+        RECT br = GetNextActionButtonRect(r, dpi);
         COLORREF bg = config.isButtonEnabled ? UiColors::PrimaryBlue : UiColors::GrayPillBg;
         COLORREF border = config.isButtonEnabled ? UiColors::PrimaryBlue : UiColors::GrayPillBorder;
         DrawRoundedCard(dc, br, UiMetrics::RadiusPill, bg, border, 1);

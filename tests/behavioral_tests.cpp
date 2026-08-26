@@ -1,6 +1,7 @@
 #include "lap/baseline.h"
 #include "lap/chassis_profile.h"
 #include "lap/port_power.h"
+#include "lap/port_attestation.h"
 #include "lap/scoring.h"
 #include "lap/stress.h"
 #include "lap/engines.h"
@@ -16,9 +17,13 @@
 #include "lap/acquisition.h"
 #include "lap/cloud_lookup.h"
 #include "lap/profile.h"
-#include <filesystem>
-#include <iostream>
+#include "lap/journal.h"
+#include "lap/session_history.h"
+#include <algorithm>
 #include <atomic>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 
 namespace {
 int failures = 0;
@@ -38,20 +43,31 @@ lap::AuditReport CompletedAutomaticReport() {
     report.sellerClaim.provided=true;report.sellerClaim.model=L"Test Laptop";report.sellerClaim.cpuContains=L"Test CPU";report.sellerClaim.ramBytes=16ULL*1024*1024*1024;report.sellerClaim.storageBytes=512ULL*1000*1000*1000;
     report.hardware.installedRamBytes=16ULL*1024*1024*1024;lap::MemoryModule module{};module.capacityBytes=report.hardware.installedRamBytes;report.hardware.memoryModules.push_back(module);
     lap::StorageDevice disk{};disk.model=L"Test NVMe";disk.capacityBytes=512ULL*1000*1000*1000;disk.reliabilityReadable=true;disk.reliabilityHealthy=true;report.hardware.storage.push_back(disk);
-    lap::GpuInfo gpu{};gpu.name=L"Test GPU";report.hardware.gpus.push_back(gpu);lap::DisplayInfo display{};display.friendlyName=L"Internal panel";report.hardware.displays.push_back(display);
+    report.hardware.gpuInventoryStatus=lap::ProviderCollectionStatus::Complete;lap::GpuInfo gpu{};gpu.name=L"Intel Iris Xe Graphics";report.hardware.gpus.push_back(gpu);lap::DisplayInfo display{};display.friendlyName=L"Internal panel";report.hardware.displays.push_back(display);
     lap::StressStageResult cpu{};
     cpu.name = L"CPU sustained load";
     cpu.verdict = lap::TestVerdict::Pass;
-    cpu.telemetrySummary.maxCpuPackageTempC=80;
+    lap::TelemetrySample thermal{};thermal.second=1;thermal.cpuUtilPercent=95;thermal.cpuPackageTempC=80;thermal.cpuThermalConfidence=lap::Confidence::High;thermal.cpuThermalSource=L"trusted behavioral telemetry";cpu.telemetry.push_back(thermal);lap::AssessStressStage(cpu);
     lap::StressStageResult ram{};
     ram.name = L"RAM online integrity";
-    ram.verdict = lap::TestVerdict::Warning;
+    ram.verdict = lap::TestVerdict::Pass;
     report.hardware.stress.stages = {cpu, ram};
     report.hardware.stress.functional.overall = L"PASS";
     report.hardware.stress.functional.items.push_back({L"camera",L"Camera",lap::FunctionalStatus::Pass,L"Captured",L"Native sample",lap::Confidence::High,true});
     for(const auto*id:{L"physical_chassis",L"physical_hinge",L"physical_tamper",L"physical_liquid",L"physical_battery",L"physical_charger"})report.hardware.stress.functional.items.push_back({id,L"Physical inspection",lap::FunctionalStatus::Pass,L"No risk observed",L"Guided operator confirmation",lap::Confidence::Medium,false});
     report.hardware.stress.portPower.overall = L"PASS";
+    report.hardware.stress.runtimeValidation.overall=L"PASS";
     return report;
+}
+
+void CompleteBehavioralPortAttestation(lap::AuditReport& report) {
+    report.hardware.stress.sessionId=L"behavioral-session";
+    report.hardware.stress.portAttestation=lap::InitializeSessionPortAttestation(report.hardware.stress.sessionId,report.hardware.stress.chassisProfile);
+    for(const auto& expected:report.hardware.stress.chassisProfile.ports){
+        if(!expected.required)continue;
+        lap::PortProbeResult probe{};probe.expectedPortId=expected.id;probe.portLabel=expected.label;probe.deviceEnumerated=true;probe.confidence=lap::Confidence::High;probe.verdict=L"PASS";probe.evidence=L"stable-id behavioral fixture";
+        lap::ApplyPortResultToAttestation(report.hardware.stress.portAttestation,probe);
+    }
 }
 }
 
@@ -62,6 +78,7 @@ int main() {
 
     auto report = CompletedAutomaticReport();
     report.hardware.stress.chassisProfile.profileId = L"test-profile";
+    report.hardware.stress.chassisProfile.source = L"portable behavioral advisory";
     report.hardware.stress.chassisProfile.ports.push_back({L"left", L"Left USB-C", L"Left", L"USB-C", L"data", true, false, L"NOT TESTED"});
     auto decision = lap::BuildAuditDecision(report);
     Expect(decision.overall == L"INCOMPLETE", "required untested port blocks BUY");
@@ -73,9 +90,13 @@ int main() {
     decision = lap::BuildAuditDecision(report);
     Expect(decision.overall == L"INCOMPLETE", "runtime validation failure blocks BUY");
     report.hardware.stress.runtimeValidation.failed=0;report.hardware.stress.runtimeValidation.overall=L"PASS";report.hardware.stress.chassisProfile.validationStatus=L"draft";
-    decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"INCOMPLETE","draft chassis profile cannot issue BUY");
-    report.hardware.stress.chassisProfile.validationStatus=L"physical-verified";decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"BUY","verified complete evidence can issue BUY");
-    auto missingPhysical=report;missingPhysical.hardware.stress.functional.items.erase(missingPhysical.hardware.stress.functional.items.begin()+1,missingPhysical.hardware.stress.functional.items.end());decision=lap::BuildAuditDecision(missingPhysical);Expect(decision.overall==L"INCOMPLETE","missing physical-condition evidence blocks BUY");
+    decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"INCOMPLETE","mutable chassis mirror cannot bypass missing session port attestation");
+    CompleteBehavioralPortAttestation(report);
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+    auto certifiedContext=lap::BuildCertifiedDecisionContextForTest(report,L"behavioral protected test authority");
+    decision=lap::BuildAuditDecision(report,certifiedContext);Expect(decision.overall==L"BUY","typed Certified context plus complete evidence can issue BUY");
+    auto missingPhysical=report;missingPhysical.hardware.stress.functional.items.erase(missingPhysical.hardware.stress.functional.items.begin()+1,missingPhysical.hardware.stress.functional.items.end());auto missingPhysicalContext=lap::BuildCertifiedDecisionContextForTest(missingPhysical,L"behavioral protected test authority");decision=lap::BuildAuditDecision(missingPhysical,missingPhysicalContext);Expect(decision.overall==L"INCOMPLETE","missing physical-condition evidence blocks BUY");
+#endif
 
     const auto quick = lap::MakeStressPlan(L"Quick");
     const auto deep = lap::MakeStressPlan(L"Deep");
@@ -161,20 +182,74 @@ int main() {
     auto parsedProfile = lap::ParseFactoryProfileFromJson(serializedJson, &parsedCachedAt);
     Expect(parsedProfile.model == mockProfile.model && parsedProfile.serviceTag == mockProfile.serviceTag && parsedProfile.ramBytes == mockProfile.ramBytes && !parsedCachedAt.empty(), "FactoryProfile JSON serialization round-trip with cachedAt metadata succeeds");
 
-    bool cacheSaved = lap::SaveFactoryProfileToLocalCache(appDir, mockProfile, L"Dell");
-    Expect(cacheSaved, "OEM Cloud profile saves to local disk cache directory");
-    auto loadedFromCache = lap::LoadFactoryProfile(appDir + L"\\profiles", mockProfile.model, mockProfile.serviceTag);
-    Expect(loadedFromCache.loaded && loadedFromCache.exact && loadedFromCache.profile.serviceTag == L"CLOUD7420", "LoadFactoryProfile discovers and matches profile in local cache folder");
+    const auto cloudRoot = std::filesystem::temp_directory_path() / L"lapsure-cloud-privacy-tests";
+    std::filesystem::remove_all(cloudRoot, cleanupError);
+    std::filesystem::create_directories(cloudRoot / L"profiles");
+    bool cacheSaved = lap::SaveFactoryProfileToLocalCache(cloudRoot.wstring(), mockProfile, L"Dell");
+    Expect(cacheSaved, "OEM Cloud profile saves to bounded advisory cache");
+    auto loadedFromCache = lap::LoadFactoryProfile((cloudRoot / L"profiles").wstring(), mockProfile.model, mockProfile.serviceTag);
+    Expect(!loadedFromCache.loaded && !loadedFromCache.exact && !loadedFromCache.trustedProvenance,
+           "normal factory loader excludes mutable advisory cache from factory truth");
 
-    auto lookupMissing = lap::LookupFactoryProfileOnline(appDir, L"Unknown", L"Unknown", L"NONEXISTENT999", 500);
-    Expect(!lookupMissing.success && !lookupMissing.error.empty(), "OEM Cloud Lookup with unreachable/missing tag gracefully returns error without crashing");
+    const auto blockedCachedLookup = lap::LookupFactoryProfileOnline(cloudRoot.wstring(), L"Dell", mockProfile.model, mockProfile.serviceTag, 500);
+    Expect(!blockedCachedLookup.success && blockedCachedLookup.error.find(L"disabled by default") != std::wstring::npos,
+           "normal cloud API is network/cache disabled without explicit opt-in");
+    const auto explicitCachedLookup = lap::LookupFactoryProfileOnline(cloudRoot.wstring(), L"Dell", mockProfile.model, mockProfile.serviceTag, 500, true);
+    Expect(explicitCachedLookup.success && explicitCachedLookup.fromCache && explicitCachedLookup.identityMatched && !explicitCachedLookup.authenticatedProvenance,
+           "explicit pre-cache path can reuse exact cache identity without promoting authenticated provenance");
 
-    auto batchSummary = lap::RunBatchPreCache(appDir, {L"CLOUD7420", L"NONEXISTENT999"}, L"Dell", 500);
-    Expect(batchSummary.total == 2 && batchSummary.fromCache >= 1 && batchSummary.failed >= 1, "RunBatchPreCache handles mixed cached and unreachable tags with accurate accounting");
+    const auto encodedUrl = lap::BuildOemLookupUrl(L"Dell & Co", L"Precision 7/670", L"TAG +/=?");
+    Expect(!encodedUrl.empty() && encodedUrl.find(L' ') == std::wstring::npos &&
+           encodedUrl.find(L"%20") != std::wstring::npos && encodedUrl.find(L"%26") != std::wstring::npos &&
+           encodedUrl.find(L"%2B") != std::wstring::npos && encodedUrl.find(L"%2F") != std::wstring::npos,
+           "OEM lookup URL percent-encodes device identity query components");
+
+    auto lookupMissing = lap::LookupFactoryProfileOnline(cloudRoot.wstring(), L"Unknown", L"Unknown", L"NONEXISTENT999", 500);
+    Expect(!lookupMissing.success && lookupMissing.error.find(L"disabled by default") != std::wstring::npos,
+           "implicit OEM Cloud Lookup fails closed without making a network request");
+
+    auto batchSummary = lap::RunBatchPreCache(cloudRoot.wstring(), {L"CLOUD7420"}, L"Dell", 500);
+    Expect(batchSummary.total == 1 && batchSummary.succeeded == 1 && batchSummary.fromCache == 1 && batchSummary.failed == 0,
+           "explicit RunBatchPreCache reuses advisory cache deterministically without network dependency");
+    std::filesystem::remove_all(cloudRoot, cleanupError);
 
     providerReport.hardware.stress.decision=lap::BuildAuditDecision(providerReport);
     const auto coverage=lap::BuildCoverageContract(providerReport);
     Expect(coverage.size()>=10&&std::any_of(coverage.begin(),coverage.end(),[](const auto&x){return x.id==L"storage";})&&providerReport.hardware.stress.decision.coverage==L"PARTIAL","coverage contract exposes required domains and gates incomplete evidence");
+    const auto txRoot = std::filesystem::temp_directory_path() / L"lapsure-transaction-recovery";
+    std::filesystem::remove_all(txRoot, cleanupError);
+    std::filesystem::create_directories(txRoot / L"reports");
+    Expect(lap::WriteStressJournal(txRoot.wstring(), L"tx-session", L"CPU sustained load", L"RUNNING"), "transaction journal starts");
+    auto txJournal = lap::ReadInterruptedStressJournal(txRoot.wstring());
+    Expect(txJournal.present && txJournal.status == L"RUNNING" && txJournal.stageStatus == L"RUNNING", "running journal is recoverable");
+    Expect(lap::WriteStressJournal(txRoot.wstring(), L"tx-session", L"CPU sustained load", L"COMPLETED"), "stage completion updates journal");
+    txJournal = lap::ReadInterruptedStressJournal(txRoot.wstring());
+    Expect(txJournal.present && txJournal.status == L"RUNNING" && txJournal.stageStatus == L"COMPLETED", "journal remains recoverable after completed stage");
+    Expect(lap::DiscardInterruptedStressJournal(txRoot.wstring()) && !lap::ReadInterruptedStressJournal(txRoot.wstring()).present, "orderly cancel/discard is not reported as interruption");
+
+    const auto historyDir = txRoot / L"history";
+    std::filesystem::create_directories(historyDir);
+    const auto txHtmlPath = historyDir / L"audit_tx-session.html";
+    const auto txJsonPath = historyDir / L"audit_tx-session.json";
+    { std::ofstream f(txHtmlPath, std::ios::binary | std::ios::trunc); f << "<html></html>"; }
+    lap::InitializeSessionHistory(historyDir.wstring());
+    lap::AuditReport txReport = CompletedAutomaticReport();
+    txReport.hardware.stress.sessionId = L"tx-session";
+    txReport.hardware.stress.decision.overall = L"BUY";
+    Expect(lap::CommitSessionHistoryBundle(txReport, txHtmlPath.wstring(), L""), "history accepts partial HTML artifact");
+    auto txHistory = lap::GetSessionHistorySnapshot();
+    auto txIt = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& e){ return e.sessionId == L"tx-session"; });
+    Expect(txIt != txHistory.end() && txIt->status == L"ARTIFACT_PARTIAL", "history marks single artifact as ARTIFACT_PARTIAL");
+    { std::ofstream f(txJsonPath, std::ios::binary | std::ios::trunc); f << "{}"; }
+    Expect(lap::CommitSessionHistoryBundle(txReport, txHtmlPath.wstring(), txJsonPath.wstring()), "history commits complete report pair");
+    txHistory = lap::GetSessionHistorySnapshot();
+    txIt = std::find_if(txHistory.begin(), txHistory.end(), [](const auto& e){ return e.sessionId == L"tx-session"; });
+    Expect(txIt != txHistory.end() && txIt->status == L"COMPLETE" && !txIt->htmlPath.empty() && !txIt->jsonPath.empty(), "history bundle becomes COMPLETE only with HTML and JSON");
+    const auto outsidePath = txRoot / L"outside.json";
+    { std::ofstream f(outsidePath, std::ios::binary | std::ios::trunc); f << "{}"; }
+    Expect(!lap::CommitSessionHistoryBundle(txReport, txHtmlPath.wstring(), outsidePath.wstring()), "history rejects bundle artifact outside trusted root");
+    std::filesystem::remove_all(txRoot, cleanupError);
+
     std::filesystem::remove_all(providerDir,cleanupError);
     return failures == 0 ? 0 : 1;
 }

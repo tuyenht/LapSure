@@ -1,5 +1,5 @@
 param(
-  [string]$BuildDir = ".\out\build\msvc-x64-release\Release",
+  [string]$BuildDir = "",
   [string]$OutputDir = ".\out\portable"
 )
 $ErrorActionPreference = "Stop"
@@ -8,9 +8,21 @@ $archive = Join-Path (Split-Path $OutputDir -Parent) "LapSure-windows-x64-portab
 $archiveHash = Join-Path (Split-Path $OutputDir -Parent) "LapSure-windows-x64-portable.zip.sha256"
 if (Test-Path $OutputDir) { Remove-Item -LiteralPath $OutputDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-$exe = Join-Path $BuildDir "LapSure.exe"
-if (!(Test-Path $exe)) { throw "LapSure.exe not found: $exe" }
-Copy-Item $exe $OutputDir -Force
+
+$candidateDirs = @($BuildDir, ".\out\build\msvc-x64-ci\Release", ".\out\build\msvc-x64-release\Release")
+$foundExe = $null
+foreach ($dir in $candidateDirs) {
+  if (![string]::IsNullOrWhiteSpace($dir)) {
+    $candidateExe = Join-Path $dir "LapSure.exe"
+    if (Test-Path $candidateExe) {
+      $foundExe = (Resolve-Path -LiteralPath $candidateExe).Path
+      break
+    }
+  }
+}
+if (!$foundExe) { throw "LapSure.exe not found in candidate build directories: $($candidateDirs -join ', ')" }
+Copy-Item $foundExe $OutputDir -Force
+
 foreach ($d in @("profiles","baselines","tools")) {
   if (Test-Path ".\$d") { Copy-Item ".\$d" $OutputDir -Recurse -Force }
 }
@@ -30,10 +42,14 @@ $commit = if ($env:SOURCE_COMMIT) { $env:SOURCE_COMMIT } elseif ($env:GITHUB_SHA
   "configuration=Release"
   "target=windows-x64"
   "compiler=MSVC"
-  "capability_manifest=tools/engine_manifest.txt"
+  "decision_policy=5.1.0"
+  "coverage_policy=5.1.0"
+  "authority_policy=5.1.0"
+  "trust_root=embedded_catalog"
 ) | Set-Content (Join-Path $OutputDir "BUILD_INFO.txt") -Encoding ascii
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
 Compress-Archive -Path (Join-Path $OutputDir "*") -DestinationPath $archive -CompressionLevel Optimal
 $zipHash=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
 "$zipHash  $(Split-Path $archive -Leaf)" | Set-Content $archiveHash -Encoding ascii
 Write-Host "Portable package created: $archive"
+

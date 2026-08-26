@@ -3,3 +3,5 @@
 # Fill only after reviewing a specific memtest_vulkan release binary.
 memtest_vulkan=
 lhm_bridge=
+smartctl=
+nvidia_smi=

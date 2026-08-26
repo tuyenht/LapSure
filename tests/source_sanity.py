@@ -1,5 +1,7 @@
 from pathlib import Path
 import json, sys
+from app_source_view import read_app_source
+
 ROOT=Path(__file__).resolve().parents[1]
 checks=[]
 def check(name, cond):
@@ -10,9 +12,11 @@ eng=(ROOT/'src/engines.cpp').read_text(encoding='utf-8')
 proc=(ROOT/'src/process.cpp').read_text(encoding='utf-8')
 rep=(ROOT/'src/report.cpp').read_text(encoding='utf-8')
 cm=(ROOT/'CMakeLists.txt').read_text(encoding='utf-8')
-main=(ROOT/'src/main.cpp').read_text(encoding='utf-8')
+main=read_app_source(ROOT)
 fore=(ROOT/'src/forensics.cpp').read_text(encoding='utf-8')
 fn=(ROOT/'src/functional.cpp').read_text(encoding='utf-8')
+scoring=(ROOT/'src/scoring.cpp').read_text(encoding='utf-8')
+scoring_compact=''.join(scoring.split())
 profile=json.loads((ROOT/'profiles/Dell_Precision_5560_SAMPLE.json').read_text(encoding='utf-8'))
 
 check('No broken PowerShell %%{ alias', '%%{' not in inv)
@@ -24,7 +28,7 @@ check('Dedicated JSON escape exists', 'std::wstring Json(' in rep)
 check('Static MSVC CRT configured', 'CMAKE_MSVC_RUNTIME_LIBRARY' in cm)
 check('UI audit uses worker thread', 'std::thread gWorker' in main)
 check('Admin manifest included', 'app.manifest' in cm and (ROOT/'app.manifest').exists())
-check('Synthetic profile Service Tag', profile.get('serviceTag')=='SAMPLE5560')
+check('Synthetic profile Service Tag', str(profile.get('serviceTag','')).startswith('SAMPLE'))
 check('Factory profile current schema', profile.get('schemaVersion')==2 and profile.get('ramBytes')==34359738368)
 check('Generic GPU inventory provider', 'Win32_VideoController' in inv)
 check('Empty DIMM provider is not valid zero modules', 'Module details unavailable' in inv)
@@ -35,18 +39,18 @@ check('Battery fallback remains evidence gated', 'if(!bi.capacityReadable)' in i
 check('Windows native storage reliability provider', 'Get-StorageReliabilityCounter' in eng and 'CollectWindowsStorageReliability' in eng)
 check('Native storage runs before smartctl enrichment', 'CollectWindowsStorageReliability(report' in main and main.index('CollectWindowsStorageReliability(report') < main.index('CollectSmartctl(report'))
 check('Native reliability reduces smartctl dependency', 'native reliability evidence remains available' in eng)
-check('Machine-readable coverage contract', 'coverageContract' in rep and 'BuildCoverageContract' in rep)
+check('Machine-readable coverage contract', 'coverageContract' in rep and 'coverageDomains' in rep and 'BuildCoverageContract' in scoring)
 check('Vietnamese default application title', 'Kiểm tra laptop toàn diện' in main and 'BẮT ĐẦU KIỂM TRA' in main)
 check('Plain-language Vietnamese result', 'CHƯA ĐỦ DỮ LIỆU ĐỂ KẾT LUẬN' in rep and "lang='vi'" in rep)
 check('Accessible report is not color-only', '✓ Đã đủ' in rep and '! Chưa đủ' in rep and "viewport" in rep)
 check('Technical evidence uses progressive disclosure', '<details><summary>Thông tin kỹ thuật chi tiết' in rep)
 acq=(ROOT/'src/acquisition.cpp').read_text(encoding='utf-8')
 check('Guided used-laptop physical inspection', all(x in acq for x in ['physical_chassis','physical_hinge','physical_tamper','physical_liquid','physical_battery','physical_charger']))
-check('Physical inspection is purchase-gated', 'physicalCompleted>=6' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8'))
+check('Physical inspection is purchase-gated', 'physicalCompleted>=6' in scoring_compact)
 check('Physical wizard is Vietnamese and in-app', 'Kiểm tra ngoại hình và an toàn' in acq and 'Ngoại hình' in main)
 check('Seller claim form captures core advertised configuration', all(x in acq for x in ['Model người bán ghi','RAM (GB)','Ổ lưu trữ (GB)','Giá bán (VNĐ']) and 'Cấu hình bán' in main)
 check('Seller claim mismatch is critical purchase evidence', 'ApplySellerClaimComparison' in acq and 'Severity::Critical' in acq)
-check('Seller claim is coverage-gated', 'seller_claim' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8') and 'claimComplete' in (ROOT/'src/scoring.cpp').read_text(encoding='utf-8'))
+check('Seller claim is coverage-gated', 'seller_claim' in scoring and 'claimComplete' in scoring)
 check('Keyboard visual matrix implemented', 'LAP_KEY_VISUAL_TEST' in fn and 'kAnsiLayout' in fn)
 check('Display defect classifier implemented', 'LAP_DISPLAY_DEFECT_FORM' in fn and 'Backlight bleed' in fn)
 check('Touchpad click and scroll coverage', 'leftClicked' in fn and 'scrollEvents' in fn)

@@ -1,7 +1,9 @@
 from pathlib import Path
+from app_source_view import read_app_source
+
 R=Path(__file__).resolve().parents[1]
 io=(R/"src/functional_io.cpp").read_text(encoding="utf-8")
-main=(R/"src/main.cpp").read_text(encoding="utf-8")
+main=read_app_source(R)
 fn=(R/"src/functional.cpp").read_text(encoding="utf-8")
 cm=(R/"CMakeLists.txt").read_text(encoding="utf-8")
 checks=[
@@ -15,7 +17,10 @@ checks=[
 ("WiFi native WLAN API","WlanOpenHandle" in io and "WlanQueryInterface" in io),
 ("WiFi signal quality captured","wlanSignalQuality" in io),
 ("Bluetooth native radio API","BluetoothFindFirstRadio" in io and "BluetoothGetRadioInfo" in io),
-("Bluetooth limitation explicit","not RF throughput" in io),
+("Bluetooth radio presence is not PASS","CHƯA đủ để PASS chức năng" in io and "FunctionalStatus::ManualRequired" in io),
+("Bluetooth known-good interaction required","known-good Bluetooth device" in io and "operator-confirmed pairing/interaction succeeded" in io),
+("Focused audio-camera wizard","RunAudioCameraWizard" in io),
+("Focused network wizard","RunNetworkConnectivityWizard" in io),
 ("Batch results committed","CommitManualResults" in main and "RunFunctionalIoWizard" in main),
 ("I/O button disabled during audit","gFuncIo" in main and "SetFunctionalButtonsEnabled" in main),
 ("WiFi/Bluetooth start MANUAL","wifi_function" in fn and "bluetooth_function" in fn),

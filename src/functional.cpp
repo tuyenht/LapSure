@@ -484,17 +484,18 @@ FunctionalItemResult RunKeyboardWizard(HWND owner){
     if(!h)return Item(L"keyboard_function",L"Kiểm tra chức năng bàn phím",FunctionalStatus::NotTested,L"Không mở được cửa sổ bàn phím",L"",Confidence::Low,false);
 
     HFONT font=reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
-    HWND btnOk=CreateWindowW(L"BUTTON",L"LƯU & XÁC NHẬN PHÍM TỐT",WS_CHILD|WS_VISIBLE|BS_DEFPUSHBUTTON|WS_TABSTOP,
-                             510,446,230,38,h,reinterpret_cast<HMENU>(IDOK),nullptr,nullptr);
-    HWND btnFail=CreateWindowW(L"BUTTON",L"BÁO CÓ PHÍM LIỆT / KẸT",WS_CHILD|WS_VISIBLE|WS_TABSTOP,
-                               750,446,160,38,h,reinterpret_cast<HMENU>(1001),nullptr,nullptr);
+    HWND btnOk=CreateWindowW(L"BUTTON",L"✓ HOÀN TẤT & XÁC NHẬN PHÍM TỐT",WS_CHILD|WS_VISIBLE|BS_PUSHBUTTON,
+                             460,446,260,40,h,reinterpret_cast<HMENU>(IDOK),nullptr,nullptr);
+    HWND btnFail=CreateWindowW(L"BUTTON",L"⚠️ BÁO CÓ PHÍM LIỆT / KẸT",WS_CHILD|WS_VISIBLE|BS_PUSHBUTTON,
+                               730,446,180,40,h,reinterpret_cast<HMENU>(1001),nullptr,nullptr);
     SendMessageW(btnOk,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
     SendMessageW(btnFail,WM_SETFONT,reinterpret_cast<WPARAM>(font),TRUE);
 
     EnableWindow(owner,FALSE);ShowWindow(h,SW_SHOW);SetFocus(h);
     MSG msg{};
     while(!ks.done&&GetMessageW(&msg,nullptr,0,0)>0){
-        if(!IsDialogMessageW(h,&msg)){TranslateMessage(&msg);DispatchMessageW(&msg);}
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
     }
     EnableWindow(owner,TRUE);SetForegroundWindow(owner);
 

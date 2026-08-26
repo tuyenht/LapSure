@@ -1,51 +1,147 @@
 #include "lap/profile.h"
 #include <windows.h>
+#include <algorithm>
+#include <cwctype>
 #include <filesystem>
 #include <fstream>
 #include <regex>
-#include <sstream>
-#include <iterator>
-#include <cwctype>
+#include <string>
 
 namespace lap {
 namespace {
-std::string ReadUtf8(const std::filesystem::path& p){std::ifstream f(p,std::ios::binary);return std::string(std::istreambuf_iterator<char>(f),std::istreambuf_iterator<char>());}
-std::wstring W(const std::string&s){if(s.empty())return L"";int n=MultiByteToWideChar(CP_UTF8,0,s.data(),(int)s.size(),nullptr,0);std::wstring w(n,L'\0');if(n)MultiByteToWideChar(CP_UTF8,0,s.data(),(int)s.size(),w.data(),n);return w;}
-std::string Str(const std::string&j,const char*k){std::regex rx(std::string("\\\"")+k+"\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");std::smatch m;return std::regex_search(j,m,rx)?m[1].str():"";}
-uint64_t Num(const std::string&j,const char*k,uint64_t d=0){std::regex rx(std::string("\\\"")+k+"\\\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)");std::smatch m;if(!std::regex_search(j,m,rx))return d;return static_cast<uint64_t>(std::stod(m[1].str()));}
-bool Bool(const std::string&j,const char*k,bool d=false){std::regex rx(std::string("\\\"")+k+"\\\"\\s*:\\s*(true|false)");std::smatch m;if(!std::regex_search(j,m,rx))return d;return m[1].str()=="true";}
-bool EqI(std::wstring a,std::wstring b){for(auto&c:a)c=(wchar_t)towlower(c);for(auto&c:b)c=(wchar_t)towlower(c);return a==b;}
-FactoryProfile Parse(const std::string& j){
- FactoryProfile p{};
- p.model=W(Str(j,"model")); p.serviceTag=W(Str(j,"serviceTag")); p.cpuContains=W(Str(j,"cpuContains"));
- p.ramBytes=Num(j,"ramBytes"); p.ramSpeed=(unsigned)Num(j,"ramSpeed"); p.gpuContains=W(Str(j,"gpuContains"));
- p.gpuVramBytes=Num(j,"gpuVramBytes"); p.diskMinBytes=Num(j,"diskMinBytes"); p.displayWidth=(unsigned)Num(j,"displayWidth");
- p.displayHeight=(unsigned)Num(j,"displayHeight"); p.touchRequired=Bool(j,"touchRequired"); p.batteryDesignWh=static_cast<double>(Num(j,"batteryDesignWh")); p.adapterW=(unsigned)Num(j,"adapterW");
- if(p.cpuContains.empty()) p.cpuContains=W(Str(j,"cpu"));
- if(p.gpuContains.empty()) p.gpuContains=W(Str(j,"gpu"));
- return p;
-}
-}
-ProfileLoadResult LoadFactoryProfile(const std::wstring& dir,const std::wstring&,const std::wstring& tag){
- ProfileLoadResult out{}; std::filesystem::path root(dir);
- if(!std::filesystem::exists(root)){out.error=L"profiles directory not found";return out;}
- 
- auto scanDir = [&](const std::filesystem::path& pth) -> bool {
-  std::error_code ec;
-  if (!std::filesystem::exists(pth, ec)) return false;
-  for(auto& e:std::filesystem::directory_iterator(pth, ec)){
-   if(ec||!e.is_regular_file()||e.path().extension()!=L".json")continue;
-   auto raw=ReadUtf8(e.path()); auto p=Parse(raw); if(p.model.empty())continue;
-   if(!tag.empty() && !p.serviceTag.empty() && EqI(p.serviceTag,tag)){
-    out.profile=p;out.exact=true;out.loaded=true;out.source=e.path().wstring();return true;
-   }
-  }
-  return false;
- };
+constexpr uintmax_t kMaxStaticProfileBytes = 1024u * 1024u;
 
- if (scanDir(root)) return out;
- if (scanDir(root / L"cache")) return out;
+bool ReadUtf8Bounded(const std::filesystem::path& path, std::string& out) {
+    out.clear();
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec) || ec) return false;
+    const auto size = std::filesystem::file_size(path, ec);
+    if (ec || size == 0 || size > kMaxStaticProfileBytes) return false;
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return false;
+    out.resize(static_cast<size_t>(size));
+    file.read(out.data(), static_cast<std::streamsize>(out.size()));
+    return file.good() || file.eof();
+}
 
- out.error=L"No exact Service Tag profile; Generic Audit mode";return out;
+std::wstring ToWide(const std::string& value) {
+    if (value.empty()) return {};
+    const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(),
+                                          static_cast<int>(value.size()), nullptr, 0);
+    if (count <= 0) return {};
+    std::wstring out(static_cast<size_t>(count), L'\0');
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(),
+                            static_cast<int>(value.size()), out.data(), count) != count) return {};
+    return out;
 }
+
+std::string JsonString(const std::string& json, const char* key) {
+    const std::regex rx(std::string("\"") + key + "\"\\s*:\\s*\"([^\"]*)\"");
+    std::smatch match;
+    return std::regex_search(json, match, rx) ? match[1].str() : std::string{};
 }
+
+uint64_t JsonNumber(const std::string& json, const char* key, uint64_t fallback = 0) {
+    const std::regex rx(std::string("\"") + key + "\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)");
+    std::smatch match;
+    if (!std::regex_search(json, match, rx)) return fallback;
+    try { return static_cast<uint64_t>(std::stod(match[1].str())); }
+    catch (...) { return fallback; }
+}
+
+bool JsonBool(const std::string& json, const char* key, bool fallback = false) {
+    const std::regex rx(std::string("\"") + key + "\"\\s*:\\s*(true|false)");
+    std::smatch match;
+    if (!std::regex_search(json, match, rx)) return fallback;
+    return match[1].str() == "true";
+}
+
+bool EqualsIdentity(std::wstring left, std::wstring right) {
+    std::transform(left.begin(), left.end(), left.begin(), [](wchar_t c) { return static_cast<wchar_t>(towlower(c)); });
+    std::transform(right.begin(), right.end(), right.begin(), [](wchar_t c) { return static_cast<wchar_t>(towlower(c)); });
+    return left == right;
+}
+
+FactoryProfile ParseProfile(const std::string& json) {
+    FactoryProfile profile{};
+    profile.model = ToWide(JsonString(json, "model"));
+    profile.serviceTag = ToWide(JsonString(json, "serviceTag"));
+    profile.cpuContains = ToWide(JsonString(json, "cpuContains"));
+    profile.ramBytes = JsonNumber(json, "ramBytes");
+    profile.ramSpeed = static_cast<unsigned>(JsonNumber(json, "ramSpeed"));
+    profile.gpuContains = ToWide(JsonString(json, "gpuContains"));
+    profile.gpuVramBytes = JsonNumber(json, "gpuVramBytes");
+    profile.diskMinBytes = JsonNumber(json, "diskMinBytes");
+    profile.displayWidth = static_cast<unsigned>(JsonNumber(json, "displayWidth"));
+    profile.displayHeight = static_cast<unsigned>(JsonNumber(json, "displayHeight"));
+    profile.touchRequired = JsonBool(json, "touchRequired");
+    profile.batteryDesignWh = static_cast<double>(JsonNumber(json, "batteryDesignWh"));
+    profile.adapterW = static_cast<unsigned>(JsonNumber(json, "adapterW"));
+    if (profile.cpuContains.empty()) profile.cpuContains = ToWide(JsonString(json, "cpu"));
+    if (profile.gpuContains.empty()) profile.gpuContains = ToWide(JsonString(json, "gpu"));
+    return profile;
+}
+} // namespace
+
+ProfileLoadResult LoadFactoryProfile(const std::wstring& dir,
+                                     const std::wstring&,
+                                     const std::wstring& tag) {
+    ProfileLoadResult out{};
+    const std::filesystem::path root(dir);
+    std::error_code ec;
+    if (!std::filesystem::exists(root, ec) || ec) {
+        out.error = L"profiles directory not found";
+        return out;
+    }
+    if (tag.empty()) {
+        out.error = L"No Service Tag identity; Generic Audit mode";
+        return out;
+    }
+
+    unsigned exactMatches = 0;
+    FactoryProfile matched{};
+    std::wstring matchedSource;
+
+    auto scanDir = [&](const std::filesystem::path& scanRoot) {
+        std::error_code scanError;
+        for (std::filesystem::directory_iterator it(scanRoot, scanError), end; !scanError && it != end; it.increment(scanError)) {
+            const auto& entry = *it;
+            if (!entry.is_regular_file(scanError) || scanError || entry.path().extension() != L".json") {
+                scanError.clear();
+                continue;
+            }
+            std::string raw;
+            if (!ReadUtf8Bounded(entry.path(), raw)) continue;
+            const auto profile = ParseProfile(raw);
+            if (profile.model.empty() || profile.serviceTag.empty()) continue;
+            if (!EqualsIdentity(profile.serviceTag, tag)) continue;
+            ++exactMatches;
+            if (exactMatches == 1) {
+                matched = profile;
+                matchedSource = entry.path().wstring();
+            }
+        }
+    };
+
+    // Only top-level static files are parsed. Portable files remain mutable and
+    // therefore cannot become trusted factory truth without authenticated/hash-pinned provenance.
+    scanDir(root);
+
+    if (exactMatches == 1) {
+        out.profile = std::move(matched);
+        out.exact = false;
+        out.trustedProvenance = false;
+        out.loaded = false;
+        out.source = std::move(matchedSource);
+        out.error = L"Exact identity matched an unsigned portable static profile; advisory only, Generic Audit mode.";
+        return out;
+    }
+    if (exactMatches > 1) {
+        out.error = L"Ambiguous exact Service Tag profile; multiple static profiles match; Generic Audit mode.";
+        return out;
+    }
+
+    out.error = L"No authenticated exact Service Tag profile; Generic Audit mode";
+    return out;
+}
+} // namespace lap

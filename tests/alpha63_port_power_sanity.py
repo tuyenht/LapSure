@@ -1,9 +1,12 @@
 from pathlib import Path
+from app_source_view import read_app_source
+
 R=Path(__file__).resolve().parents[1]
 m=(R/"include/lap/model.h").read_text(encoding="utf-8")
 p=(R/"src/port_power.cpp").read_text(encoding="utf-8")
-main=(R/"src/main.cpp").read_text(encoding="utf-8")
+main=read_app_source(R)
 sc=(R/"src/scoring.cpp").read_text(encoding="utf-8")
+sc_compact=''.join(sc.split())
 rp=(R/"src/report.cpp").read_text(encoding="utf-8")
 cm=(R/"CMakeLists.txt").read_text(encoding="utf-8")
 checks=[
@@ -21,7 +24,12 @@ checks=[
 ("AC state native","GetSystemPowerStatus" in p),
 ("Adapter wattage unknown","adapterWatts=-1" in p and "wattage is not inferred" in p),
 ("Port result persisted","CommitPortResult" in main),
-("Port failure affects decision","portPower.overall==L\"FAIL\"" in sc),
+("Port failure affects decision",
+ "SessionPortAttestation" in m and
+ "portAttestation" in sc and
+ "expectedRequired" in sc and
+ 'port.verdict==L"FAIL"' in sc_compact and
+ 'portPower.overall==L"FAIL"' not in sc_compact),
 ("Port card report","Cổng kết nối và nguồn sạc" in rp),
 ("Source compiled","src/port_power.cpp" in cm),
 ]

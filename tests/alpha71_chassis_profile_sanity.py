@@ -1,6 +1,35 @@
 from pathlib import Path
-R=Path(__file__).resolve().parents[1];m=(R/"include/lap/model.h").read_text(encoding="utf-8");c=(R/"src/chassis_profile.cpp").read_text(encoding="utf-8");a=(R/"src/main.cpp").read_text(encoding="utf-8");o=(R/"src/orchestrator.cpp").read_text(encoding="utf-8");r=(R/"src/report.cpp").read_text(encoding="utf-8");cm=(R/"CMakeLists.txt").read_text(encoding="utf-8");p=list((R/"profiles/chassis").glob("*.profile"))
-checks=[("Typed","struct ChassisProfile" in m),("Loader","directory_iterator" in c),("Audit loads profile","LoadChassisProfile(gDir,report.model)" in a),("Apply result","ApplyPortResultToChassisProfile" in a),("Guided selector","SelectNextChassisPort" in a[a.find("id==1300"):]),("Required count","RequiredPortsRemaining" in o),("Report","Sơ đồ cổng theo đúng kiểu máy" in r),("3 profiles",len(p)>=3),("5560",any("5560" in x.name for x in p)),("5570",any("5570" in x.name for x in p)),("7670",any("7670" in x.name for x in p)),("XPS 15",any("xps_15" in x.name for x in p)),("ThinkPad X1",any("x1_carbon" in x.name for x in p)),("ThinkPad T14",any("t14" in x.name for x in p)),("CPU Baseline DB",(R/"baselines/cpu_microbench.tsv").read_text(encoding="utf-8").count("\n")>15),("Compiled","src/chassis_profile.cpp" in cm and "src/port_selector.cpp" in cm)]
+from app_source_view import read_app_source
+
+R=Path(__file__).resolve().parents[1]
+m=(R/"include/lap/model.h").read_text(encoding="utf-8")
+c=(R/"src/chassis_profile.cpp").read_text(encoding="utf-8")
+a=read_app_source(R)
+o=(R/"src/orchestrator.cpp").read_text(encoding="utf-8")
+r=(R/"src/report.cpp").read_text(encoding="utf-8")
+cm=(R/"CMakeLists.txt").read_text(encoding="utf-8")
+p=list((R/"profiles/chassis").glob("*.profile"))
+checks=[
+("Typed","struct ChassisProfile" in m),
+("Loader","directory_iterator" in c),
+("Audit loads decision-safe profile","LoadDecisionChassisProfile(gDir, report.model)" in a),
+("Apply result","ApplyPortResultToChassisProfile" in a),
+("Guided selector","SelectNextChassisPort" in a[a.find("if (id == 1300)"):]),
+("Required count","RequiredPortsRemaining" in o),
+("Report","Sơ đồ cổng theo đúng kiểu máy" in r),
+("3 profiles",len(p)>=3),
+("5560",any("5560" in x.name for x in p)),
+("5570",any("5570" in x.name for x in p)),
+("7670",any("7670" in x.name for x in p)),
+("XPS 15",any("xps_15" in x.name for x in p)),
+("ThinkPad X1",any("x1_carbon" in x.name for x in p)),
+("ThinkPad T14",any("t14" in x.name for x in p)),
+("CPU Baseline DB",(R/"baselines/cpu_microbench.tsv").read_text(encoding="utf-8").count("\n")>15),
+("Compiled","src/chassis_profile.cpp" in cm and "src/port_selector.cpp" in cm),
+]
 bad=[]
-for n,x in checks: print(("PASS" if x else "FAIL"),n);bad+=[] if x else [n]
-print(f"{len(checks)-len(bad)}/{len(checks)} PASS");raise SystemExit(bool(bad))
+for n,x in checks:
+ print(("PASS" if x else "FAIL"),n)
+ if not x: bad.append(n)
+print(f"{len(checks)-len(bad)}/{len(checks)} PASS")
+raise SystemExit(bool(bad))

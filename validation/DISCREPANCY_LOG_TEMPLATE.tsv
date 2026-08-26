@@ -1,2 +1,2 @@
-session_id	discrepancy_id	severity	category	expected	actual	evidence_path	false_pass	false_fail	disposition	owner	reviewer	status
-	D-001						NO	NO				OPEN
+session_id	discrepancy_id	severity	category	expected	actual	evidence_path	false_pass	false_fail	gate_blocking	reproduction_steps	disposition	owner	reviewer	resolved_in_commit	status
+	D-001						NO	NO	NO						OPEN

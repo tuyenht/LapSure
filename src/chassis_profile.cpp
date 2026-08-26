@@ -274,7 +274,33 @@ ChassisProfile SynthesizeUniversalChassisProfile(const std::wstring& model) {
     p.ports.push_back({L"hdmi", L"HDMI Video Output", L"Left", L"HDMI", L"HDMI Display Output", true, false, L""});
     return p;
 }
+
+ChassisProfile ProtectedPrecisionPilotBaseline(const std::wstring& model) {
+    const auto lower = L(model);
+    const bool protectedModel =
+        lower.find(L"precision 5560") != std::wstring::npos ||
+        lower.find(L"precision 5570") != std::wstring::npos ||
+        lower.find(L"precision 7670") != std::wstring::npos;
+    if (!protectedModel) return {};
+
+    auto baseline = SynthesizeDellChassisProfile(model);
+    baseline.validationStatus = L"embedded-advisory-baseline";
+    baseline.source = L"LapSure embedded Precision pilot baseline";
+    baseline.reference = L"Release-defined expected-port denominator; portable metadata is advisory overlay only.";
+    if (lower.find(L"precision 7670") != std::wstring::npos) {
+        baseline.profileId = L"lapsure_precision_7670_expected_ports";
+        baseline.modelContains = L"Precision 7670";
+    } else if (lower.find(L"precision 5570") != std::wstring::npos) {
+        baseline.profileId = L"lapsure_precision_5570_expected_ports";
+        baseline.modelContains = L"Precision 5570";
+    } else {
+        baseline.profileId = L"lapsure_precision_5560_expected_ports";
+        baseline.modelContains = L"Precision 5560";
+    }
+    return baseline;
 }
+}
+
 ChassisProfile LoadChassisProfile(const std::wstring&a,const std::wstring&m){
  ChassisProfile best{};std::error_code ec;auto d=std::filesystem::path(a)/L"profiles"/L"chassis";
  if(!std::filesystem::exists(d,ec)){
@@ -319,6 +345,48 @@ ChassisProfile LoadChassisProfile(const std::wstring&a,const std::wstring&m){
  }
  return best;
 }
-void ApplyPortResultToChassisProfile(ChassisProfile&p,const PortProbeResult&r){for(auto&x:p.ports)if(x.label==r.portLabel||x.id==r.portLabel){x.tested=true;x.verdict=r.verdict;return;}}
+
+ChassisProfile LoadDecisionChassisProfile(const std::wstring& appDir,const std::wstring& model){
+ auto raw=LoadChassisProfile(appDir,model);
+ if(raw.validationStatus==L"physical-verified"){
+  raw.validationStatus=L"static-unverified";
+  if(!raw.reference.empty())raw.reference+=L" | ";
+  raw.reference+=L"Portable chassis metadata is not authenticated physical-verification evidence.";
+ }
+
+ auto decision=ProtectedPrecisionPilotBaseline(model);
+ if(decision.profileId.empty())return raw;
+
+ for(auto& expected:decision.ports){
+  expected.tested=false;
+  expected.verdict=L"NOT TESTED";
+  const auto it=std::find_if(raw.ports.begin(),raw.ports.end(),[&](const auto& advisory){return advisory.id==expected.id;});
+  if(it==raw.ports.end())continue;
+  if(!it->label.empty())expected.label=it->label;
+  if(!it->side.empty())expected.side=it->side;
+  if(!it->connector.empty())expected.connector=it->connector;
+  if(!it->capability.empty())expected.capability=it->capability;
+ }
+
+ for(auto advisory:raw.ports){
+  const auto alreadyProtected=std::any_of(decision.ports.begin(),decision.ports.end(),[&](const auto& expected){return expected.id==advisory.id;});
+  if(alreadyProtected)continue;
+  advisory.required=false;
+  advisory.tested=false;
+  advisory.verdict=L"NOT TESTED";
+  decision.ports.push_back(std::move(advisory));
+ }
+
+ if(!raw.source.empty())decision.reference+=L" Advisory overlay: "+raw.source+L".";
+ return decision;
+}
+
+void ApplyPortResultToChassisProfile(ChassisProfile&p,const PortProbeResult&r){
+ for(auto&x:p.ports){
+  const bool stableMatch=!r.expectedPortId.empty()&&x.id==r.expectedPortId;
+  const bool legacyFallback=r.expectedPortId.empty()&&(x.label==r.portLabel||x.id==r.portLabel);
+  if(stableMatch||legacyFallback){x.tested=true;x.verdict=r.verdict;return;}
+ }
+}
 unsigned RequiredPortsRemaining(const ChassisProfile&p){unsigned n=0;for(auto&x:p.ports)if(x.required&&!x.tested)n++;return n;}
 }

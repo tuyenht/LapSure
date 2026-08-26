@@ -88,6 +88,7 @@ void RenderScreenS01_Overview(HDC dc, const RECT& r, const AuditReport& rep, con
                               const std::wstring& selectedMode, bool running, bool auditReady,
                               CanonicalUiState sessionLifecycleState, int auditCompletedItems, int auditTotalItems,
                               int focusIndex) {
+    (void)sessionLifecycleState; // Legacy fallback only; canonical S01 v2 consumes lifecycle state.
     // 1. Page Header (C03)
     PageHeaderConfig hdr;
     hdr.title = L"Tổng quan thiết bị";

@@ -7,6 +7,7 @@ runtime = (root / "src" / "app_runtime_state.ipp").read_text(encoding="utf-8")
 orchestrator = (root / "src" / "orchestrator.cpp").read_text(encoding="utf-8")
 chassis = (root / "src" / "chassis_profile.cpp").read_text(encoding="utf-8")
 decision_context = (root / "src" / "decision_context.cpp").read_text(encoding="utf-8")
+scoring = (root / "src" / "scoring.cpp").read_text(encoding="utf-8")
 
 failures = []
 
@@ -51,8 +52,19 @@ require(
 normalized_context = "".join(decision_context.split())
 require(
     "context.portAttestation.sessionId!=report.hardware.stress.sessionId" in normalized_context and
-    "context.portAttestation.operatorConfirmed=false" in normalized_context,
-    "decision context must revoke completed port attestation when it belongs to a different session",
+    "context.portAttestation.operatorConfirmed=false" in normalized_context and
+    "port.observedPresence=CapabilityTruth::Unknown" in normalized_context and
+    "port.tested=false" in normalized_context and
+    'port.verdict=L"NOTTESTED"' in normalized_context,
+    "decision context must invalidate stale per-port authority when attestation belongs to a different session",
+)
+
+normalized_scoring = "".join(scoring.split())
+require(
+    "HasCriticalMachineFailure(constAuditReport&report,constDecisionContext&context)" in normalized_scoring and
+    "context.portAttestation.ports" in normalized_scoring and
+    "HasCriticalMachineFailure(report,context)" in normalized_scoring,
+    "critical port failure authority must consume the current decision context rather than stale report attestation",
 )
 
 if failures:

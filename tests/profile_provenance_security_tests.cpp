@@ -61,6 +61,7 @@ int main() {
         "displayName=Attacker-controlled Precision 5560\n"
         "validationStatus=physical-verified\n"
         "reference=attacker-controlled portable file\n"
+        "port=left_tb1|Attacker demoted TB4|Left|USB-C|data|false\n"
         "port=optional_only|Optional attacker port|Left|USB-C|data|false\n");
 
     const auto rawChassis = lap::LoadChassisProfile(root.wstring(), L"Dell Precision 5560");
@@ -68,10 +69,24 @@ int main() {
            "attack-path fixture proves raw mutable chassis metadata can self-assert verification");
 
     const auto decisionChassis = lap::LoadDecisionChassisProfile(root.wstring(), L"Dell Precision 5560");
-    Expect(decisionChassis.profileId == rawChassis.profileId && decisionChassis.ports.size() == rawChassis.ports.size(),
-           "decision chassis boundary preserves advisory port guidance");
     Expect(decisionChassis.validationStatus == L"static-unverified",
            "decision chassis boundary strips mutable physical-verification authority");
+
+    unsigned requiredPorts = 0;
+    bool protectedLeftTb1Required = false;
+    bool attackerExtraRemainsOptional = false;
+    for (const auto& port : decisionChassis.ports) {
+        if (port.required) ++requiredPorts;
+        if (port.id == L"left_tb1") protectedLeftTb1Required = port.required;
+        if (port.id == L"optional_only") attackerExtraRemainsOptional = !port.required;
+    }
+
+    Expect(requiredPorts >= 4,
+           "mutable Precision profile cannot shrink protected required-port denominator");
+    Expect(protectedLeftTb1Required,
+           "mutable Precision profile cannot demote a protected required port");
+    Expect(attackerExtraRemainsOptional,
+           "portable-only extra port remains advisory optional guidance");
 
     std::filesystem::remove_all(root, ec);
     return failures == 0 ? 0 : 1;

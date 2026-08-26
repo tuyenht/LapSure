@@ -1,6 +1,7 @@
 #include "lap/baseline.h"
 #include "lap/chassis_profile.h"
 #include "lap/port_power.h"
+#include "lap/port_attestation.h"
 #include "lap/scoring.h"
 #include "lap/stress.h"
 #include "lap/engines.h"
@@ -42,20 +43,31 @@ lap::AuditReport CompletedAutomaticReport() {
     report.sellerClaim.provided=true;report.sellerClaim.model=L"Test Laptop";report.sellerClaim.cpuContains=L"Test CPU";report.sellerClaim.ramBytes=16ULL*1024*1024*1024;report.sellerClaim.storageBytes=512ULL*1000*1000*1000;
     report.hardware.installedRamBytes=16ULL*1024*1024*1024;lap::MemoryModule module{};module.capacityBytes=report.hardware.installedRamBytes;report.hardware.memoryModules.push_back(module);
     lap::StorageDevice disk{};disk.model=L"Test NVMe";disk.capacityBytes=512ULL*1000*1000*1000;disk.reliabilityReadable=true;disk.reliabilityHealthy=true;report.hardware.storage.push_back(disk);
-    lap::GpuInfo gpu{};gpu.name=L"Test GPU";report.hardware.gpus.push_back(gpu);lap::DisplayInfo display{};display.friendlyName=L"Internal panel";report.hardware.displays.push_back(display);
+    report.hardware.gpuInventoryStatus=lap::ProviderCollectionStatus::Complete;lap::GpuInfo gpu{};gpu.name=L"Intel Iris Xe Graphics";report.hardware.gpus.push_back(gpu);lap::DisplayInfo display{};display.friendlyName=L"Internal panel";report.hardware.displays.push_back(display);
     lap::StressStageResult cpu{};
     cpu.name = L"CPU sustained load";
     cpu.verdict = lap::TestVerdict::Pass;
-    cpu.telemetrySummary.maxCpuPackageTempC=80;
+    lap::TelemetrySample thermal{};thermal.second=1;thermal.cpuUtilPercent=95;thermal.cpuPackageTempC=80;thermal.cpuThermalConfidence=lap::Confidence::High;thermal.cpuThermalSource=L"trusted behavioral telemetry";cpu.telemetry.push_back(thermal);lap::AssessStressStage(cpu);
     lap::StressStageResult ram{};
     ram.name = L"RAM online integrity";
-    ram.verdict = lap::TestVerdict::Warning;
+    ram.verdict = lap::TestVerdict::Pass;
     report.hardware.stress.stages = {cpu, ram};
     report.hardware.stress.functional.overall = L"PASS";
     report.hardware.stress.functional.items.push_back({L"camera",L"Camera",lap::FunctionalStatus::Pass,L"Captured",L"Native sample",lap::Confidence::High,true});
     for(const auto*id:{L"physical_chassis",L"physical_hinge",L"physical_tamper",L"physical_liquid",L"physical_battery",L"physical_charger"})report.hardware.stress.functional.items.push_back({id,L"Physical inspection",lap::FunctionalStatus::Pass,L"No risk observed",L"Guided operator confirmation",lap::Confidence::Medium,false});
     report.hardware.stress.portPower.overall = L"PASS";
+    report.hardware.stress.runtimeValidation.overall=L"PASS";
     return report;
+}
+
+void CompleteBehavioralPortAttestation(lap::AuditReport& report) {
+    report.hardware.stress.sessionId=L"behavioral-session";
+    report.hardware.stress.portAttestation=lap::InitializeSessionPortAttestation(report.hardware.stress.sessionId,report.hardware.stress.chassisProfile);
+    for(const auto& expected:report.hardware.stress.chassisProfile.ports){
+        if(!expected.required)continue;
+        lap::PortProbeResult probe{};probe.expectedPortId=expected.id;probe.portLabel=expected.label;probe.deviceEnumerated=true;probe.confidence=lap::Confidence::High;probe.verdict=L"PASS";probe.evidence=L"stable-id behavioral fixture";
+        lap::ApplyPortResultToAttestation(report.hardware.stress.portAttestation,probe);
+    }
 }
 }
 
@@ -66,6 +78,7 @@ int main() {
 
     auto report = CompletedAutomaticReport();
     report.hardware.stress.chassisProfile.profileId = L"test-profile";
+    report.hardware.stress.chassisProfile.source = L"portable behavioral advisory";
     report.hardware.stress.chassisProfile.ports.push_back({L"left", L"Left USB-C", L"Left", L"USB-C", L"data", true, false, L"NOT TESTED"});
     auto decision = lap::BuildAuditDecision(report);
     Expect(decision.overall == L"INCOMPLETE", "required untested port blocks BUY");
@@ -77,9 +90,13 @@ int main() {
     decision = lap::BuildAuditDecision(report);
     Expect(decision.overall == L"INCOMPLETE", "runtime validation failure blocks BUY");
     report.hardware.stress.runtimeValidation.failed=0;report.hardware.stress.runtimeValidation.overall=L"PASS";report.hardware.stress.chassisProfile.validationStatus=L"draft";
-    decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"INCOMPLETE","draft chassis profile cannot issue BUY");
-    report.hardware.stress.chassisProfile.validationStatus=L"physical-verified";decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"BUY","verified complete evidence can issue BUY");
-    auto missingPhysical=report;missingPhysical.hardware.stress.functional.items.erase(missingPhysical.hardware.stress.functional.items.begin()+1,missingPhysical.hardware.stress.functional.items.end());decision=lap::BuildAuditDecision(missingPhysical);Expect(decision.overall==L"INCOMPLETE","missing physical-condition evidence blocks BUY");
+    decision=lap::BuildAuditDecision(report);Expect(decision.overall==L"INCOMPLETE","mutable chassis mirror cannot bypass missing session port attestation");
+    CompleteBehavioralPortAttestation(report);
+#ifdef LAPSURE_ENABLE_TEST_HOOKS
+    auto certifiedContext=lap::BuildCertifiedDecisionContextForTest(report,L"behavioral protected test authority");
+    decision=lap::BuildAuditDecision(report,certifiedContext);Expect(decision.overall==L"BUY","typed Certified context plus complete evidence can issue BUY");
+    auto missingPhysical=report;missingPhysical.hardware.stress.functional.items.erase(missingPhysical.hardware.stress.functional.items.begin()+1,missingPhysical.hardware.stress.functional.items.end());auto missingPhysicalContext=lap::BuildCertifiedDecisionContextForTest(missingPhysical,L"behavioral protected test authority");decision=lap::BuildAuditDecision(missingPhysical,missingPhysicalContext);Expect(decision.overall==L"INCOMPLETE","missing physical-condition evidence blocks BUY");
+#endif
 
     const auto quick = lap::MakeStressPlan(L"Quick");
     const auto deep = lap::MakeStressPlan(L"Deep");
